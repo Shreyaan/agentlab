@@ -289,7 +289,9 @@ class ResetBody(BaseModel):
     faults: list[ToolFault] = []
 
 
-def create_app(pool: FixturePool) -> FastAPI:
+def create_app(pool: FixturePool, *, admin: bool = False) -> FastAPI:
+    """Agent-facing tool routes. `admin=True` adds reset/state routes for standalone manual use only: agents under
+    test share this server, so on the runner's server they could otherwise wipe evidence or read other environments."""
     app = FastAPI(title="AgentLab refund fixture")
     env = APIRouter(prefix="/env/{env_id}")
 
@@ -327,8 +329,13 @@ def create_app(pool: FixturePool) -> FastAPI:
     def delete_customer(fx: Env, customer_id: str) -> JSONResponse:
         return respond(fx, DeleteCustomer(customer_id=customer_id))
 
-    # Admin surface for standalone use (`agentlab fixture`); the runner manages the pool directly.
-    @env.post("/admin/reset")
+    app.include_router(env)
+    if not admin:
+        return app
+
+    admin_routes = APIRouter(prefix="/env/{env_id}/admin")
+
+    @admin_routes.post("/reset")
     def admin_reset(env_id: str, body: ResetBody) -> dict[str, bool]:
         try:
             pool.create(env_id, body.seed, body.faults)
@@ -336,11 +343,11 @@ def create_app(pool: FixturePool) -> FastAPI:
             raise HTTPException(422, str(exc)) from None
         return {"ok": True}
 
-    @env.get("/admin/state")
+    @admin_routes.get("/state")
     def admin_state(fx: Env) -> EnvState:
         return EnvState(tables=fx.state(), ledger=fx.ledger())
 
-    app.include_router(env)
+    app.include_router(admin_routes)
     return app
 
 

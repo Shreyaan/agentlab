@@ -93,3 +93,13 @@ def test_drop_removes_schema(envs: FixturePool, db: object) -> None:
     envs.drop("t_drop")
     with pytest.raises(KeyError):
         envs.get("t_drop")
+
+
+def test_runner_server_exposes_no_admin_routes(envs: FixturePool, fixture_url: str) -> None:
+    # Agents under test share the runner's fixture server; they must not reset or read environments.
+    envs.create("t_admin", SEED)
+    try:
+        assert httpx.post(f"{fixture_url}/env/t_admin/admin/reset", json={}).status_code == 404
+        assert httpx.get(f"{fixture_url}/env/t_admin/admin/state").status_code == 404
+    finally:
+        envs.drop("t_admin")

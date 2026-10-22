@@ -311,6 +311,7 @@ doppler run -p infra -c prd -- uv run pytest -m live        # real LLM agents; c
 - Only hosts in `allowed_hosts` (in `targets.yaml`; default loopback only) may be targeted. Others fail with `UNSAFE_TARGET`, because scenarios mutate state.
 - Assertion SQL runs in a `READ ONLY` transaction with a 5 s `statement_timeout` and `search_path` set to the trial schema. It is written by the test author and is not sandboxed against hostile scenarios; do not run untrusted scenario files.
 - Environment ids must match `^[a-z0-9_]{1,48}$` (they become schema names).
+- The fixture server the runner starts exposes only tool routes. Agents under test share it, so the `/env/<id>/admin/reset` and `/admin/state` routes exist only on the standalone `agentlab fixture` server; otherwise an agent could wipe its own evidence or read other environments.
 - Everything is redacted before it is written to Postgres: secret-named keys (token, secret, password, authorization, api key, cookie), secret-named URL query parameters, bearer tokens, URL credentials, and common API key formats.
 - Tool allow-list: `examples/refund_api.py` exposes only `get_order`, `request_approval`, `issue_refund`, `get_refunds` to the LLM. `delete_customer` exists in the environment only so `forbidden_tool` can catch a harness that reaches it.
 - Adapter/transport failures and malformed responses become typed errors, which the gate treats as missing evidence, never a pass.

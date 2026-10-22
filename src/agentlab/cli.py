@@ -152,7 +152,7 @@ def cmd_fixture(a: argparse.Namespace) -> int:
     db = open_pool(database_url(a.database_url))
     pool = FixturePool(db)
     pool.create(SHARED_ENV, Seed())
-    server = serve_in_thread(create_app(pool), a.port, a.bind)
+    server = serve_in_thread(create_app(pool, admin=True), a.port, a.bind)
     print(f"fixture on http://{a.bind}:{a.port}/env/<id>  (POST /env/<id>/admin/reset, GET /env/<id>/admin/state)")
     try:
         while not server.should_exit:

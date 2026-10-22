@@ -51,10 +51,18 @@ def redact_query_params(text: str) -> str:
     return "".join(out) + text[pos:]
 
 
+def _is_number_or_null(value: JsonValue) -> bool:
+    return value is None or (isinstance(value, int | float) and not isinstance(value, bool))
+
+
 def redact(value: JsonValue) -> JsonValue:
-    """Key-based for structured data (string values only, so typed numeric fields survive), pattern-based for text."""
+    """Key-based for structured data, pattern-based for free text. Under a secret-looking key everything is redacted
+    except numbers and nulls, so numeric telemetry such as input_tokens survives."""
     if isinstance(value, dict):
-        return {k: "[REDACTED]" if SECRET_KEY.search(k) and isinstance(v, str) else redact(v) for k, v in value.items()}
+        return {
+            k: redact(v) if not SECRET_KEY.search(k) or _is_number_or_null(v) else "[REDACTED]"
+            for k, v in value.items()
+        }
     if isinstance(value, list):
         return [redact(v) for v in value]
     if isinstance(value, str):

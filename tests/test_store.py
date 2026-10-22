@@ -4,7 +4,7 @@ import uuid
 import pytest
 
 from agentlab.models import ExperimentMeta, TrialError, TrialRecord
-from agentlab.protocol import ErrorCode, Usage
+from agentlab.protocol import ErrorCode, JsonObject, Usage
 from agentlab.store import Store, redact
 
 META = ExperimentMeta(targets={}, scenarios={}, repeats=1, fixture_url="http://127.0.0.1:1")
@@ -71,3 +71,14 @@ def test_redaction_is_linear_on_hostile_input() -> None:
     started = time.perf_counter()
     redact("?" * 50_000 + "token" + "&" * 50_000)
     assert time.perf_counter() - started < 0.5
+
+
+def test_secret_keys_redact_structured_values_but_keep_numbers() -> None:
+    raw: JsonObject = {"token": ["abc"], "api_key": {"v": "x"}, "password": True, "input_tokens": 42, "page": "2"}
+    assert redact(raw) == {
+        "token": "[REDACTED]",
+        "api_key": "[REDACTED]",
+        "password": "[REDACTED]",
+        "input_tokens": 42,
+        "page": "2",
+    }
