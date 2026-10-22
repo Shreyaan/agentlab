@@ -20,7 +20,8 @@ SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.IGNORECASE)
 QUERY_PARAM = re.compile(r"[?&]([^=&\s?#]{1,256})=")  # bounded, delimiter-free name: linear on hostile text
 VALUE_END = re.compile(r"[&\s\"']")
 SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
-    (re.compile(r"(://)[^/\s@]+@"), r"\1[REDACTED]@"),
+    # Greedy to the LAST '@' in the authority (passwords may contain '@'); the class stops at '/', '?', '#'.
+    (re.compile(r"(://)[^/\s?#]*@"), r"\1[REDACTED]@"),
     (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.IGNORECASE), r"\1[REDACTED]"),
     (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
 ]

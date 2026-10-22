@@ -82,3 +82,25 @@ def test_secret_keys_redact_structured_values_but_keep_numbers() -> None:
         "input_tokens": 42,
         "page": "2",
     }
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "http://user:p@ss@db.internal:5432/x",  # '@' inside the password
+        "postgresql://u:a@b@c@host/db?sslmode=require",
+        "error contacting https://admin:s3cr3t@@h/ (timeout)",
+    ],
+)
+def test_userinfo_redacted_up_to_last_at(raw: str) -> None:
+    out = str(redact(raw))
+    assert "[REDACTED]@" in out
+    for leaked in ("ss@", "b@c", "s3cr3t", "p@ss"):
+        assert leaked not in out
+
+
+def test_userinfo_redaction_is_linear_and_scoped() -> None:
+    started = time.perf_counter()
+    redact("://" + "a" * 100_000)
+    assert time.perf_counter() - started < 0.5
+    assert redact("see https://h/x@y and mail me@x.org") == "see https://h/x@y and mail me@x.org"
