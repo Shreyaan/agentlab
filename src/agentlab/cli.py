@@ -1,6 +1,7 @@
 """agentlab CLI. Exit codes for CI: 0 PASS, 1 BLOCK, 2 INSUFFICIENT_EVIDENCE, 3 usage/config/infrastructure error."""
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -15,10 +16,10 @@ from pydantic import ValidationError
 
 from agentlab import report
 from agentlab.client import HarnessClient, load_targets
-from agentlab.console import create_console
+from agentlab.console import Console, create_console, openapi_schema
 from agentlab.db import database_url, open_pool
 from agentlab.fixture import SHARED_ENV, FixturePool, Seed, create_app, serve_in_thread
-from agentlab.gate import decide
+from agentlab.jobs import Jobs
 from agentlab.models import Decision
 from agentlab.otel import parse_otlp
 from agentlab.protocol import AgentLabError, Environment, ErrorCode, InvokeRequest, json_schemas
@@ -41,7 +42,6 @@ def session(a: argparse.Namespace) -> Generator[Runner]:
         _, allowed = load_targets(a.targets)
         cfg = RunConfig(
             fixture_url=a.fixture_url or f"http://127.0.0.1:{a.fixture_port}",
-            repeats=a.repeats,
             deadline_ms=a.deadline_ms,
             concurrency=a.concurrency,
         )
@@ -52,16 +52,11 @@ def session(a: argparse.Namespace) -> Generator[Runner]:
         db.close()
 
 
-def finish(
-    runner: Runner, exp_id: str, *, candidate: str, baseline: str | None, max_regression: float, report_dir: str
-) -> int:
-    store = runner.store
-    trials = store.trials(exp_id)
-    decision = decide(trials, list(store.experiment(exp_id).meta.scenarios), candidate, baseline, max_regression)
-    store.set_decision(exp_id, decision)
+def finish(runner: Runner, exp_id: str, report_dir: str) -> int:
+    decision = runner.conclude(exp_id)
     out = Path(report_dir) / f"{exp_id}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(report.render(store.experiment(exp_id), trials))
+    out.write_text(report.render(runner.store.experiment(exp_id), runner.store.trials(exp_id)))
     print_summary(exp_id, decision, out)
     return EXIT[decision.status]
 
@@ -92,15 +87,15 @@ def cmd_test(a: argparse.Namespace) -> int:
     if missing := [n for n in names if n not in targets]:
         raise ValueError(f"unknown target(s): {', '.join(missing)}")
     with session(a) as runner:
-        exp_id = runner.run_experiment(scenarios, [targets[n] for n in names])
-        return finish(
-            runner,
-            exp_id,
+        exp_id = runner.run_experiment(
+            scenarios,
+            [targets[n] for n in names],
+            repeats=a.repeats,
             candidate=a.candidate,
             baseline=a.baseline,
             max_regression=a.max_regression,
-            report_dir=a.report_dir,
         )
+        return finish(runner, exp_id, a.report_dir)
 
 
 def cmd_fork(a: argparse.Namespace) -> int:
@@ -112,7 +107,7 @@ def cmd_fork(a: argparse.Namespace) -> int:
             raise ValueError(f"unknown target: {name}")
         experiment = runner.store.experiment(source.experiment_id)
         exp_id = runner.fork(source, experiment, targets[name], a.checkpoint, a.faults)
-        return finish(runner, exp_id, candidate=name, baseline=None, max_regression=0.0, report_dir=a.report_dir)
+        return finish(runner, exp_id, a.report_dir)
 
 
 def cmd_conformance(a: argparse.Namespace) -> int:
@@ -165,12 +160,35 @@ def cmd_fixture(a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_serve(a: argparse.Namespace) -> int:
-    db = open_pool(database_url(a.database_url))
+def is_loopback(host: str) -> bool:
+    if host == "localhost":
+        return True
     try:
-        uvicorn.run(create_console(Store(db)), host=a.bind, port=a.port, log_level="info")
-    finally:
-        db.close()
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def cmd_serve(a: argparse.Namespace) -> int:
+    if not a.token and not is_loopback(a.bind) and not a.allow_no_token:
+        raise ValueError(
+            f"refusing to bind {a.bind} without a token: pass --token or set AGENTLAB_CONSOLE_TOKEN "
+            "(inside a container whose port is published only on host loopback, use --allow-no-token)"
+        )
+    with session(a) as runner:
+        jobs = Jobs(runner)
+        try:
+            app = create_console(
+                Console(runner=runner, jobs=jobs, targets_path=a.targets, suite_path=a.suite, token=a.token)
+            )
+            uvicorn.run(app, host=a.bind, port=a.port, log_level="info")
+        finally:
+            jobs.shutdown()
+    return 0
+
+
+def cmd_openapi(_: argparse.Namespace) -> int:
+    print(json.dumps(openapi_schema(), indent=2))
     return 0
 
 
@@ -198,10 +216,9 @@ def cmd_import_otel(a: argparse.Namespace) -> int:
     return 0
 
 
-def _run_flags(p: argparse.ArgumentParser) -> None:
+def _fixture_flags(p: argparse.ArgumentParser) -> None:
     p.add_argument("--targets", default="targets.yaml")
     p.add_argument("--database-url", help="Postgres URL (default $AGENTLAB_DATABASE_URL)")
-    p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--concurrency", type=int, default=int(os.environ.get("AGENTLAB_CONCURRENCY", "4")))
     p.add_argument("--deadline-ms", type=int, default=120_000)
     p.add_argument("--fixture-port", type=int, default=int(os.environ.get("AGENTLAB_FIXTURE_PORT", "8900")))
@@ -211,6 +228,11 @@ def _run_flags(p: argparse.ArgumentParser) -> None:
         default=os.environ.get("AGENTLAB_FIXTURE_URL"),
         help="fixture base URL as seen by agents (default http://127.0.0.1:PORT)",
     )
+
+
+def _run_flags(p: argparse.ArgumentParser) -> None:
+    _fixture_flags(p)
+    p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--report-dir", default=".agentlab/reports")
 
 
@@ -244,15 +266,29 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--targets", default="targets.yaml")
     c.set_defaults(fn=cmd_conformance)
 
-    for name, fn, port, help_ in (
-        ("fixture", cmd_fixture, 8900, "serve the refund environment standalone"),
-        ("serve", cmd_serve, 8800, "serve the web console"),
-    ):
-        s = sub.add_parser(name, help=help_)
-        s.add_argument("--port", type=int, default=port)
-        s.add_argument("--bind", default="127.0.0.1")
-        s.add_argument("--database-url")
-        s.set_defaults(fn=fn)
+    fx = sub.add_parser("fixture", help="serve the refund environment standalone")
+    fx.add_argument("--port", type=int, default=8900)
+    fx.add_argument("--bind", default="127.0.0.1")
+    fx.add_argument("--database-url")
+    fx.set_defaults(fn=cmd_fixture)
+
+    sv = sub.add_parser("serve", help="serve the web console (runs experiments in the background)")
+    sv.add_argument("--port", type=int, default=8800)
+    sv.add_argument("--bind", default="127.0.0.1")
+    sv.add_argument("--suite", default="scenarios", help="scenario YAML file or directory")
+    sv.add_argument("--token", default=os.environ.get("AGENTLAB_CONSOLE_TOKEN"), help="bearer token for /v1")
+    sv.add_argument(
+        "--allow-no-token",
+        action="store_true",
+        default=os.environ.get("AGENTLAB_ALLOW_NO_TOKEN") == "1",
+        help="allow a non-loopback bind without a token; only when exposure is restricted elsewhere "
+        "(e.g. a container port published on 127.0.0.1)",
+    )
+    _fixture_flags(sv)
+    sv.set_defaults(fn=cmd_serve)
+
+    oa = sub.add_parser("openapi", help="print the console's OpenAPI document (no database needed)")
+    oa.set_defaults(fn=cmd_openapi)
 
     sc = sub.add_parser("schema", help="write protocol JSON Schemas")
     sc.add_argument("--out", default="protocol")

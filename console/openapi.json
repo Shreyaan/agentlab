@@ -1,0 +1,2179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AgentLab console",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/info": {
+      "get": {
+        "summary": "Info",
+        "operationId": "info_v1_info_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/targets": {
+      "get": {
+        "summary": "Targets",
+        "operationId": "targets_v1_targets_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TargetHealth"
+                  },
+                  "title": "Response Targets V1 Targets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios": {
+      "get": {
+        "summary": "Scenarios",
+        "operationId": "scenarios_v1_scenarios_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioInfo"
+                  },
+                  "title": "Response Scenarios V1 Scenarios Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/experiments": {
+      "get": {
+        "summary": "List Experiments",
+        "operationId": "list_experiments_v1_experiments_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSummary"
+                  },
+                  "title": "Response List Experiments V1 Experiments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Run Experiment",
+        "operationId": "run_experiment_v1_experiments_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/experiments/{exp_id}": {
+      "get": {
+        "summary": "Get Experiment",
+        "operationId": "get_experiment_v1_experiments__exp_id__get",
+        "parameters": [
+          {
+            "name": "exp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exp Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/experiments/{exp_id}/report.html": {
+      "get": {
+        "summary": "Get Report",
+        "operationId": "get_report_v1_experiments__exp_id__report_html_get",
+        "parameters": [
+          {
+            "name": "exp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exp Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/trials/{trial_id}": {
+      "get": {
+        "summary": "Get Trial",
+        "operationId": "get_trial_v1_trials__trial_id__get",
+        "parameters": [
+          {
+            "name": "trial_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trial Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trial"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/forks": {
+      "post": {
+        "summary": "Fork",
+        "operationId": "fork_v1_forks_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Accepted": {
+        "properties": {
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "experiment_id"
+        ],
+        "title": "Accepted"
+      },
+      "Assertion": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Sql"
+          },
+          {
+            "$ref": "#/components/schemas/ToolOrder"
+          },
+          {
+            "$ref": "#/components/schemas/ForbiddenTool"
+          },
+          {
+            "$ref": "#/components/schemas/EventPresent"
+          },
+          {
+            "$ref": "#/components/schemas/OutputMatches"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "event_present": "#/components/schemas/EventPresent",
+            "forbidden_tool": "#/components/schemas/ForbiddenTool",
+            "output_matches": "#/components/schemas/OutputMatches",
+            "sql": "#/components/schemas/Sql",
+            "tool_order": "#/components/schemas/ToolOrder"
+          }
+        }
+      },
+      "AssertionResult": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "critical": {
+            "type": "boolean",
+            "title": "Critical"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unsupported",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "description",
+          "critical",
+          "status"
+        ],
+        "title": "AssertionResult"
+      },
+      "Budget": {
+        "properties": {
+          "max_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Calls"
+          },
+          "max_latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Latency Ms"
+          },
+          "max_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cost Usd"
+          }
+        },
+        "type": "object",
+        "title": "Budget"
+      },
+      "Capabilities": {
+        "properties": {
+          "invoke": {
+            "type": "boolean",
+            "title": "Invoke",
+            "default": true
+          },
+          "observe": {
+            "type": "string",
+            "enum": [
+              "native_events",
+              "otel_partial",
+              "none"
+            ],
+            "title": "Observe",
+            "default": "none"
+          },
+          "intercept_tools": {
+            "type": "string",
+            "enum": [
+              "declared_only",
+              "none"
+            ],
+            "title": "Intercept Tools",
+            "default": "none"
+          },
+          "checkpoint": {
+            "type": "boolean",
+            "title": "Checkpoint",
+            "default": false
+          },
+          "resume": {
+            "type": "boolean",
+            "title": "Resume",
+            "default": false
+          },
+          "fork": {
+            "type": "boolean",
+            "title": "Fork",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "Capabilities"
+      },
+      "ConsoleInfo": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "protocol_version": {
+            "type": "string",
+            "title": "Protocol Version"
+          },
+          "auth_required": {
+            "type": "boolean",
+            "title": "Auth Required"
+          },
+          "suite_path": {
+            "type": "string",
+            "title": "Suite Path"
+          },
+          "targets_path": {
+            "type": "string",
+            "title": "Targets Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "protocol_version",
+          "auth_required",
+          "suite_path",
+          "targets_path"
+        ],
+        "title": "ConsoleInfo"
+      },
+      "Decision": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/GateStatus"
+          },
+          "candidate": {
+            "type": "string",
+            "title": "Candidate"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "block_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Block Reasons"
+          },
+          "insufficient_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Insufficient Reasons"
+          },
+          "coverage_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Coverage Gaps"
+          },
+          "stats": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TargetStats"
+            },
+            "type": "object",
+            "title": "Stats"
+          },
+          "paired": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Paired"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "candidate",
+          "baseline",
+          "block_reasons",
+          "insufficient_reasons",
+          "coverage_gaps",
+          "stats",
+          "paired"
+        ],
+        "title": "Decision"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "CAPABILITY_UNSUPPORTED",
+          "PROTOCOL_VERSION_MISMATCH",
+          "UNSAFE_TARGET",
+          "ENVIRONMENT_NOT_RESETTABLE",
+          "ADAPTER_TIMEOUT",
+          "ADAPTER_ERROR",
+          "TRACE_INCOMPLETE"
+        ],
+        "title": "ErrorCode"
+      },
+      "Event": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts"
+          },
+          "span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JsonObject",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "type"
+        ],
+        "title": "Event"
+      },
+      "EventPresent": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "event_present",
+            "title": "Type",
+            "default": "event_present"
+          },
+          "event": {
+            "type": "string",
+            "title": "Event"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event"
+        ],
+        "title": "EventPresent",
+        "description": "Process evidence from inside the harness; unsupported unless the adapter streams native events."
+      },
+      "EventType": {
+        "type": "string",
+        "enum": [
+          "run_started",
+          "agent_step",
+          "model_call",
+          "tool_requested",
+          "tool_completed",
+          "tool_failed",
+          "approval_requested",
+          "retry_scheduled",
+          "checkpoint_saved",
+          "run_completed",
+          "run_failed"
+        ]
+      },
+      "Experiment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ExperimentMeta"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "meta"
+        ],
+        "title": "Experiment"
+      },
+      "ExperimentDetail": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ExperimentSummary"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/Experiment"
+          },
+          "trials": {
+            "items": {
+              "$ref": "#/components/schemas/Trial"
+            },
+            "type": "array",
+            "title": "Trials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "experiment",
+          "trials"
+        ],
+        "title": "ExperimentDetail"
+      },
+      "ExperimentMeta": {
+        "properties": {
+          "targets": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TargetInfo"
+            },
+            "type": "object",
+            "title": "Targets"
+          },
+          "scenarios": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "type": "object",
+            "title": "Scenarios"
+          },
+          "repeats": {
+            "type": "integer",
+            "title": "Repeats"
+          },
+          "fixture_url": {
+            "type": "string",
+            "title": "Fixture Url"
+          },
+          "forked_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "max_regression": {
+            "type": "number",
+            "title": "Max Regression",
+            "default": 0.0
+          },
+          "planned_trials": {
+            "type": "integer",
+            "title": "Planned Trials",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "targets",
+          "scenarios",
+          "repeats",
+          "fixture_url"
+        ],
+        "title": "ExperimentMeta"
+      },
+      "ExperimentStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "complete",
+          "incomplete"
+        ]
+      },
+      "ExperimentSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExperimentStatus"
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GateStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planned": {
+            "type": "integer",
+            "title": "Planned"
+          },
+          "finished": {
+            "type": "integer",
+            "title": "Finished"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "forked_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "status",
+          "candidate",
+          "baseline",
+          "decision",
+          "planned",
+          "finished",
+          "errors",
+          "cost_usd",
+          "forked_from"
+        ],
+        "title": "ExperimentSummary"
+      },
+      "FaultAction": {
+        "type": "string",
+        "enum": [
+          "timeout_after_commit",
+          "error_before_commit"
+        ]
+      },
+      "FaultWhen": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "first_call",
+              "always"
+            ]
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "ForbiddenTool": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "forbidden_tool",
+            "title": "Type",
+            "default": "forbidden_tool"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ForbiddenTool"
+      },
+      "ForkRequest": {
+        "properties": {
+          "trial_id": {
+            "type": "string",
+            "title": "Trial Id"
+          },
+          "checkpoint_id": {
+            "type": "string",
+            "title": "Checkpoint Id"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "faults": {
+            "type": "string",
+            "enum": [
+              "none",
+              "scenario"
+            ],
+            "title": "Faults",
+            "default": "none"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trial_id",
+          "checkpoint_id"
+        ],
+        "title": "ForkRequest"
+      },
+      "GateStatus": {
+        "type": "string",
+        "enum": [
+          "PASS",
+          "BLOCK",
+          "INSUFFICIENT_EVIDENCE"
+        ]
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JsonObject": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "type": "object"
+      },
+      "JsonValue": {},
+      "LedgerEntry": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "request": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "response": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "committed": {
+            "type": "boolean",
+            "title": "Committed"
+          },
+          "ts": {
+            "type": "number",
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "tool",
+          "request",
+          "status",
+          "response",
+          "committed",
+          "ts"
+        ],
+        "title": "LedgerEntry",
+        "description": "One tool call as the environment saw it.\n\n`committed` means its side effect persisted, even if the caller saw an error."
+      },
+      "Manifest": {
+        "properties": {
+          "protocol_version": {
+            "type": "string",
+            "title": "Protocol Version",
+            "default": "0.3"
+          },
+          "adapter_id": {
+            "type": "string",
+            "title": "Adapter Id"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "framework": {
+            "type": "string",
+            "title": "Framework",
+            "default": "custom"
+          },
+          "transport": {
+            "type": "string",
+            "const": "http_json",
+            "title": "Transport",
+            "default": "http_json"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities",
+            "default": {
+              "invoke": true,
+              "observe": "none",
+              "intercept_tools": "none",
+              "checkpoint": false,
+              "resume": false,
+              "fork": false
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "adapter_id",
+          "language"
+        ],
+        "title": "Manifest"
+      },
+      "OutputMatches": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "output_matches",
+            "title": "Type",
+            "default": "output_matches"
+          },
+          "pattern": {
+            "type": "string",
+            "title": "Pattern"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pattern"
+        ],
+        "title": "OutputMatches"
+      },
+      "Paired": {
+        "properties": {
+          "pairs": {
+            "type": "integer",
+            "title": "Pairs"
+          },
+          "regressions": {
+            "type": "integer",
+            "title": "Regressions"
+          },
+          "fixes": {
+            "type": "integer",
+            "title": "Fixes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pairs",
+          "regressions",
+          "fixes"
+        ],
+        "title": "Paired"
+      },
+      "ResumeFrom": {
+        "properties": {
+          "trial_id": {
+            "type": "string",
+            "title": "Trial Id"
+          },
+          "checkpoint_id": {
+            "type": "string",
+            "title": "Checkpoint Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trial_id",
+          "checkpoint_id"
+        ],
+        "title": "ResumeFrom",
+        "description": "Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork."
+      },
+      "Row": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "type": "object"
+      },
+      "RunRequest": {
+        "properties": {
+          "scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scenarios",
+            "default": []
+          },
+          "candidate": {
+            "type": "string",
+            "title": "Candidate"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "repeats": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Repeats",
+            "default": 1
+          },
+          "max_regression": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Max Regression",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidate"
+        ],
+        "title": "RunRequest"
+      },
+      "Scenario": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "risk_tier": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal"
+            ],
+            "title": "Risk Tier",
+            "default": "normal"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "synthetic"
+          },
+          "slices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Slices",
+            "default": []
+          },
+          "fixture": {
+            "$ref": "#/components/schemas/Seed"
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "faults": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioFault"
+            },
+            "type": "array",
+            "title": "Faults",
+            "default": []
+          },
+          "assertions": {
+            "items": {
+              "$ref": "#/components/schemas/Assertion"
+            },
+            "type": "array",
+            "title": "Assertions"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "fixture",
+          "input",
+          "assertions"
+        ],
+        "title": "Scenario"
+      },
+      "ScenarioFault": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "when": {
+            "$ref": "#/components/schemas/FaultWhen",
+            "default": "first_call"
+          },
+          "action": {
+            "$ref": "#/components/schemas/FaultAction"
+          },
+          "boundary": {
+            "type": "string",
+            "enum": [
+              "fixture",
+              "harness"
+            ],
+            "title": "Boundary",
+            "default": "fixture"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tool",
+          "action"
+        ],
+        "title": "ScenarioFault"
+      },
+      "ScenarioInfo": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "scenario"
+        ],
+        "title": "ScenarioInfo"
+      },
+      "Seed": {
+        "properties": {
+          "customers": {
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            },
+            "type": "array",
+            "title": "Customers",
+            "default": []
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            },
+            "type": "array",
+            "title": "Orders",
+            "default": []
+          },
+          "approval_limit_cents": {
+            "type": "integer",
+            "title": "Approval Limit Cents",
+            "default": 50000
+          }
+        },
+        "type": "object",
+        "title": "Seed"
+      },
+      "Sql": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "sql",
+            "title": "Type",
+            "default": "sql"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "equals": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "equals"
+        ],
+        "title": "Sql",
+        "description": "Read-only SQL over the environment's final state; a single-cell result is compared as a scalar."
+      },
+      "State": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/components/schemas/Row"
+          },
+          "type": "array"
+        },
+        "type": "object"
+      },
+      "TableDiff": {
+        "properties": {
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            },
+            "type": "array",
+            "title": "Added",
+            "default": []
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            },
+            "type": "array",
+            "title": "Removed",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "TableDiff"
+      },
+      "TargetHealth": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TargetMode"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Manifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "mode",
+          "url",
+          "version",
+          "reachable",
+          "manifest"
+        ],
+        "title": "TargetHealth"
+      },
+      "TargetInfo": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TargetMode"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Manifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "url",
+          "version",
+          "manifest"
+        ],
+        "title": "TargetInfo"
+      },
+      "TargetMode": {
+        "type": "string",
+        "enum": [
+          "native",
+          "http",
+          "otel"
+        ]
+      },
+      "TargetStats": {
+        "properties": {
+          "passed": {
+            "type": "integer",
+            "title": "Passed"
+          },
+          "graded": {
+            "type": "integer",
+            "title": "Graded"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Rate"
+          },
+          "ci95": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Ci95"
+          },
+          "p50_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Ms"
+          },
+          "p95_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Ms"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "passed",
+          "graded",
+          "errors",
+          "pass_rate",
+          "ci95",
+          "p50_ms",
+          "p95_ms",
+          "cost_usd"
+        ],
+        "title": "TargetStats"
+      },
+      "ToolOrder": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "tool_order",
+            "title": "Type",
+            "default": "tool_order"
+          },
+          "before": {
+            "type": "string",
+            "title": "Before"
+          },
+          "requires": {
+            "type": "string",
+            "title": "Requires"
+          }
+        },
+        "type": "object",
+        "required": [
+          "before",
+          "requires"
+        ],
+        "title": "ToolOrder",
+        "description": "`requires` must succeed (2xx) in the side-effect ledger before the first `before` call."
+      },
+      "Trial": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "scenario": {
+            "type": "string",
+            "title": "Scenario"
+          },
+          "repeat": {
+            "type": "integer",
+            "title": "Repeat"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrialStatus"
+          },
+          "record": {
+            "$ref": "#/components/schemas/TrialRecord",
+            "default": {
+              "events": [],
+              "ledger": [],
+              "initial_state": {},
+              "final_state": {},
+              "state_diff": {},
+              "assertions": [],
+              "usage": {}
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "experiment_id",
+          "target",
+          "scenario",
+          "repeat",
+          "status"
+        ],
+        "title": "Trial"
+      },
+      "TrialError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "TrialError"
+      },
+      "TrialRecord": {
+        "properties": {
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "agent_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Status"
+          },
+          "output": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "type": "array",
+            "title": "Events",
+            "default": []
+          },
+          "ledger": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntry"
+            },
+            "type": "array",
+            "title": "Ledger",
+            "default": []
+          },
+          "initial_state": {
+            "$ref": "#/components/schemas/State",
+            "default": {}
+          },
+          "final_state": {
+            "$ref": "#/components/schemas/State",
+            "default": {}
+          },
+          "state_diff": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableDiff"
+            },
+            "type": "object",
+            "title": "State Diff",
+            "default": {}
+          },
+          "assertions": {
+            "items": {
+              "$ref": "#/components/schemas/AssertionResult"
+            },
+            "type": "array",
+            "title": "Assertions",
+            "default": []
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage",
+            "default": {}
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrialError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resumed_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "TrialRecord"
+      },
+      "TrialStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "passed",
+          "failed",
+          "error"
+        ]
+      },
+      "Usage": {
+        "properties": {
+          "steps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Steps"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          }
+        },
+        "type": "object",
+        "title": "Usage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

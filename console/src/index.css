@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* Palette: graphite neutrals, one deep-teal accent. Semantic colors are reserved for gate outcomes. */
+:root {
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --sunken: #eef0f2;
+  --line: #dfe3e7;
+  --ink: #1b2127;
+  --ink-2: #56606b;
+  --ink-3: #8a94a0;
+  --accent: #2f6f6a;
+  --accent-ink: #ffffff;
+  --pass: #1a7f4b;
+  --pass-bg: #e3f4ea;
+  --block: #c23030;
+  --block-bg: #fbe7e7;
+  --warn: #9a6200;
+  --warn-bg: #fdf1d6;
+  --info-bg: #e5eef9;
+  --info: #2459a6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101316;
+    --surface: #171b1f;
+    --sunken: #0d1013;
+    --line: #272d33;
+    --ink: #e6e9ec;
+    --ink-2: #9aa4af;
+    --ink-3: #66707b;
+    --accent: #5fb3aa;
+    --accent-ink: #08201e;
+    --pass: #4cc38a;
+    --pass-bg: #12301f;
+    --block: #ff7b7b;
+    --block-bg: #3a1717;
+    --warn: #e5b04a;
+    --warn-bg: #342910;
+    --info: #7fb0f5;
+    --info-bg: #14263f;
+  }
+}
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink-2);
+  --color-ink3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-pass: var(--pass);
+  --color-pass-bg: var(--pass-bg);
+  --color-block: var(--block);
+  --color-block-bg: var(--block-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+html { color-scheme: light dark; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.5 var(--font-sans); -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code, pre { font-family: var(--font-mono); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@keyframes stripes { to { background-position: 16px 0; } }

@@ -1,6 +1,6 @@
 # Flagship: the payment service commits the refund but the caller sees a timeout.
 id: refund.timeout
-version: 1
+version: 2
 risk_tier: critical
 source: synthetic_incident_reproduction
 slices: [refund, timeout, duplicate_prevention]
@@ -29,6 +29,7 @@ assertions:
     event: tool_failed
     name: issue_refund
     critical: true
+    requires_faults: true  # a clean counterfactual fork has no failure to observe
   - type: output_matches  # wording varies across models; state assertions above are the source of truth
     description: reply mentions the refund
     pattern: "refund"

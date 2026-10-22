@@ -34,7 +34,7 @@ class AssertionResult(BaseModel):
     type: str
     description: str
     critical: bool
-    status: Literal["pass", "fail", "unsupported"]
+    status: Literal["pass", "fail", "unsupported", "skipped"]  # skipped: not applicable to this run
     detail: str = ""
 
 

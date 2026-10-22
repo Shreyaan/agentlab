@@ -55,7 +55,7 @@ class HarnessClient:
             if host not in allowed_hosts:  # mutating scenarios must never reach a non-test endpoint
                 raise AgentLabError(ErrorCode.UNSAFE_TARGET, f"{target.name}: host {host!r} not in allowed_hosts")
 
-    def manifest(self) -> Manifest:
+    def manifest(self, timeout: float = 10) -> Manifest:
         t = self.target
         if t.mode == "otel":
             return Manifest(
@@ -63,7 +63,7 @@ class HarnessClient:
             )
         if t.mode == "http":
             return t.manifest or Manifest(adapter_id=t.name, language="unknown")
-        m = _parse(Manifest, self._request("GET", f"{t.url}/manifest", timeout=10))
+        m = _parse(Manifest, self._request("GET", f"{t.url}/manifest", timeout=timeout))
         if m.protocol_version != PROTOCOL_VERSION:
             raise AgentLabError(
                 ErrorCode.PROTOCOL_VERSION_MISMATCH, f"{t.name} speaks {m.protocol_version}, runner {PROTOCOL_VERSION}"

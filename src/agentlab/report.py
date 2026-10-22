@@ -250,23 +250,3 @@ def render(experiment: Experiment, trials: list[Trial]) -> str:
 <h2>Trials</h2>
 {"".join(trial_details(t, meta) for t in order)}
 </main></body></html>"""
-
-
-def render_index(experiments: list[Experiment]) -> str:
-    rows = [
-        [
-            f'<a class="m" href="/experiments/{e(x.id)}">{e(x.id)}</a>',
-            e(x.created_at.isoformat(timespec="seconds")),
-            badge(x.decision.status) if x.decision else badge("running", "none"),
-            e(x.decision.candidate if x.decision else ", ".join(x.meta.targets)),
-            e(x.decision.baseline or "-") if x.decision else "-",
-            e(len(x.meta.scenarios)),
-        ]
-        for x in experiments
-    ]
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AgentLab console</title><style>{CSS}</style></head><body><main>
-<h1>AgentLab</h1><p class="sub">Experiments, newest first.</p>
-{table(["Experiment", "Created", "Decision", "Candidate", "Baseline", "Scenarios"], rows)}
-</main></body></html>"""

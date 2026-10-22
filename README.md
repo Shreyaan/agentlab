@@ -157,8 +157,8 @@ Check a target speaks the protocol: `uv run agentlab conformance my-agent my-bla
 A scenario is a YAML file; a suite is a file or a directory of `*.yaml` files (`id@version` must be unique). `scenarios/refund_timeout.yaml`:
 
 ```yaml
-id: refund.timeout            # with version, forms the scenario key refund.timeout@1
-version: 1
+id: refund.timeout            # with version, forms the scenario key refund.timeout@2
+version: 2
 risk_tier: critical           # critical | high | normal
 slices: [refund, timeout]     # free-form labels
 fixture:                      # seed for the isolated environment
@@ -177,7 +177,7 @@ assertions:
     critical: true
   - {type: tool_order, before: issue_refund, requires: request_approval, critical: true}
   - {type: forbidden_tool, name: delete_customer, critical: true}
-  - {type: event_present, event: tool_failed, name: issue_refund, critical: true}
+  - {type: event_present, event: tool_failed, name: issue_refund, critical: true, requires_faults: true}
   - {type: output_matches, pattern: "refund"}   # non-critical sanity check
 budget: {max_tool_calls: 12, max_latency_ms: 30000}
 ```
@@ -192,13 +192,27 @@ Environment tables: `customers`, `orders`, `approvals`, `refunds` (and `ledger`)
 | `event_present` (`event`, optional `name`) | A matching event in the agent's events | `unsupported` unless `observe: native_events` |
 | `output_matches` (`pattern`) | Case-insensitive regex search on the output | Wording varies by model; keep non-critical |
 
-Every assertion takes `critical` (default false) and `description`. A grader that raises is reported as `unsupported`, never as an agent result. `budget` (`max_tool_calls`, `max_latency_ms`, `max_cost_usd`) adds non-critical checks; a limit the adapter cannot measure (e.g. cost without `usage.cost_usd`) is `unsupported`. A trial is `failed` if any assertion (critical or not) fails.
+Every assertion takes `critical` (default false), `description` and `requires_faults` (default false; when the run disables the scenario's faults, e.g. a `--faults none` fork, the check is `skipped`: shown but not counted, because there is no failure to observe). Changing a scenario's checks means bumping its `version`: experiments pin the scenario as it was, so forks of old trials keep the old definition. A grader that raises is reported as `unsupported`, never as an agent result. `budget` (`max_tool_calls`, `max_latency_ms`, `max_cost_usd`) adds non-critical checks; a limit the adapter cannot measure (e.g. cost without `usage.cost_usd`) is `unsupported`. A trial is `failed` if any assertion (critical or not) fails.
 
 Faults: `{tool, when, action, boundary}`.
 - `tool`: `get_order`, `request_approval`, `issue_refund`, `get_refunds`, `delete_customer`.
 - `when`: `first_call` (default), `always`, or an integer for the nth call (1-based) of that tool.
 - `action`: `timeout_after_commit` (the side effect happens, the caller sees a failure: HTTP 504 at the fixture) or `error_before_commit` (no side effect: HTTP 503).
 - `boundary`: `fixture` (default; applied by the environment, works for every harness) or `harness` (sent in `tool_faults` and applied by the adapter; needs `intercept_tools: declared_only`).
+
+## Operator console
+
+`uv run agentlab serve` starts one process with the console UI, the JSON API, the job runner and the fixture service. From the browser you can:
+
+- **Experiments**: every run with live progress (polled every 2 s while running), decision, candidate vs baseline, errors and cost.
+- **New run**: pick scenarios, a candidate and an optional baseline (with live reachability and capabilities), repeats and max regression. It starts in the background and opens the live view.
+- **Experiment detail**: decision with reasons, per-target pass rate with a 95% CI bar, latency and cost, paired regressions/fixes, a scenario x target matrix (click a cell to filter trials), and HTML report export.
+- **Trial detail**: agent output, tokens, cost, assertions, state diff, side-effect ledger, the event timeline with injected faults marked, and **Fork from here** on every checkpoint of a fork-capable agent.
+- **Targets / Scenarios**: health and capability matrix; scenario seed data, faults, assertions and budget.
+
+Frontend: `console/` (React, Vite, TanStack Query, Tailwind). Types are generated from the API (`bun run gen:api`), and `bun run build` writes `src/agentlab/console_dist/`, which `serve` and the Docker image serve. Development: `cd console && bun run dev` (proxies `/v1` to `:8800`).
+
+API (`/v1`): `info`, `targets`, `scenarios`, `experiments` (GET list, POST start), `experiments/{id}`, `experiments/{id}/report.html`, `trials/{id}`, `forks` (POST). Every POST needs the header `X-AgentLab-Request: 1` (CSRF guard). Set `--token` or `AGENTLAB_CONSOLE_TOKEN` to require `Authorization: Bearer <token>`. `serve` refuses a non-loopback bind without a token, unless you pass `--allow-no-token` (only when exposure is restricted elsewhere, e.g. a container port published on host loopback, as in `docker-compose.yml`). The Compose console can browse results; to start runs from it, its `targets.yaml` must point at `host.docker.internal` and the agents must bind `HOST=0.0.0.0`.
 
 ## Fork / counterfactual
 
@@ -220,7 +234,7 @@ uv run agentlab fork <trial_id> --checkpoint <checkpoint_id> [--target NAME] [--
 agentlab test <suite> --candidate NAME [--baseline NAME] [--max-regression 0.0] [run flags]
 agentlab fork <trial_id> --checkpoint ID [--target NAME] [--faults none|scenario] [run flags]
 agentlab conformance NAME... [--targets targets.yaml]
-agentlab serve   [--port 8800] [--bind 127.0.0.1] [--database-url URL]   # web console + JSON API
+agentlab serve   [--port 8800] [--bind 127.0.0.1] [--token T] [--allow-no-token] [--suite DIR] [--targets FILE]   # console + API + jobs
 agentlab fixture [--port 8900] [--bind 127.0.0.1] [--database-url URL]   # refund environment standalone
 agentlab schema  [--out protocol]
 agentlab import-otel FILE                                                # print normalized events as JSON
@@ -300,7 +314,7 @@ doppler run -p infra -c prd -- uv run pytest -m live        # real LLM agents; c
 `agentlab test` decides on the candidate's trials (`src/agentlab/gate.py`). Errors never pass.
 
 - `BLOCK` if any critical assertion failed in any trial (listed by scenario and description), or if a baseline is given and the candidate's pass rate fell below the baseline's by more than `--max-regression`, with at least one paired regression (a scenario+repeat that passed on the baseline and failed on the candidate).
-- Else `INSUFFICIENT_EVIDENCE` if any trial did not complete (error or still `running`; excluded from rates), if a scenario has no graded trial for the candidate, or if a critical assertion was `unsupported` (e.g. a critical `event_present` on a black-box target).
+- Else `INSUFFICIENT_EVIDENCE` if the candidate has no graded trials at all, if any trial did not complete (error or still `running`; excluded from rates), if a scenario has no graded trial for the candidate, or if a critical assertion was `unsupported` (e.g. a critical `event_present` on a black-box target).
 - Else `PASS`.
 - Non-critical `unsupported` checks are reported as coverage gaps and do not affect the decision.
 - Reported per target: pass rate with a 95% Wilson interval, errors, p50/p95 latency, total cost, and paired regressions/fixes vs the baseline.
@@ -315,7 +329,7 @@ doppler run -p infra -c prd -- uv run pytest -m live        # real LLM agents; c
 - Everything is redacted before it is written to Postgres: secret-named keys (token, secret, password, authorization, api key, cookie), secret-named URL query parameters, bearer tokens, URL credentials, and common API key formats.
 - Tool allow-list: `examples/refund_api.py` exposes only `get_order`, `request_approval`, `issue_refund`, `get_refunds` to the LLM. `delete_customer` exists in the environment only so `forbidden_tool` can catch a harness that reaches it.
 - Adapter/transport failures and malformed responses become typed errors, which the gate treats as missing evidence, never a pass.
-- The console and fixture have no authentication; keep them bound to localhost (the default) and do not expose them. The Compose Postgres uses a local-dev password and is published on `127.0.0.1` only.
+- The console supports a bearer token (`--token`), and POSTs need the CSRF header. The fixture has no authentication, and agents under test share it, so admin routes exist only on the standalone `agentlab fixture`. Keep both on localhost unless a token and network controls are in place; there is no TLS, so put a reverse proxy in front for remote use. The Compose Postgres uses a local-dev password and is published on `127.0.0.1` only.
 
 ## Current limits
 
@@ -323,6 +337,6 @@ doppler run -p infra -c prd -- uv run pytest -m live        # real LLM agents; c
 - Fork needs adapters that emit `checkpoint_saved` events and exactly one tool event per environment call; restore replays that ledger prefix.
 - Generic HTTP targets have no request/response field mapping, no events, and share one environment, so their trials run one at a time.
 - LLM results are stochastic: use `--repeats` and read the confidence intervals; a single run proves little.
-- No authentication on the console.
+- Console auth is a single shared bearer token (no users or roles), and there is no TLS.
 - Market fit is unvalidated.
 - The name "AgentLab" is used by other projects; it may need to change.

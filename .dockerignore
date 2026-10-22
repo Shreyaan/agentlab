@@ -5,3 +5,5 @@ node_modules/
 *.pyc
 .pytest_cache/
 .git
+src/agentlab/console_dist/
+console/node_modules/

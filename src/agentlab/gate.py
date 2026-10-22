@@ -58,6 +58,8 @@ def decide(
     if errors := [t for t in cand if not t.graded]:
         codes = sorted({t.record.error.code if t.record.error else "INCOMPLETE" for t in errors})
         insufficient.append(f"{len(errors)} trial(s) did not complete ({', '.join(codes)}); excluded from rates")
+    if not any(t.graded for t in cand):
+        insufficient.append(f"no graded trials for {candidate}")
     insufficient += [
         f"no graded trial for {s}" for s in scenarios if not any(t.scenario == s and t.graded for t in cand)
     ]

@@ -15,7 +15,8 @@ from typing import Literal
 from agentlab.assertions import Evidence, grade
 from agentlab.client import HarnessClient, Target
 from agentlab.fixture import SHARED_ENV, FixturePool
-from agentlab.models import Experiment, ExperimentMeta, TargetInfo, Trial, TrialError, TrialRecord
+from agentlab.gate import decide
+from agentlab.models import Decision, Experiment, ExperimentMeta, TargetInfo, Trial, TrialError, TrialRecord
 from agentlab.protocol import (
     AgentLabError,
     Environment,
@@ -35,7 +36,6 @@ from agentlab.store import Store
 @dataclass(frozen=True)
 class RunConfig:
     fixture_url: str  # base URL of the fixture service as agents see it, without /env/<id>
-    repeats: int = 1
     deadline_ms: int = 60_000
     concurrency: int = 4
 
@@ -92,9 +92,27 @@ class Runner:
             )
         return Connection(client, manifest)
 
-    def run_experiment(self, scenarios: list[Scenario], targets: list[Target]) -> str:
+    def plan_experiment(
+        self,
+        scenarios: list[Scenario],
+        targets: list[Target],
+        *,
+        repeats: int = 1,
+        candidate: str | None = None,
+        baseline: str | None = None,
+        max_regression: float = 0.0,
+    ) -> tuple[str, list[TrialPlan]]:
         conns = {t.name: self.connect(t) for t in targets}
-        exp_id = self._create_experiment(scenarios, targets, conns)
+        exp_id = self._create_experiment(
+            scenarios,
+            targets,
+            conns,
+            repeats=repeats,
+            planned=len(scenarios) * repeats * len(targets),
+            candidate=candidate,
+            baseline=baseline,
+            max_regression=max_regression,
+        )
         # Same scenario+repeat across targets shares identical initial state, so comparisons are paired.
         plans = [
             TrialPlan(
@@ -109,12 +127,75 @@ class Runner:
                 [],
             )
             for s in scenarios
-            for r in range(self.cfg.repeats)
+            for r in range(repeats)
             for t in targets
         ]
+        return exp_id, plans
+
+    def execute(self, plans: list[TrialPlan]) -> None:
         with ThreadPoolExecutor(max_workers=self.cfg.concurrency) as ex:
             list(ex.map(self.run_trial, plans))  # list() re-raises any unexpected runner error
+
+    def run_experiment(
+        self,
+        scenarios: list[Scenario],
+        targets: list[Target],
+        *,
+        repeats: int = 1,
+        candidate: str | None = None,
+        baseline: str | None = None,
+        max_regression: float = 0.0,
+    ) -> str:
+        exp_id, plans = self.plan_experiment(
+            scenarios, targets, repeats=repeats, candidate=candidate, baseline=baseline, max_regression=max_regression
+        )
+        self.execute(plans)
         return exp_id
+
+    def conclude(self, exp_id: str) -> Decision:
+        meta = self.store.experiment(exp_id).meta
+        if meta.candidate is None:
+            raise ValueError(f"experiment {exp_id} has no candidate to decide on")
+        decision = decide(
+            self.store.trials(exp_id), list(meta.scenarios), meta.candidate, meta.baseline, meta.max_regression
+        )
+        self.store.set_decision(exp_id, decision)
+        return decision
+
+    def plan_fork(
+        self,
+        source: Trial,
+        experiment: Experiment,
+        target: Target,
+        checkpoint_id: str,
+        faults: Literal["scenario", "none"] = "none",
+    ) -> tuple[str, list[TrialPlan]]:
+        """Counterfactual: restore the environment as it was at `checkpoint_id` and resume the agent from there."""
+        scenario = experiment.meta.scenarios[source.scenario]
+        history = source.record.ledger[: ledger_calls_before(source.record.events, checkpoint_id)]
+        conn = self.connect(target)
+        if isinstance(conn, AgentLabError):
+            raise conn
+        if not (conn.manifest.capabilities.fork and conn.manifest.capabilities.resume):
+            raise AgentLabError(ErrorCode.CAPABILITY_UNSUPPORTED, f"{target.name} cannot fork from checkpoints")
+        resume = ResumeFrom(trial_id=source.id, checkpoint_id=checkpoint_id)
+        exp_id = self._create_experiment(
+            [scenario], [target], {target.name: conn}, planned=1, candidate=target.name, forked_from=resume
+        )
+        keep = faults == "scenario"
+        plan = TrialPlan(
+            exp_id,
+            f"{exp_id}:{target.name}:{scenario.key}:fork",
+            target,
+            conn,
+            scenario,
+            0,
+            scenario.faults_at("fixture") if keep else [],
+            scenario.faults_at("harness") if keep else [],
+            history,
+            resume,
+        )
+        return exp_id, [plan]
 
     def fork(
         self,
@@ -124,31 +205,8 @@ class Runner:
         checkpoint_id: str,
         faults: Literal["scenario", "none"] = "none",
     ) -> str:
-        """Counterfactual: restore the environment as it was at `checkpoint_id` and resume the agent from there."""
-        conn = self.connect(target)
-        if isinstance(conn, AgentLabError):
-            raise conn
-        if not (conn.manifest.capabilities.fork and conn.manifest.capabilities.resume):
-            raise AgentLabError(ErrorCode.CAPABILITY_UNSUPPORTED, f"{target.name} cannot fork from checkpoints")
-        scenario = experiment.meta.scenarios[source.scenario]
-        history = source.record.ledger[: ledger_calls_before(source.record.events, checkpoint_id)]
-        resume = ResumeFrom(trial_id=source.id, checkpoint_id=checkpoint_id)
-        exp_id = self._create_experiment([scenario], [target], {target.name: conn}, forked_from=resume)
-        keep = faults == "scenario"
-        self.run_trial(
-            TrialPlan(
-                exp_id,
-                f"{exp_id}:{target.name}:{scenario.key}:fork",
-                target,
-                conn,
-                scenario,
-                0,
-                scenario.faults_at("fixture") if keep else [],
-                scenario.faults_at("harness") if keep else [],
-                history,
-                resume,
-            )
-        )
+        exp_id, plans = self.plan_fork(source, experiment, target, checkpoint_id, faults)
+        self.execute(plans)
         return exp_id
 
     def _create_experiment(
@@ -156,6 +214,12 @@ class Runner:
         scenarios: list[Scenario],
         targets: list[Target],
         conns: dict[str, Conn],
+        *,
+        planned: int,
+        repeats: int = 1,
+        candidate: str | None = None,
+        baseline: str | None = None,
+        max_regression: float = 0.0,
         forked_from: ResumeFrom | None = None,
     ) -> str:
         exp_id = f"exp_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
@@ -172,9 +236,13 @@ class Runner:
                     for t in targets
                 },
                 scenarios={s.key: s for s in scenarios},
-                repeats=self.cfg.repeats,
+                repeats=repeats,
                 fixture_url=self.cfg.fixture_url,
                 forked_from=forked_from,
+                candidate=candidate,
+                baseline=baseline,
+                max_regression=max_regression,
+                planned_trials=planned,
             ),
         )
         return exp_id
@@ -234,7 +302,8 @@ class Runner:
             latency_ms=latency_ms,
             usage=resp.usage,
         )
-        results = grade(plan.scenario.assertions, plan.scenario.budget, ev)
+        faults_active = bool(plan.fixture_faults or plan.harness_faults)
+        results = grade(plan.scenario.assertions, plan.scenario.budget, ev, faults_active=faults_active)
         self.store.finish_trial(
             plan.trial_id,
             "failed" if any(r.status == "fail" for r in results) else "passed",

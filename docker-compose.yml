@@ -14,7 +14,8 @@ services:
 
   console:
     build: .
-    command: ["serve", "--bind", "0.0.0.0", "--port", "8800"]
+    # Port is published on host loopback only, so the in-container 0.0.0.0 bind is not exposed to the network.
+    command: ["serve", "--bind", "0.0.0.0", "--port", "8800", "--allow-no-token"]
     environment:
       AGENTLAB_DATABASE_URL: postgresql://agentlab:agentlab@postgres:5432/agentlab
     ports: ["127.0.0.1:8800:8800"]

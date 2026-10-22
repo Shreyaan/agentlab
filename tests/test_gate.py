@@ -68,3 +68,9 @@ def test_paired_regression_blocks() -> None:
     assert d.status == "BLOCK"
     assert d.paired is not None
     assert d.paired.regressions == 1
+
+
+def test_no_evidence_never_passes() -> None:
+    d = decide([], [], "c")
+    assert d.status == "INSUFFICIENT_EVIDENCE"
+    assert d.insufficient_reasons == ["no graded trials for c"]

@@ -62,6 +62,10 @@ class ExperimentMeta(BaseModel):
     repeats: int
     fixture_url: str
     forked_from: ResumeFrom | None = None
+    candidate: str | None = None
+    baseline: str | None = None
+    max_regression: float = 0.0
+    planned_trials: int = 0
 
 
 class TargetStats(BaseModel):

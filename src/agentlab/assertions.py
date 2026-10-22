@@ -11,7 +11,7 @@ from agentlab.fixture import Fixture
 from agentlab.protocol import Capabilities, Event, Usage
 from agentlab.records import AssertionResult, LedgerEntry
 
-type Status = Literal["pass", "fail", "unsupported"]
+type Status = Literal["pass", "fail", "unsupported", "skipped"]
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ class Evidence:
 
 class _Check(BaseModel, ABC):
     critical: bool = False
+    requires_faults: bool = False  # only meaningful when the scenario's faults are active (skipped in clean forks)
     description: str = ""
 
     @property
@@ -155,12 +156,14 @@ def check_budget(budget: Budget, ev: Evidence) -> list[AssertionResult]:
     return [c for c in checks if c]
 
 
-def _safe_check(a: _Check, ev: Evidence) -> AssertionResult:
+def _safe_check(a: _Check, ev: Evidence, *, faults_active: bool) -> AssertionResult:
+    if a.requires_faults and not faults_active:
+        return a.result("skipped", "scenario faults are disabled in this run")
     try:
         return a.check(ev)
     except Exception as exc:  # noqa: BLE001 - a broken grader is a grader defect, never an agent result
         return a.result("unsupported", f"grader error: {exc}")
 
 
-def grade(assertions: list[Assertion], budget: Budget, ev: Evidence) -> list[AssertionResult]:
-    return [_safe_check(a, ev) for a in assertions] + check_budget(budget, ev)
+def grade(assertions: list[Assertion], budget: Budget, ev: Evidence, *, faults_active: bool) -> list[AssertionResult]:
+    return [_safe_check(a, ev, faults_active=faults_active) for a in assertions] + check_budget(budget, ev)

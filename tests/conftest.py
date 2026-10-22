@@ -63,7 +63,7 @@ def store(db: Pool) -> Store:
 
 @pytest.fixture
 def runner(store: Store, envs: FixturePool, fixture_url: str) -> Runner:
-    return Runner(store, envs, HOSTS, RunConfig(fixture_url=fixture_url, repeats=1, concurrency=4))
+    return Runner(store, envs, HOSTS, RunConfig(fixture_url=fixture_url, concurrency=4))
 
 
 def start_process(args: list[str], port: int, env: dict[str, str]) -> subprocess.Popen[bytes]:

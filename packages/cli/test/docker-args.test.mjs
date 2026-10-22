@@ -104,3 +104,12 @@ test("ports publish on host loopback unless AGENTLAB_PUBLISH_HOST opts in", () =
   const wide = buildDockerArgs({ argv: ["serve"], cwd: "/w", env: { AGENTLAB_PUBLISH_HOST: "0.0.0.0" }, isTTY: false });
   assert.ok(wide.includes("0.0.0.0:8800:8800"));
 });
+
+test("serve allows no token only on a loopback publish; a token is passed by name", () => {
+  const base = { argv: ["serve"], cwd: "/w", isTTY: false };
+  assert.ok(buildDockerArgs({ ...base, env: {} }).includes("AGENTLAB_ALLOW_NO_TOKEN=1"));
+  assert.ok(!buildDockerArgs({ ...base, env: { AGENTLAB_PUBLISH_HOST: "0.0.0.0" } }).includes("AGENTLAB_ALLOW_NO_TOKEN=1"));
+  const withToken = buildDockerArgs({ ...base, env: { AGENTLAB_CONSOLE_TOKEN: "s3cret" } });
+  assert.ok(withToken.includes("AGENTLAB_CONSOLE_TOKEN"));
+  assert.ok(!withToken.some((a) => a.includes("s3cret")));
+});

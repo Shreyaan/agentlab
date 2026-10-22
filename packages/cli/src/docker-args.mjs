@@ -1,6 +1,7 @@
 const DEFAULT_FIXTURE_PORT = 8900;
 const DEFAULT_SERVE_PORT = 8800;
 const DEFAULT_IMAGE = "agentlab:latest";
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
 
 /** Value of `--name value` or `--name=value` in argv; undefined when absent. */
 function flagValue(argv, name) {
@@ -49,6 +50,9 @@ export function buildDockerArgs({ argv, cwd, env, uid, gid, isTTY }) {
   args.push(...envFlag(env, "AGENTLAB_FIXTURE_URL", `http://127.0.0.1:${fixturePort}/`));
   if (env.OPENROUTER_API_KEY) args.push("-e", "OPENROUTER_API_KEY");
   if (env.AGENTLAB_DATABASE_URL) args.push("-e", "AGENTLAB_DATABASE_URL");
+  if (env.AGENTLAB_CONSOLE_TOKEN) args.push("-e", "AGENTLAB_CONSOLE_TOKEN");
+  // The console binds 0.0.0.0 inside the container; without a token that is only acceptable on a loopback publish.
+  else if (argv[0] === "serve" && LOOPBACK.has(publishHost)) args.push("-e", "AGENTLAB_ALLOW_NO_TOKEN=1");
 
   const userArgs = [...argv];
   // Servers inside the container must listen on all interfaces to be reachable through the published port.

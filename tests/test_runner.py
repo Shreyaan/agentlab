@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pytest
 
+from agentlab.assertions import Budget, EventPresent, Evidence, grade
 from agentlab.cli import main
 from agentlab.client import HarnessClient, Target
+from agentlab.fixture import FixturePool, Seed
 from agentlab.otel import parse_otlp
-from agentlab.protocol import AgentLabError, ErrorCode, Event
+from agentlab.protocol import AgentLabError, Capabilities, ErrorCode, Event, Usage
 from agentlab.runner import Runner, ledger_calls_before
 from agentlab.scenario import Scenario, load_suite
 
@@ -97,3 +99,24 @@ def test_cli_usage_errors_exit_3(tmp_path: Path) -> None:
     assert main(["test", "scenarios"]) == 3  # missing --candidate
     assert main(["test", "scenarios", "--candidate", "x", "--repeats", "0"]) == 3
     assert main(["test", str(tmp_path), "--candidate", "x"]) == 3  # empty suite dir
+
+
+def test_fault_dependent_checks_skip_when_faults_are_disabled(envs: FixturePool) -> None:
+    fx = envs.create("t_skip", Seed())
+    try:
+        ev = Evidence(
+            fixture=fx,
+            ledger=[],
+            events=[],
+            output="",
+            capabilities=Capabilities(observe="native_events"),
+            latency_ms=1.0,
+            usage=Usage(),
+        )
+        check = EventPresent(event="tool_failed", critical=True, requires_faults=True)
+        [skipped] = grade([check], Budget(), ev, faults_active=False)
+        assert skipped.status == "skipped"
+        [failed] = grade([check], Budget(), ev, faults_active=True)
+        assert failed.status == "fail"
+    finally:
+        envs.drop("t_skip")

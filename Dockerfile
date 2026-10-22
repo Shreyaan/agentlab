@@ -1,3 +1,12 @@
+# Stage 1: build the operator console (static files).
+FROM oven/bun:1.3.14 AS console
+WORKDIR /build/console
+COPY console/package.json console/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY console/ ./
+RUN bun run build  # writes to ../src/agentlab/console_dist
+
+# Stage 2: the runner + console server.
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 WORKDIR /app
@@ -7,6 +16,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-default-groups --no-install-project
 
 COPY src/ ./src/
+COPY --from=console /build/src/agentlab/console_dist/ ./src/agentlab/console_dist/
 COPY protocol/ ./protocol/
 COPY scenarios/ ./scenarios/
 COPY targets.yaml ./
