@@ -1,0 +1,7 @@
+{
+  "name": "agentlab-ts-agent",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "bun agent.ts" },
+  "devDependencies": { "bun-types": "latest", "typescript": "latest" }
+}

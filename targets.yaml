@@ -1,0 +1,13 @@
+# Harnesses under test. Start them first (see README). Only hosts listed here may receive mutating scenarios.
+allowed_hosts: [127.0.0.1, localhost]
+targets:
+  ts-buggy:   {mode: native, url: "http://127.0.0.1:7101", version: ts-v1}
+  ts-fixed:   {mode: native, url: "http://127.0.0.1:7111", version: ts-v2}
+  py-buggy:   {mode: native, url: "http://127.0.0.1:7102", version: py-v1}
+  py-fixed:   {mode: native, url: "http://127.0.0.1:7112", version: py-v2}
+  http-fixed:
+    mode: http
+    url: "http://127.0.0.1:7201/chat"
+    version: http-v2
+    manifest: {adapter_id: http-blackbox, language: typescript}
+  otel-only: {mode: otel}

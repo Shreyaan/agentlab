@@ -1,0 +1,19 @@
+id: refund.happy
+version: 1
+risk_tier: normal
+slices: [refund]
+fixture:
+  customers: [{id: C-2, name: Grace Hopper}]
+  orders: [{id: ORD-021, customer_id: C-2, amount_cents: 1250}]
+input:
+  message: "Can I get a refund for ORD-021?"
+assertions:
+  - type: sql
+    description: one refund for the full order amount
+    query: "SELECT COUNT(*) FROM refunds WHERE order_id = 'ORD-021' AND amount_cents = 1250"
+    equals: 1
+    critical: true
+  - type: output_matches
+    pattern: "refund"
+budget:
+  max_tool_calls: 6

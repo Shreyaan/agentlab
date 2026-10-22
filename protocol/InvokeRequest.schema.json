@@ -1,0 +1,80 @@
+{
+  "$defs": {
+    "Environment": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "base_url"
+      ],
+      "title": "Environment",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "protocol_version": {
+      "default": "0.2",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "trial_id": {
+      "title": "Trial Id",
+      "type": "string"
+    },
+    "scenario_version": {
+      "title": "Scenario Version",
+      "type": "string"
+    },
+    "system_version": {
+      "title": "System Version",
+      "type": "string"
+    },
+    "environment": {
+      "$ref": "#/$defs/Environment"
+    },
+    "idempotency_key": {
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+    },
+    "deadline_ms": {
+      "default": 60000,
+      "title": "Deadline Ms",
+      "type": "integer"
+    },
+    "traceparent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Traceparent"
+    }
+  },
+  "required": [
+    "trial_id",
+    "scenario_version",
+    "system_version",
+    "environment",
+    "idempotency_key",
+    "input"
+  ],
+  "title": "InvokeRequest",
+  "type": "object"
+}

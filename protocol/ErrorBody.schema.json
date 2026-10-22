@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "ErrorCode": {
+      "enum": [
+        "CAPABILITY_UNSUPPORTED",
+        "PROTOCOL_VERSION_MISMATCH",
+        "UNSAFE_TARGET",
+        "ENVIRONMENT_NOT_RESETTABLE",
+        "ADAPTER_TIMEOUT",
+        "ADAPTER_ERROR",
+        "TRACE_INCOMPLETE"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/ErrorCode"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "message"
+  ],
+  "title": "ErrorBody",
+  "type": "object"
+}

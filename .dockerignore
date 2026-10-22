@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.agentlab/
+node_modules/
+*.pyc
+.pytest_cache/
+.git

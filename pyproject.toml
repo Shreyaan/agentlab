@@ -1,0 +1,31 @@
+[project]
+name = "agentlab"
+version = "0.1.0"
+description = "Language-agnostic reliability testing for AI agents: state-grounded evals and release gates"
+readme = "README.md"
+authors = [
+    { name = "Shreyaan Seth", email = "11375404+Shreyaan@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.161.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.1",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+agentlab = "agentlab.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8.24,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

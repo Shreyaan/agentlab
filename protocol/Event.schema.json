@@ -1,0 +1,85 @@
+{
+  "properties": {
+    "seq": {
+      "title": "Seq",
+      "type": "integer"
+    },
+    "type": {
+      "enum": [
+        "run_started",
+        "agent_step",
+        "model_call",
+        "tool_requested",
+        "tool_completed",
+        "tool_failed",
+        "approval_requested",
+        "retry_scheduled",
+        "checkpoint_saved",
+        "run_completed",
+        "run_failed"
+      ],
+      "title": "Type",
+      "type": "string"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    },
+    "span_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Span Id"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Id"
+    },
+    "data": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Data",
+      "type": "object"
+    }
+  },
+  "required": [
+    "seq",
+    "type"
+  ],
+  "title": "Event",
+  "type": "object"
+}

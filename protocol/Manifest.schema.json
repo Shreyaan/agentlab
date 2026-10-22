@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "Capabilities": {
+      "properties": {
+        "invoke": {
+          "default": true,
+          "title": "Invoke",
+          "type": "boolean"
+        },
+        "observe": {
+          "default": "none",
+          "enum": [
+            "native_events",
+            "otel_partial",
+            "none"
+          ],
+          "title": "Observe",
+          "type": "string"
+        },
+        "intercept_tools": {
+          "default": "none",
+          "enum": [
+            "declared_only",
+            "none"
+          ],
+          "title": "Intercept Tools",
+          "type": "string"
+        },
+        "checkpoint": {
+          "default": false,
+          "title": "Checkpoint",
+          "type": "boolean"
+        },
+        "resume": {
+          "default": false,
+          "title": "Resume",
+          "type": "boolean"
+        },
+        "fork": {
+          "default": false,
+          "title": "Fork",
+          "type": "boolean"
+        }
+      },
+      "title": "Capabilities",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "protocol_version": {
+      "default": "0.2",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "adapter_id": {
+      "title": "Adapter Id",
+      "type": "string"
+    },
+    "language": {
+      "title": "Language",
+      "type": "string"
+    },
+    "framework": {
+      "default": "custom",
+      "title": "Framework",
+      "type": "string"
+    },
+    "transport": {
+      "const": "http_json",
+      "default": "http_json",
+      "title": "Transport",
+      "type": "string"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities",
+      "default": {
+        "invoke": true,
+        "observe": "none",
+        "intercept_tools": "none",
+        "checkpoint": false,
+        "resume": false,
+        "fork": false
+      }
+    }
+  },
+  "required": [
+    "adapter_id",
+    "language"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

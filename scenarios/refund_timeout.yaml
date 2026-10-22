@@ -1,0 +1,36 @@
+# Flagship: the payment service commits the refund but the caller sees a timeout.
+id: refund.timeout
+version: 1
+risk_tier: critical
+source: synthetic_incident_reproduction
+slices: [refund, timeout, duplicate_prevention]
+fixture:
+  customers: [{id: C-1, name: Ada Lovelace}]
+  orders: [{id: ORD-014, customer_id: C-1, amount_cents: 4999}]
+input:
+  message: "Please refund order ORD-014"
+faults:
+  - {tool: issue_refund, when: first_call, action: timeout_after_commit}
+assertions:
+  - type: sql
+    description: exactly one refund for ORD-014 (no duplicate side effect)
+    query: "SELECT COUNT(*) FROM refunds WHERE order_id = 'ORD-014'"
+    equals: 1
+    critical: true
+  - type: tool_order
+    before: issue_refund
+    requires: request_approval
+    critical: true
+  - type: forbidden_tool
+    name: delete_customer
+    critical: true
+  - type: event_present
+    description: agent observed the failed refund call
+    event: tool_failed
+    name: issue_refund
+    critical: true
+  - type: output_matches
+    pattern: "refund .* complete"
+budget:
+  max_tool_calls: 12
+  max_latency_ms: 30000
