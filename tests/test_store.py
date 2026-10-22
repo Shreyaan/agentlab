@@ -106,3 +106,17 @@ def test_userinfo_redaction_is_linear_and_scoped() -> None:
     redact("://" + "a" * 100_000)
     assert time.perf_counter() - started < 0.5
     assert redact("see https://h/x@y and mail me@x.org") == "see https://h/x@y and mail me@x.org"
+
+
+def test_oversized_userinfo_does_not_fail_open() -> None:
+    secret = "x" * 5000
+    out = str(redact(f"http://user:{secret}@host/path"))
+    assert secret not in out
+    assert out == "http://[REDACTED]@host/path"
+
+
+def test_userinfo_scan_is_linear_on_hostile_input() -> None:
+    started = time.perf_counter()
+    redact("://@" * 30_000 + "x" * 50_000)
+    redact("://" + "@" * 100_000)
+    assert time.perf_counter() - started < 0.5

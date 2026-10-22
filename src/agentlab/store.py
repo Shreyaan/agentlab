@@ -19,10 +19,8 @@ SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie
 SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.IGNORECASE)
 QUERY_PARAM = re.compile(r"[?&]([^=&\s?#]{1,256})=")  # bounded, delimiter-free name: linear on hostile text
 VALUE_END = re.compile(r"[&\s\"']")
+AUTHORITY_END = re.compile(r"[/\s]")
 SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
-    # Greedy to the LAST '@' before '/' or whitespace: passwords may contain '@', '?' or '#'. Over-redacting a query
-    # that contains '@' is the safe direction; the length bound keeps it linear on hostile text.
-    (re.compile(r"(://)[^/\s]{0,1024}@"), r"\1[REDACTED]@"),
     (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.IGNORECASE), r"\1[REDACTED]"),
     (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
 ]
@@ -69,6 +67,19 @@ def _is_number_or_null(value: JsonValue) -> bool:
     return value is None or (isinstance(value, int | float) and not isinstance(value, bool))
 
 
+def redact_userinfo(text: str) -> str:
+    """Redact URL credentials up to the LAST '@' before the next '/' or whitespace (passwords may contain '@', '?',
+    '#'). No length bound, so nothing fails open; each authority span is scanned once, so it is linear."""
+    out, pos = [], 0
+    while (scheme := text.find("://", pos)) != -1:
+        start = scheme + 3
+        end = m.start() if (m := AUTHORITY_END.search(text, start)) else len(text)
+        at = text.rfind("@", start, end)
+        out.append(text[pos:start] + ("[REDACTED]" if at != -1 else ""))
+        pos = at if at != -1 else start
+    return "".join(out) + text[pos:]
+
+
 def redact(value: JsonValue) -> JsonValue:
     """Key-based for structured data, pattern-based for free text. Under a secret-looking key everything is redacted
     except numbers and nulls, so numeric telemetry such as input_tokens survives."""
@@ -80,7 +91,7 @@ def redact(value: JsonValue) -> JsonValue:
     if isinstance(value, list):
         return [redact(v) for v in value]
     if isinstance(value, str):
-        value = redact_query_params(value)
+        value = redact_query_params(redact_userinfo(value))
         for pattern, repl in SECRET_VALUE:
             value = pattern.sub(repl, value)
     return value
