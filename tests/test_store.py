@@ -90,12 +90,14 @@ def test_secret_keys_redact_structured_values_but_keep_numbers() -> None:
         "http://user:p@ss@db.internal:5432/x",  # '@' inside the password
         "postgresql://u:a@b@c@host/db?sslmode=require",
         "error contacting https://admin:s3cr3t@@h/ (timeout)",
+        "http://u:p#ss@host/x",  # '#' inside the password
+        "http://u:p?ss@host/x",  # '?' inside the password
     ],
 )
 def test_userinfo_redacted_up_to_last_at(raw: str) -> None:
     out = str(redact(raw))
     assert "[REDACTED]@" in out
-    for leaked in ("ss@", "b@c", "s3cr3t", "p@ss"):
+    for leaked in ("ss@", "b@c", "s3cr3t", "p@ss", "p#ss", "p?ss"):
         assert leaked not in out
 
 
