@@ -186,3 +186,12 @@ def test_persisted_records_are_redacted(tmp_path):
     assert meta["url"] == "http://[REDACTED]@127.0.0.1:1/x?api_key=[REDACTED]&page=2"
     assert "eyJ" not in rec["error"]["message"] and "sk-live" not in rec["error"]["message"]
     assert rec["headers"]["Authorization"] == "[REDACTED]"
+
+
+def test_redaction_is_linear_on_hostile_input():
+    import time
+    from agentlab.store import redact
+
+    started = time.perf_counter()
+    redact("?" * 50_000 + "token" + "&" * 50_000)
+    assert time.perf_counter() - started < 0.5
