@@ -85,3 +85,21 @@ def test_langgraph_fork_resumes_in_restored_environment(runner: Runner, targets:
     assert fork.record.initial_state["refunds"] == []
     # counterfactual without the timeout: exactly one refund
     assert len(fork.record.final_state["refunds"]) == 1
+
+
+def test_harness_faults_inject_inside_ts_and_python_adapters(runner: Runner, targets: dict[str, Target]) -> None:
+    timeout = next(s for s in SUITE if s.id == "refund.timeout")
+    # Same scenario, but the timeout is injected by the adapter inside the agent process instead of the service.
+    harness = timeout.model_copy(
+        update={"faults": [f.model_copy(update={"boundary": "harness"}) for f in timeout.faults]}
+    )
+    exp = runner.run_experiment([harness], [targets["vercel"], targets["openai"]])
+    for t in runner.store.trials(exp):
+        assert t.graded, (t.id, t.record.error)
+        injected = [e for e in t.record.events if e.type == "tool_failed" and e.data.get("injected")]
+        assert injected, f"{t.id}: adapter did not inject the fault"
+        assert injected[0].data.get("committed") is True
+        # timeout_after_commit: the first issue_refund really reached the environment and was committed
+        first = next(e for e in t.record.ledger if e.tool == "issue_refund")
+        assert first.committed
+        assert first.status < 400
