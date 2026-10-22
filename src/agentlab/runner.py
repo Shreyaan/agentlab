@@ -1,6 +1,5 @@
 """Runs scenarios against harnesses: reset fixture -> invoke -> collect evidence -> grade -> persist."""
 
-import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -13,7 +12,6 @@ from agentlab.scenario import Scenario
 from agentlab.store import Store
 
 Connection = tuple[HarnessClient, Manifest] | AgentLabError
-SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key", re.I)
 
 
 @dataclass
@@ -21,14 +19,6 @@ class RunConfig:
     fixture_url: str
     repeats: int = 1
     deadline_ms: int = 60_000
-
-
-def redact(value):
-    if isinstance(value, dict):
-        return {k: "[REDACTED]" if SECRET_KEY.search(str(k)) else redact(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [redact(v) for v in value]
-    return value
 
 
 def state_diff(before: dict[str, list[dict]], after: dict[str, list[dict]]) -> dict[str, dict]:
@@ -103,8 +93,8 @@ def run_trial(store: Store, fixture: Fixture, exp_id: str, scenario: Scenario, r
     results = grade(scenario.assertions, scenario.budget, ev)
     status = "failed" if any(r.status == "fail" for r in results) else "passed"
     store.finish_trial(trial_id, status, {
-        "run_id": resp.run_id, "agent_status": resp.status, "output": redact(resp.output),
-        "events": redact([e.model_dump(mode="json") for e in resp.events]), "ledger": redact(ledger),
+        "run_id": resp.run_id, "agent_status": resp.status, "output": resp.output,
+        "events": [e.model_dump(mode="json") for e in resp.events], "ledger": ledger,
         "initial_state": initial, "final_state": final, "state_diff": state_diff(initial, final),
         "assertions": [r.model_dump() for r in results], "latency_ms": latency_ms, "usage": resp.usage.model_dump(),
     })

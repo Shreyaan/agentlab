@@ -2,9 +2,31 @@
 an inspectable incomplete trial that the gate treats as an error, never a pass."""
 
 import json
+import re
 import sqlite3
 import time
 from pathlib import Path
+
+SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie", re.I)
+SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
+    (re.compile(r"(://)[^/\s@]+@"), r"\1[REDACTED]@"),
+    (re.compile(r"([?&][^=&\s]*(?:token|key|secret|sig|password)[^=&\s]*=)[^&\s\"']+", re.I), r"\1[REDACTED]"),
+    (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.I), r"\1[REDACTED]"),
+    (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
+]
+
+
+def redact(value):
+    """Applied to everything persisted: key-based for structured data, pattern-based for free text."""
+    if isinstance(value, dict):
+        return {k: "[REDACTED]" if SECRET_KEY.search(str(k)) else redact(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact(v) for v in value]
+    if isinstance(value, str):
+        for pattern, repl in SECRET_VALUE:
+            value = pattern.sub(repl, value)
+    return value
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS experiments (
@@ -29,7 +51,7 @@ class Store:
 
     def create_experiment(self, exp_id: str, meta: dict) -> None:
         with self.db:
-            self.db.execute("INSERT INTO experiments VALUES (?, ?, ?, NULL)", (exp_id, time.time(), json.dumps(meta)))
+            self.db.execute("INSERT INTO experiments VALUES (?, ?, ?, NULL)", (exp_id, time.time(), json.dumps(redact(meta))))
 
     def start_trial(self, trial_id: str, exp_id: str, target: str, scenario: str, repeat: int) -> None:
         with self.db:
@@ -37,11 +59,11 @@ class Store:
 
     def finish_trial(self, trial_id: str, status: str, record: dict) -> None:
         with self.db:
-            self.db.execute("UPDATE trials SET status = ?, record = ? WHERE id = ?", (status, json.dumps(record, default=str), trial_id))
+            self.db.execute("UPDATE trials SET status = ?, record = ? WHERE id = ?", (status, json.dumps(redact(record), default=str), trial_id))
 
     def set_decision(self, exp_id: str, decision: dict) -> None:
         with self.db:
-            self.db.execute("UPDATE experiments SET decision = ? WHERE id = ?", (json.dumps(decision), exp_id))
+            self.db.execute("UPDATE experiments SET decision = ? WHERE id = ?", (json.dumps(redact(decision)), exp_id))
 
     def experiment(self, exp_id: str) -> dict:
         row = self.db.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,)).fetchone()

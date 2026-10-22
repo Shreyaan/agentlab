@@ -174,3 +174,15 @@ def test_cli_usage_errors_exit_3():
 
     assert main(["test", "scenarios"]) == 3  # missing --candidate
     assert main(["test", "scenarios", "--candidate", "x", "--repeats", "0"]) == 3
+
+
+def test_persisted_records_are_redacted(tmp_path):
+    store = Store(tmp_path / "r.db")
+    store.create_experiment("e", {"url": "http://user:pw@127.0.0.1:1/x?api_key=abc123&page=2"})
+    store.start_trial("t", "e", "a", "s", 0)
+    store.finish_trial("t", "error", {"error": {"message": "HTTP 401 Bearer eyJhbGciOi.x.y sk-live_ABCDEFGHIJKLMNOPQRST"},
+                                      "headers": {"Authorization": "Bearer z"}})
+    meta, rec = store.experiment("e")["meta"], store.trials("e")[0]["record"]
+    assert meta["url"] == "http://[REDACTED]@127.0.0.1:1/x?api_key=[REDACTED]&page=2"
+    assert "eyJ" not in rec["error"]["message"] and "sk-live" not in rec["error"]["message"]
+    assert rec["headers"]["Authorization"] == "[REDACTED]"
