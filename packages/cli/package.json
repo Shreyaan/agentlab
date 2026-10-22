@@ -1,0 +1,15 @@
+{
+  "name": "@agentlab/cli",
+  "version": "0.3.0",
+  "description": "Run the agentlab reliability test runner from Node via Docker. No Python needed.",
+  "type": "module",
+  "bin": {
+    "agentlab": "bin/agentlab.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

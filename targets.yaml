@@ -1,13 +1,16 @@
-# Harnesses under test. Start them first (see README). Only hosts listed here may receive mutating scenarios.
-allowed_hosts: [127.0.0.1, localhost]
+# Real LLM-backed harnesses under test (OpenRouter). Start them with scripts/agents.sh.
+# Only hosts listed here may receive mutating scenarios.
+allowed_hosts: [127.0.0.1, localhost, host.docker.internal]
 targets:
-  ts-buggy:   {mode: native, url: "http://127.0.0.1:7101", version: ts-v1}
-  ts-fixed:   {mode: native, url: "http://127.0.0.1:7111", version: ts-v2}
-  py-buggy:   {mode: native, url: "http://127.0.0.1:7102", version: py-v1}
-  py-fixed:   {mode: native, url: "http://127.0.0.1:7112", version: py-v2}
-  http-fixed:
+  vercel-careful:     {mode: native, url: "http://127.0.0.1:7301", version: "vercel-ai-sdk/careful/gpt-4.1-mini"}
+  vercel-naive-nano:  {mode: native, url: "http://127.0.0.1:7302", version: "vercel-ai-sdk/naive/gpt-4.1-nano"}
+  openai-careful:     {mode: native, url: "http://127.0.0.1:7401", version: "openai-sdk/careful/gpt-4.1-mini"}
+  openai-naive-llama: {mode: native, url: "http://127.0.0.1:7402", version: "openai-sdk/naive/llama-3.1-8b"}
+  langgraph-careful:  {mode: native, url: "http://127.0.0.1:7501", version: "langgraph/careful/claude-haiku-4.5"}
+  langgraph-naive:    {mode: native, url: "http://127.0.0.1:7502", version: "langgraph/naive/gpt-4.1-nano"}
+  http-careful:
     mode: http
-    url: "http://127.0.0.1:7201/chat"
-    version: http-v2
-    manifest: {adapter_id: http-blackbox, language: typescript}
+    url: "http://127.0.0.1:7601/chat"
+    version: "raw-fetch/careful/gpt-4.1-mini"
+    manifest: {adapter_id: http-blackbox, language: typescript, framework: raw-fetch}
   otel-only: {mode: otel}

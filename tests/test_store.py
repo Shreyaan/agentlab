@@ -1,0 +1,73 @@
+import time
+import uuid
+
+import pytest
+
+from agentlab.models import ExperimentMeta, TrialError, TrialRecord
+from agentlab.protocol import ErrorCode, Usage
+from agentlab.store import Store, redact
+
+META = ExperimentMeta(targets={}, scenarios={}, repeats=1, fixture_url="http://127.0.0.1:1")
+
+
+def new_id() -> str:
+    return f"exp_test_{uuid.uuid4().hex[:8]}"
+
+
+def test_trial_roundtrip_and_running_state_survives(store: Store) -> None:
+    exp = new_id()
+    store.create_experiment(exp, META)
+    store.start_trial(f"{exp}:a", exp, "a", "s@1", 0)
+    store.start_trial(f"{exp}:b", exp, "b", "s@1", 0)
+    store.finish_trial(f"{exp}:a", "passed", TrialRecord(output="ok", latency_ms=12.5, usage=Usage(input_tokens=42)))
+    trials = {t.id: t for t in store.trials(exp)}
+    assert trials[f"{exp}:a"].record.usage.input_tokens == 42  # numeric fields survive key-based redaction
+    assert trials[f"{exp}:b"].status == "running"  # a crash mid-trial stays visible, never a pass
+    assert store.experiment(exp).meta == META
+
+
+def test_persisted_records_are_redacted(store: Store) -> None:
+    exp = new_id()
+    store.create_experiment(exp, META.model_copy(update={"fixture_url": "http://user:pw@h/x?api_key=abc123&page=2"}))
+    store.start_trial(f"{exp}:t", exp, "a", "s@1", 0)
+    message = "HTTP 401 Bearer eyJhbGciOi.x.y sk-live_ABCDEFGHIJKLMNOPQRST"
+    store.finish_trial(
+        f"{exp}:t",
+        "error",
+        TrialRecord(
+            error=TrialError(code=ErrorCode.ADAPTER_ERROR, message=message),
+            output={"headers": {"Authorization": "Bearer z"}},
+        ),
+    )
+    assert store.experiment(exp).meta.fixture_url == "http://[REDACTED]@h/x?api_key=[REDACTED]&page=2"
+    rec = store.trial(f"{exp}:t").record
+    assert rec.error is not None
+    assert "eyJ" not in rec.error.message
+    assert "sk-live" not in rec.error.message
+    assert rec.output == {"headers": {"Authorization": "[REDACTED]"}}
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "http://h/x?a=1?token=s3cr3t",  # benign value must not swallow the next param
+        "http://h/x?api%5Fkey=s3cr3t&p=2",  # URL-encoded name
+        "http://h/x?auth[token]=s3cr3t#frag",  # bracketed name
+        "http://h/x?q=1&Signature=s3cr3t",
+        "http://h/x?password=#s3cr3t",  # secret values may contain # or ?
+        "http://h/x?token=?s3cr3t",
+        "http://h/x?password=a#s3cr3t",
+    ],
+)
+def test_query_secrets_redacted(raw: str) -> None:
+    assert "s3cr3t" not in str(redact(raw))
+
+
+def test_benign_query_params_untouched() -> None:
+    assert redact("http://h/x?page=2&sort=asc#top") == "http://h/x?page=2&sort=asc#top"
+
+
+def test_redaction_is_linear_on_hostile_input() -> None:
+    started = time.perf_counter()
+    redact("?" * 50_000 + "token" + "&" * 50_000)
+    assert time.perf_counter() - started < 0.5

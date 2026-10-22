@@ -7,21 +7,7 @@
           "type": "integer"
         },
         "type": {
-          "enum": [
-            "run_started",
-            "agent_step",
-            "model_call",
-            "tool_requested",
-            "tool_completed",
-            "tool_failed",
-            "approval_requested",
-            "retry_scheduled",
-            "checkpoint_saved",
-            "run_completed",
-            "run_failed"
-          ],
-          "title": "Type",
-          "type": "string"
+          "$ref": "#/$defs/EventType"
         },
         "name": {
           "anyOf": [
@@ -72,10 +58,8 @@
           "title": "Parent Id"
         },
         "data": {
-          "additionalProperties": true,
-          "default": {},
-          "title": "Data",
-          "type": "object"
+          "$ref": "#/$defs/JsonObject",
+          "default": {}
         }
       },
       "required": [
@@ -85,6 +69,29 @@
       "title": "Event",
       "type": "object"
     },
+    "EventType": {
+      "enum": [
+        "run_started",
+        "agent_step",
+        "model_call",
+        "tool_requested",
+        "tool_completed",
+        "tool_failed",
+        "approval_requested",
+        "retry_scheduled",
+        "checkpoint_saved",
+        "run_completed",
+        "run_failed"
+      ],
+      "type": "string"
+    },
+    "JsonObject": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "JsonValue": {},
     "Usage": {
       "properties": {
         "steps": {
@@ -98,6 +105,30 @@
           ],
           "default": null,
           "title": "Steps"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
         },
         "cost_usd": {
           "anyOf": [
@@ -130,8 +161,8 @@
       "type": "string"
     },
     "output": {
-      "default": null,
-      "title": "Output"
+      "$ref": "#/$defs/JsonValue",
+      "default": null
     },
     "events": {
       "default": [],
@@ -145,6 +176,8 @@
       "$ref": "#/$defs/Usage",
       "default": {
         "steps": null,
+        "input_tokens": null,
+        "output_tokens": null,
         "cost_usd": null
       }
     }

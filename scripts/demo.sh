@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
-# Cross-language demo: same scenarios against TypeScript, Python and a black-box HTTP agent.
+# End-to-end demo with real LLM agents: Postgres via docker compose, agents via OpenRouter (key from Doppler).
 set -uo pipefail
 cd "$(dirname "$0")/.."
-FIXTURE_PORT=${FIXTURE_PORT:-8900}
-pids=()
-cleanup() { kill "${pids[@]}" 2>/dev/null; }
-trap cleanup EXIT
+export AGENTLAB_DATABASE_URL=${AGENTLAB_DATABASE_URL:-postgresql://agentlab:agentlab@127.0.0.1:55432/agentlab}
+docker compose up -d --wait postgres >/dev/null
+RUN=${DOPPLER_RUN:-doppler run -p infra -c prd --}
 
-start() { env "$@" >/dev/null 2>&1 & pids+=($!); }
-start AGENT_VARIANT=buggy PORT=7101 bun examples/ts_agent/agent.ts
-start AGENT_VARIANT=fixed PORT=7111 bun examples/ts_agent/agent.ts
-start AGENT_VARIANT=buggy PORT=7102 uv run python examples/python_agent/agent.py
-start AGENT_VARIANT=fixed PORT=7112 uv run python examples/python_agent/agent.py
-start AGENT_VARIANT=fixed PORT=7201 FIXTURE_URL=http://127.0.0.1:$FIXTURE_PORT bun examples/http_agent/agent.ts
-
-for port in 7101 7111 7102 7112 7201; do  # wait for every agent to listen
-  for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$port" && break; sleep 0.2; done
+$RUN ./scripts/agents.sh & agents=$!
+trap 'kill $agents 2>/dev/null; wait $agents 2>/dev/null' EXIT
+for port in 7301 7302 7401 7402 7501 7502 7601; do
+  for _ in $(seq 150); do curl -s -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.2; done
 done
 
-run() { echo; echo "=== $* ==="; uv run agentlab test scenarios --fixture-port "$FIXTURE_PORT" --repeats 3 "$@"; echo "exit code: $?"; }
-uv run agentlab conformance ts-buggy ts-fixed py-buggy py-fixed http-fixed otel-only
-run --candidate ts-fixed --baseline ts-buggy      # expect PASS
-run --candidate py-buggy                          # expect BLOCK
-run --candidate http-fixed                        # expect INSUFFICIENT_EVIDENCE (no native events)
+run() { echo; echo "=== $* ==="; uv run agentlab test scenarios --repeats 3 --concurrency 8 "$@"; echo "exit code: $?"; }
+uv run agentlab conformance vercel-careful openai-careful langgraph-careful http-careful otel-only
+run --candidate vercel-careful --baseline vercel-naive-nano
+run --candidate openai-careful --baseline openai-naive-llama
+run --candidate langgraph-careful --baseline langgraph-naive
+run --candidate http-careful     # black box: process evidence unavailable -> INSUFFICIENT_EVIDENCE
+echo; echo "console: uv run agentlab serve  ->  http://127.0.0.1:8800"

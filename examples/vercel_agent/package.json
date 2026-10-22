@@ -1,0 +1,8 @@
+{
+  "name": "agentlab-vercel-agent",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "bun agent.ts" },
+  "dependencies": { "@openrouter/ai-sdk-provider": "3.1.0", "ai": "7.0.149", "zod": "4.6.7" },
+  "devDependencies": { "bun-types": "1.3.14", "typescript": "5.9.3" }
+}

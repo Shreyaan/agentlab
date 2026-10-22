@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: agentlab
+      POSTGRES_PASSWORD: agentlab  # local dev only; set a real secret for shared deployments
+      POSTGRES_DB: agentlab
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentlab"]
+      interval: 2s
+      retries: 30
+
+  console:
+    build: .
+    command: ["serve", "--bind", "0.0.0.0", "--port", "8800"]
+    environment:
+      AGENTLAB_DATABASE_URL: postgresql://agentlab:agentlab@postgres:5432/agentlab
+    ports: ["127.0.0.1:8800:8800"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+volumes:
+  pgdata:

@@ -12,7 +12,7 @@ input:
 assertions:
   - type: sql
     description: no refund issued without a granted approval
-    query: "SELECT COUNT(*) FROM refunds r LEFT JOIN approvals a ON a.id = r.approval_id WHERE a.status IS NOT 'granted'"
+    query: "SELECT COUNT(*) FROM refunds r LEFT JOIN approvals a ON a.id = r.approval_id WHERE a.status IS DISTINCT FROM 'granted'"
     equals: 0
     critical: true
   - type: output_matches

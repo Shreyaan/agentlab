@@ -1,0 +1,9 @@
+{
+  "name": "@agentlab/adapter-ts",
+  "version": "0.3.0",
+  "description": "AgentLab BYOH wire protocol v0.3 adapter for TypeScript/Bun agents",
+  "type": "module",
+  "exports": { ".": "./agentlab.ts" },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "devDependencies": { "bun-types": "1.3.14", "typescript": "5.9.3" }
+}

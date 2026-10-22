@@ -48,7 +48,7 @@
   },
   "properties": {
     "protocol_version": {
-      "default": "0.2",
+      "default": "0.3",
       "title": "Protocol Version",
       "type": "string"
     },

@@ -28,9 +28,15 @@ def parse_otlp(doc: dict) -> list[Event]:
             etype, name = "model_call", attrs.get("gen_ai.request.model")
         else:
             etype, name = "agent_step", span.get("name")
-        events.append(Event(
-            seq=i, type=etype, name=name, ts=int(span.get("startTimeUnixNano", 0)) / 1e9,
-            span_id=span.get("spanId"), parent_id=span.get("parentSpanId") or None,
-            data={"span_name": span.get("name"), "source": "otel_partial"},
-        ))
+        events.append(
+            Event(
+                seq=i,
+                type=etype,
+                name=name,
+                ts=int(span.get("startTimeUnixNano", 0)) / 1e9,
+                span_id=span.get("spanId"),
+                parent_id=span.get("parentSpanId") or None,
+                data={"span_name": span.get("name"), "source": "otel_partial"},
+            )
+        )
     return events

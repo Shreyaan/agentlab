@@ -1,21 +1,41 @@
-"""Durable experiment/trial records. A trial is written as `running` before invocation, so a crash leaves
-an inspectable incomplete trial that the gate treats as an error, never a pass."""
+"""Durable experiment/trial records in Postgres (schema `agentlab`).
 
-import json
+A trial is written as `running` before invocation, so a crash leaves an inspectable incomplete trial that the gate
+treats as an error, never a pass. Everything is redacted on the way in.
+"""
+
 import re
-import sqlite3
-import time
-from pathlib import Path
 
-SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie", re.I)
-SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.I)
+from psycopg.types.json import Jsonb
+from pydantic import JsonValue
+
+from agentlab.db import Pool
+from agentlab.models import Decision, Experiment, ExperimentMeta, Trial, TrialRecord, TrialStatus
+
+SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie", re.IGNORECASE)
+SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.IGNORECASE)
 QUERY_PARAM = re.compile(r"[?&]([^=&\s?#]{1,256})=")  # bounded, delimiter-free name: linear on hostile text
 VALUE_END = re.compile(r"[&\s\"']")
 SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
     (re.compile(r"(://)[^/\s@]+@"), r"\1[REDACTED]@"),
-    (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.I), r"\1[REDACTED]"),
+    (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.IGNORECASE), r"\1[REDACTED]"),
     (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
 ]
+
+SCHEMA = """
+SELECT pg_advisory_xact_lock(7311);  -- concurrent first runs must not race the DDL
+CREATE SCHEMA IF NOT EXISTS agentlab;
+CREATE TABLE IF NOT EXISTS agentlab.experiments (
+    id TEXT PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), meta JSONB NOT NULL, decision JSONB
+);
+CREATE TABLE IF NOT EXISTS agentlab.trials (
+    id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL REFERENCES agentlab.experiments(id) ON DELETE CASCADE,
+    target TEXT NOT NULL, scenario TEXT NOT NULL, repeat INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('running', 'passed', 'failed', 'error')),
+    record JSONB NOT NULL DEFAULT '{}', created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS trials_by_experiment ON agentlab.trials (experiment_id);
+"""
 
 
 def redact_query_params(text: str) -> str:
@@ -26,15 +46,15 @@ def redact_query_params(text: str) -> str:
         if m.start() < pos or not SECRET_PARAM.search(m[1]):
             continue
         end = VALUE_END.search(text, m.end())
-        out += [text[pos:m.end()], "[REDACTED]"]
+        out += [text[pos : m.end()], "[REDACTED]"]
         pos = end.start() if end else len(text)
     return "".join(out) + text[pos:]
 
 
-def redact(value):
-    """Applied to everything persisted: key-based for structured data, pattern-based for free text."""
+def redact(value: JsonValue) -> JsonValue:
+    """Key-based for structured data (string values only, so typed numeric fields survive), pattern-based for text."""
     if isinstance(value, dict):
-        return {k: "[REDACTED]" if SECRET_KEY.search(str(k)) else redact(v) for k, v in value.items()}
+        return {k: "[REDACTED]" if SECRET_KEY.search(k) and isinstance(v, str) else redact(v) for k, v in value.items()}
     if isinstance(value, list):
         return [redact(v) for v in value]
     if isinstance(value, str):
@@ -44,50 +64,63 @@ def redact(value):
     return value
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS experiments (
-    id TEXT PRIMARY KEY, created_at REAL NOT NULL, meta TEXT NOT NULL, decision TEXT
-);
-CREATE TABLE IF NOT EXISTS trials (
-    id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL REFERENCES experiments(id),
-    target TEXT NOT NULL, scenario TEXT NOT NULL, repeat INTEGER NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('running', 'passed', 'failed', 'error')),
-    record TEXT
-);
-CREATE INDEX IF NOT EXISTS trials_by_experiment ON trials (experiment_id);
-"""
-
-
 class Store:
-    def __init__(self, path: str | Path):
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
-        self.db.row_factory = sqlite3.Row
-        self.db.executescript(SCHEMA)
+    def __init__(self, db: Pool) -> None:
+        self.db = db
+        with db.connection() as conn, conn.transaction():
+            conn.execute(SCHEMA)
 
-    def create_experiment(self, exp_id: str, meta: dict) -> None:
-        with self.db:
-            self.db.execute("INSERT INTO experiments VALUES (?, ?, ?, NULL)", (exp_id, time.time(), json.dumps(redact(meta))))
+    def create_experiment(self, exp_id: str, meta: ExperimentMeta) -> None:
+        with self.db.connection() as conn:
+            conn.execute(
+                "INSERT INTO agentlab.experiments (id, meta) VALUES (%s, %s)",
+                (exp_id, Jsonb(redact(meta.model_dump(mode="json")))),
+            )
 
     def start_trial(self, trial_id: str, exp_id: str, target: str, scenario: str, repeat: int) -> None:
-        with self.db:
-            self.db.execute("INSERT INTO trials VALUES (?, ?, ?, ?, ?, 'running', NULL)", (trial_id, exp_id, target, scenario, repeat))
+        with self.db.connection() as conn:
+            conn.execute(
+                "INSERT INTO agentlab.trials (id, experiment_id, target, scenario, repeat, status) "
+                "VALUES (%s, %s, %s, %s, %s, 'running')",
+                (trial_id, exp_id, target, scenario, repeat),
+            )
 
-    def finish_trial(self, trial_id: str, status: str, record: dict) -> None:
-        with self.db:
-            self.db.execute("UPDATE trials SET status = ?, record = ? WHERE id = ?", (status, json.dumps(redact(record), default=str), trial_id))
+    def finish_trial(self, trial_id: str, status: TrialStatus, record: TrialRecord) -> None:
+        with self.db.connection() as conn:
+            conn.execute(
+                "UPDATE agentlab.trials SET status = %s, record = %s WHERE id = %s",
+                (status, Jsonb(redact(record.model_dump(mode="json"))), trial_id),
+            )
 
-    def set_decision(self, exp_id: str, decision: dict) -> None:
-        with self.db:
-            self.db.execute("UPDATE experiments SET decision = ? WHERE id = ?", (json.dumps(redact(decision)), exp_id))
+    def set_decision(self, exp_id: str, decision: Decision) -> None:
+        with self.db.connection() as conn:
+            conn.execute(
+                "UPDATE agentlab.experiments SET decision = %s WHERE id = %s",
+                (Jsonb(redact(decision.model_dump(mode="json"))), exp_id),
+            )
 
-    def experiment(self, exp_id: str) -> dict:
-        row = self.db.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,)).fetchone()
+    def experiment(self, exp_id: str) -> Experiment:
+        with self.db.connection() as conn:
+            row = conn.execute("SELECT * FROM agentlab.experiments WHERE id = %s", (exp_id,)).fetchone()
         if not row:
             raise KeyError(exp_id)
-        return {"id": row["id"], "created_at": row["created_at"], "meta": json.loads(row["meta"]),
-                "decision": json.loads(row["decision"]) if row["decision"] else None}
+        return Experiment.model_validate(row)
 
-    def trials(self, exp_id: str) -> list[dict]:
-        rows = self.db.execute("SELECT * FROM trials WHERE experiment_id = ? ORDER BY rowid", (exp_id,))
-        return [dict(r) | {"record": json.loads(r["record"]) if r["record"] else {}} for r in rows]
+    def experiments(self, limit: int = 50) -> list[Experiment]:
+        with self.db.connection() as conn:
+            rows = conn.execute("SELECT * FROM agentlab.experiments ORDER BY created_at DESC LIMIT %s", (limit,))
+            return [Experiment.model_validate(r) for r in rows.fetchall()]
+
+    def trials(self, exp_id: str) -> list[Trial]:
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM agentlab.trials WHERE experiment_id = %s ORDER BY created_at, id", (exp_id,)
+            ).fetchall()
+        return [Trial.model_validate(r) for r in rows]
+
+    def trial(self, trial_id: str) -> Trial:
+        with self.db.connection() as conn:
+            row = conn.execute("SELECT * FROM agentlab.trials WHERE id = %s", (trial_id,)).fetchone()
+        if not row:
+            raise KeyError(trial_id)
+        return Trial.model_validate(row)

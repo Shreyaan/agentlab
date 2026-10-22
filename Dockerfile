@@ -4,15 +4,15 @@ WORKDIR /app
 
 # Dependencies first so the layer caches until the lock file changes.
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-default-groups --no-install-project
 
 COPY src/ ./src/
 COPY protocol/ ./protocol/
 COPY scenarios/ ./scenarios/
 COPY targets.yaml ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-default-groups
 
-# Runs as an unprivileged user; .agentlab/ (db and reports) must be writable by it.
+# Runs as an unprivileged user; .agentlab/ (reports) must be writable by it. Results live in Postgres.
 RUN useradd --system --uid 10001 --no-create-home agentlab \
  && mkdir -p /app/.agentlab \
  && chown agentlab /app/.agentlab

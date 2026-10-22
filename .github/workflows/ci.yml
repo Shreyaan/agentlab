@@ -1,0 +1,20 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run ty check
+      - run: uv run pytest  # Testcontainers starts Postgres via the runner's Docker
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: for d in packages/adapter-ts examples/vercel_agent examples/http_agent; do (cd $d && bun install --frozen-lockfile && bunx tsc --noEmit); done
+      - run: cd packages/cli && node --test

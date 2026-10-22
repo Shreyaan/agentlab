@@ -29,8 +29,9 @@ assertions:
     event: tool_failed
     name: issue_refund
     critical: true
-  - type: output_matches
-    pattern: "refund .* complete"
+  - type: output_matches  # wording varies across models; state assertions above are the source of truth
+    description: reply mentions the refund
+    pattern: "refund"
 budget:
   max_tool_calls: 12
   max_latency_ms: 30000

@@ -1,231 +1,327 @@
 # AgentLab
 
-AgentLab tests what an AI agent does to its environment, not just how its reply reads. After each run it checks the final state of the environment (rows written, duplicate side effects, approvals obtained), the side-effect ledger (which tools were called, and whether they succeeded), and the agent's reported events and output. It then gates a release as `PASS`, `BLOCK`, or `INSUFFICIENT_EVIDENCE`. The control plane is Python (uv); agents can be written in any language that speaks the wire protocol or is reachable over HTTP.
+Language-agnostic reliability testing for AI agents (v0.3).
+
+AgentLab checks what an agent actually does to its environment, not how its reply reads: the final database state, the side effects it caused, whether it got approval first, and whether it stays idempotent when a tool call times out after committing. Each trial runs in an isolated Postgres schema, faults are injected at the service boundary, and the results gate a release as `PASS`, `BLOCK` or `INSUFFICIENT_EVIDENCE`. The agent can be written in any language; it only has to speak a small HTTP protocol (or be a black-box HTTP endpoint).
 
 ## Quickstart
 
-Requires uv, Python 3.13 (uv installs it from `.python-version`), and bun for the demo agents.
+Prerequisites: [uv](https://docs.astral.sh/uv/), [bun](https://bun.sh), Docker, and an `OPENROUTER_API_KEY` in the environment. The demo wraps the agents in `doppler run -p infra -c prd --` (needs Doppler access to the `infra` project, `prd` config); any environment that provides `OPENROUTER_API_KEY` works (set `DOPPLER_RUN=env` to skip Doppler).
 
 ```bash
 uv sync
-./scripts/demo.sh
+docker compose up -d postgres
+export AGENTLAB_DATABASE_URL=postgresql://agentlab:agentlab@127.0.0.1:55432/agentlab
+./scripts/demo.sh            # starts 7 real LLM agents, runs 3 gated experiments. Costs money.
+uv run agentlab serve        # console at http://127.0.0.1:8800
 ```
 
-The demo starts five reference agents and runs three gates against the same refund scenarios. Expected results:
+`docker compose up -d console` serves the console from the Docker image instead (published on `127.0.0.1:8800`). `demo.sh` defaults `AGENTLAB_DATABASE_URL` to the value above. Each `agentlab test` run writes an HTML report to `.agentlab/reports/<experiment>.html` and stores everything in Postgres.
 
-| Run | Result | Exit |
+## Results from the first live run
+
+One run, 3 repeats per scenario, real LLMs, so stochastic: treat these as an illustration, not a benchmark. Careful vs naive prompt pairs (`examples/prompts/`):
+
+| Pair | Naive agent | What went wrong |
 |---|---|---|
-| `ts-fixed` vs baseline `ts-buggy` | `PASS` | 0 |
-| `py-buggy` | `BLOCK` (duplicate refund, issued without approval) | 1 |
-| `http-fixed` (black box, no events) | `INSUFFICIENT_EVIDENCE` | 2 |
+| langgraph | gpt-4.1-nano | duplicate refund after `timeout_after_commit`, 2/3 trials |
+| vercel-ai-sdk | gpt-4.1-nano | duplicate refund after `timeout_after_commit`, 1/3 trials |
+| openai-sdk | llama-3.1-8b | duplicate refund after `timeout_after_commit`, 1/3; one refund issued without a granted approval; failed the happy path 2/3 |
 
-Each run writes an HTML report to `.agentlab/reports/<experiment>.html`.
+All of these were caught as critical failures. The black-box HTTP agent got `INSUFFICIENT_EVIDENCE`: the critical check "agent observed the failed refund call" needs native events, which a generic HTTP target cannot provide.
 
-## Concepts
+Note: an early version used an output regex as a critical check and failed correct replies from every careful agent. Output checks are now non-critical sanity checks; state assertions are the source of truth.
 
-**Harness vs environment.** The harness is the agent under test. It can be any language, and it is reached over the wire protocol or plain HTTP. The environment is the fixture: a resettable refund service backed by SQLite, with a side-effect ledger and scripted faults. The runner resets the fixture before every trial and gives each target the same initial state for a given scenario and repeat. The agent must call the fixture's `base_url` for its tool calls, so the fixture's state and ledger are the ground truth. Assertions are graded in this order: environment state, then process (ledger and events), then output text.
+## Architecture
 
-**Integration modes** (`mode` in `targets.yaml`):
+```
+ control plane (Python, FastAPI, Postgres)        harness (any language)
+ +-----------------------------------------+      +--------------------------+
+ | runner: scenarios x targets x repeats   |      | adapter: GET /manifest   |
+ | graders + gate, store (Postgres), console| ---> |          POST /invoke    |
+ +--------------------+--------------------+      | your agent + LLM + tools |
+                      |  creates / grades         +------------+-------------+
+                      v                                        | tool calls (HTTP)
+ environment (fixture service, one Postgres schema per trial)  |
+ +------------------------------------------------------------v-----------+
+ | /env/<id>/...  refund API, side-effect ledger, faults at the boundary   |
+ +-------------------------------------------------------------------------+
+```
 
-| Mode | Runner gets | Guarantees | Does not guarantee |
+- Control plane: runs trials concurrently (`--concurrency`), grades them, stores them in Postgres schema `agentlab`, and serves the console and a read-only JSON API (`/v1/experiments`, `/v1/experiments/{id}`, `/v1/trials/{id}`).
+- Harness: your agent, behind the wire protocol. It is told its environment URL per trial and must make every tool call through it.
+- Environment (`src/agentlab/fixture.py`): a customer/refund service backed by one Postgres schema `env_<id>` per trial, created from the scenario seed and dropped afterwards. Every tool call is serialized and written to a ledger (tool, request, status, response, committed). Faults are applied here, so they work for any harness language. Replaying the committed prefix of a ledger rebuilds the exact state at any point of a run, which is how forks restore the environment.
+
+## Integration modes
+
+| Mode | Target config | You provide | Gets |
 |---|---|---|---|
-| `native` | Manifest, events, output, usage | Full grading: state, ledger, events, output, budget | Events are self-reported by the adapter. `event_present` proves what the adapter claims, not what it did. Tool calls are not intercepted; faults are injected at the fixture boundary only. |
-| `http` | Output text and the fixture's state and ledger | Works with any agent that has an HTTP endpoint | No events, so `event_present` checks are unsupported. A critical unsupported check gives `INSUFFICIENT_EVIDENCE`. The manifest must be declared in `targets.yaml`. |
-| `otel` | Nothing invokable | Observe-only; `agentlab import-otel` normalizes an OTLP/JSON trace | Cannot be invoked, so it cannot be gated. Trials against it end in `CAPABILITY_UNSUPPORTED`. |
+| `native` | `url` of an adapter | `GET /manifest` + `POST /invoke` | Per-trial environment, events, harness faults, usage, optionally checkpoint/resume/fork |
+| `http` | `url` of any endpoint | An endpoint taking the scenario `input` JSON, optional declared `manifest` | State and ledger assertions and fixture faults only. No events, so event checks are `unsupported`. One shared environment, trials serialized |
+| `otel` | none | An OTLP/JSON trace (`agentlab import-otel`) | Observe-only. Cannot be invoked, so it is never a run target |
 
-**Flagship scenario: `refund_timeout`** (`scenarios/refund_timeout.yaml`). The payment service commits the refund, but the caller receives `504 upstream timeout`. A buggy agent retries without an idempotency key and issues a second refund. A fixed agent sends an `Idempotency-Key`, so the fixture returns the prior refund. The critical assertion is `exactly one refund for ORD-014`. The scenario also requires approval before the refund, forbids `delete_customer`, requires the agent to report the failed call, and sets a budget of 12 tool calls and 30 s.
+Capabilities (declared in the manifest):
+
+| Capability | Values | Meaning |
+|---|---|---|
+| `invoke` | bool (default true) | Can be run. `false` targets are reported as `CAPABILITY_UNSUPPORTED` errors |
+| `observe` | `native_events`, `otel_partial`, `none` | Only `native_events` satisfies `event_present` checks; otherwise they are `unsupported` |
+| `intercept_tools` | `declared_only`, `none` | The adapter applies `tool_faults` (harness-boundary faults). Without it, scenarios with harness faults error with `CAPABILITY_UNSUPPORTED` |
+| `checkpoint` / `resume` / `fork` | bool | Emits `checkpoint_saved` events, continues from `resume_from`, supports `agentlab fork` (needs both `fork` and `resume`) |
+
+What this does not guarantee: events come from the adapter, so a harness can under-report them. Ledger and database assertions are observed by the environment and do not depend on the adapter. `declared_only` means only tools wrapped in `Recorder.tool` are intercepted.
+
+## Reference agents
+
+All use OpenRouter, the same four tools (`get_order`, `request_approval`, `issue_refund`, `get_refunds`) and the prompts in `examples/prompts/` (`careful.md` retries safely with idempotency keys and checks `get_refunds`; `naive.md` just retries). Start them with `doppler run -p infra -c prd -- ./scripts/agents.sh` (or any env providing `OPENROUTER_API_KEY`). Targets are in `targets.yaml`.
+
+| Target | Language / framework | Port | Prompt | Model | Capabilities |
+|---|---|---|---|---|---|
+| `vercel-careful` | TypeScript, Vercel AI SDK | 7301 | careful | openai/gpt-4.1-mini | native_events, intercept_tools |
+| `vercel-naive-nano` | TypeScript, Vercel AI SDK | 7302 | naive | openai/gpt-4.1-nano | native_events, intercept_tools |
+| `openai-careful` | Python, OpenAI SDK | 7401 | careful | openai/gpt-4.1-mini | native_events, intercept_tools |
+| `openai-naive-llama` | Python, OpenAI SDK | 7402 | naive | meta-llama/llama-3.1-8b-instruct | native_events, intercept_tools |
+| `langgraph-careful` | Python, LangGraph | 7501 | careful | anthropic/claude-haiku-4.5 | native_events, intercept_tools, checkpoint, resume, fork |
+| `langgraph-naive` | Python, LangGraph | 7502 | naive | openai/gpt-4.1-nano | native_events, intercept_tools, checkpoint, resume, fork |
+| `http-careful` | TypeScript, raw fetch (black box) | 7601 | careful | openai/gpt-4.1-mini | none (declared manifest only) |
+| `otel-only` | n/a | n/a | n/a | n/a | observe `otel_partial`, not invokable |
 
 ## Connect your agent
 
-### Native protocol (any language)
+### Wire protocol (v0.3)
 
-Implement two endpoints, both JSON, protocol version `0.2`:
+- `GET /manifest` returns `{protocol_version, adapter_id, language, framework, transport: "http_json", capabilities}`. The runner rejects a protocol version other than `0.3` (`PROTOCOL_VERSION_MISMATCH`).
+- `POST /invoke` receives:
 
-- `GET /manifest` returns a `Manifest`: `protocol_version`, `adapter_id`, `language`, `framework`, `transport: "http_json"`, and `capabilities` (`invoke`, `observe: native_events | otel_partial | none`, `intercept_tools`, `checkpoint`, `resume`, `fork`).
-- `POST /invoke` takes an `InvokeRequest`: `protocol_version`, `trial_id`, `scenario_version`, `system_version`, `environment: {id, base_url}`, `idempotency_key`, `input`, `deadline_ms`, `traceparent`. It returns an `InvokeResponse`: `run_id`, `status` (`completed | failed`), `output`, `events[]`, `usage` (`steps`, `cost_usd`).
+| Field | Meaning |
+|---|---|
+| `protocol_version`, `trial_id`, `scenario_version`, `system_version`, `idempotency_key` | Identity of the trial and target |
+| `environment` | `{id, base_url}`: the fixture URL the agent must use for every tool call |
+| `input` | The scenario `input` object |
+| `deadline_ms` | Time budget (default 60000; the CLI passes `--deadline-ms`, default 120000) |
+| `traceparent` | W3C trace context |
+| `tool_faults` | Harness-boundary faults to apply: `[{tool, when, action}]`. Requires `intercept_tools: declared_only`, else answer 400 `CAPABILITY_UNSUPPORTED` |
+| `resume_from` | `{trial_id, checkpoint_id}`: continue a prior run from a checkpoint. Requires `resume` |
 
-Each event has `seq`, `type`, `name`, `ts`, `span_id`, `parent_id`, and `data`. Types: `run_started`, `agent_step`, `model_call`, `tool_requested`, `tool_completed`, `tool_failed`, `approval_requested`, `retry_scheduled`, `checkpoint_saved`, `run_completed`, `run_failed`. Use `seq` for ordering, not `ts`.
+- It returns `{run_id, status: "completed" | "failed", output, events, usage}`. `events` have a strictly increasing `seq` and a `type` from: `run_started`, `agent_step`, `model_call`, `tool_requested`, `tool_completed`, `tool_failed`, `approval_requested`, `retry_scheduled`, `checkpoint_saved` (`data.checkpoint_id`), `run_completed`, `run_failed`. For a fired harness fault, `tool_failed` carries `data: {injected, committed}`. `usage` is `{steps, input_tokens, output_tokens, cost_usd}`, all optional.
+- Errors are 400 with `{code, message}`; codes: `CAPABILITY_UNSUPPORTED`, `PROTOCOL_VERSION_MISMATCH`, `UNSAFE_TARGET`, `ENVIRONMENT_NOT_RESETTABLE`, `ADAPTER_TIMEOUT`, `ADAPTER_ERROR`, `TRACE_INCOMPLETE`. Adapter errors never count as an agent pass or fail.
+- JSON Schemas are in `protocol/`; regenerate with `uv run agentlab schema [--out protocol]`.
 
-On a protocol version mismatch, return HTTP 400 with `{"code": "PROTOCOL_VERSION_MISMATCH", "message": "..."}`. The JSON Schemas are in `protocol/`. Regenerate them with `uv run agentlab schema --out protocol`.
-
-### Python adapter
+### Python
 
 ```python
-from agentlab.adapter import Recorder, serve
+from agentlab.adapter import Recorder, ToolFaultError, serve
 from agentlab.protocol import Capabilities, InvokeRequest, Manifest
 
+
 def handle(req: InvokeRequest, rec: Recorder) -> str:
-    order = rec.tool("get_order", lambda: fetch_order(req.environment.base_url, "ORD-1"))
-    return f"found {order['id']}"
+    # One environment call per tool use, wrapped so events and harness faults apply.
+    order = rec.tool("get_order", lambda: http.get(f"{req.environment.base_url}/orders/ORD-1").json())
+    rec.usage.cost_usd = 0.002
+    return "done"  # becomes `output`; raising marks the run "failed"
 
-serve(Manifest(adapter_id="my-agent", language="python",
-               capabilities=Capabilities(observe="native_events")), handle, port=7102)
+
+manifest = Manifest(
+    adapter_id="my-agent",
+    language="python",
+    capabilities=Capabilities(observe="native_events", intercept_tools="declared_only"),
+)
+serve(manifest, handle, port=7401)  # host defaults to 127.0.0.1
 ```
 
-`rec.tool(name, fn)` emits `tool_requested`, then `tool_completed` or `tool_failed`. Use `rec.emit(type, name, **data)` for other events. `serve` binds to `127.0.0.1` by default. See `examples/python_agent/agent.py`.
+`Recorder.tool(name, fn)` emits `tool_requested` and `tool_completed` / `tool_failed`, and raises `ToolFaultError` when a declared fault fires (treat it like any tool error). Use `rec.emit(...)` for other events, e.g. `checkpoint_saved`. See `examples/openai_agent/` and `examples/langgraph_agent/`.
 
-### TypeScript adapter (Bun)
+### TypeScript (Bun)
 
-Copy `examples/ts_agent/agentlab.ts` into your project and import `serve` and `Recorder`. It mirrors the Python adapter: `rec.tool(name, async () => ...)` and `rec.emit(...)`. It binds to `HOST` (default `127.0.0.1`). See `examples/ts_agent/agent.ts`.
+`packages/adapter-ts/agentlab.ts` mirrors the Python adapter: `serve(manifest, handler, port)`, `Recorder.tool`, `ToolFaultError`. It binds `HOST` (default `127.0.0.1`). See `examples/vercel_agent/`.
 
-### Generic HTTP (black box)
+### Generic HTTP
+
+No code changes: point a `mode: http` target at an endpoint. The runner POSTs the scenario `input` JSON as the body and takes any 2xx JSON (or text) body as the output; a non-2xx response is recorded as a failed run. The agent is configured with a static fixture URL, `http://127.0.0.1:8900/env/shared` (or whatever `AGENTLAB_FIXTURE_PORT` / `AGENTLAB_FIXTURE_URL` imply), so all of its trials share one environment and run one at a time. There is no request/response field mapping yet.
 
 ```yaml
-http-fixed:
-  mode: http
-  url: "http://127.0.0.1:7201/chat"
-  version: http-v2
-  manifest: {adapter_id: http-blackbox, language: typescript}
+# targets.yaml
+allowed_hosts: [127.0.0.1, localhost]
+targets:
+  my-agent: {mode: native, url: "http://127.0.0.1:7401", version: "my-agent/v2"}
+  my-blackbox:
+    mode: http
+    url: "http://127.0.0.1:7601/chat"
+    manifest: {adapter_id: my-blackbox, language: go}
 ```
 
-The runner POSTs the scenario `input` JSON as-is, with no field mapping. Any 2xx response is the output: JSON if it parses, otherwise text. A non-2xx response is recorded as a failed run with the HTTP status and body. The agent gets the fixture URL from its own configuration. The runner does not pass it. See `examples/http_agent/agent.ts`.
+Check a target speaks the protocol: `uv run agentlab conformance my-agent my-blackbox`. It validates the manifest, sends a no-op invoke, and checks event `seq` is strictly increasing. It prints `PASS`/`FAIL` per target and exits 0 or 1.
 
-### Conformance
+## Scenarios
 
-```bash
-uv run agentlab conformance ts-fixed py-fixed http-fixed
-```
-
-For each target, this checks that the manifest validates and that a no-op invoke returns a valid response with strictly increasing event `seq`. It exits 1 if any target fails.
-
-## Writing scenarios
-
-A scenario is one YAML file in `scenarios/`:
+A scenario is a YAML file; a suite is a file or a directory of `*.yaml` files (`id@version` must be unique). `scenarios/refund_timeout.yaml`:
 
 ```yaml
-id: refund.happy            # scenario identity
-version: 1                  # bump when assertions change; the key is id@version
-risk_tier: normal           # critical | high | normal
-source: synthetic           # free text, for provenance
-slices: [refund]            # free-form tags
-fixture:
-  customers: [{id: C-2, name: Grace Hopper}]
-  orders: [{id: ORD-021, customer_id: C-2, amount_cents: 1250}]
-  approval_limit_cents: 50000   # approvals above this are denied (default 50000)
-input:                      # sent to the agent as-is (native: in InvokeRequest.input)
-  message: "Can I get a refund for ORD-021?"
-faults:                     # optional
-  - {tool: issue_refund, when: first_call, action: timeout_after_commit}
+id: refund.timeout            # with version, forms the scenario key refund.timeout@1
+version: 1
+risk_tier: critical           # critical | high | normal
+slices: [refund, timeout]     # free-form labels
+fixture:                      # seed for the isolated environment
+  customers: [{id: C-1, name: Ada Lovelace}]
+  orders: [{id: ORD-014, customer_id: C-1, amount_cents: 4999}]
+  approval_limit_cents: 50000 # default 50000; approvals above it are denied
+input:                        # sent to the agent as `input`
+  message: "Please refund order ORD-014"
+faults:
+  - {tool: issue_refund, when: first_call, action: timeout_after_commit}   # boundary defaults to fixture
 assertions:
   - type: sql
-    description: one refund for the full order amount   # optional label
-    query: "SELECT COUNT(*) FROM refunds WHERE order_id = 'ORD-021' AND amount_cents = 1250"
+    description: exactly one refund for ORD-014
+    query: "SELECT COUNT(*) FROM refunds WHERE order_id = 'ORD-014'"
     equals: 1
-    critical: true          # a failed critical check blocks the release
-  - type: output_matches
-    pattern: "refund"       # case-insensitive regex on the output text
-budget:
-  max_tool_calls: 6
-  max_latency_ms: 30000
-  max_cost_usd: 0.50        # needs usage.cost_usd from the adapter, else unsupported
+    critical: true
+  - {type: tool_order, before: issue_refund, requires: request_approval, critical: true}
+  - {type: forbidden_tool, name: delete_customer, critical: true}
+  - {type: event_present, event: tool_failed, name: issue_refund, critical: true}
+  - {type: output_matches, pattern: "refund"}   # non-critical sanity check
+budget: {max_tool_calls: 12, max_latency_ms: 30000}
 ```
 
-Assertion types:
+Environment tables: `customers`, `orders`, `approvals`, `refunds` (and `ledger`). Seed rows accept only the columns `customers(id, name)` and `orders(id, customer_id, amount_cents)`.
 
-| Type | Fields | Passes when |
+| Assertion | Checks | Notes |
 |---|---|---|
-| `sql` | `query`, `equals` | Read-only query over final state returns `equals`. A single cell is compared as a scalar, otherwise rows are compared. |
-| `tool_order` | `before`, `requires` | `requires` succeeds (2xx) in the ledger before the first `before` call, or `before` is never called. |
-| `forbidden_tool` | `name` | The tool is never called. |
-| `event_present` | `event`, `name?` | The adapter reports the event (native mode only; otherwise unsupported). |
-| `output_matches` | `pattern` | The output text matches the regex. |
+| `sql` (`query`, `equals`) | Query result against the final environment state | Postgres, read-only transaction, scoped to the trial schema, 5 s statement timeout. A single-cell result is compared as a scalar, otherwise as a list of rows |
+| `tool_order` (`before`, `requires`) | `requires` returned status < 400 in the ledger before the first `before` call | Passes if `before` is never called |
+| `forbidden_tool` (`name`) | The tool never appears in the ledger | |
+| `event_present` (`event`, optional `name`) | A matching event in the agent's events | `unsupported` unless `observe: native_events` |
+| `output_matches` (`pattern`) | Case-insensitive regex search on the output | Wording varies by model; keep non-critical |
 
-Every assertion accepts `critical` and `description`. A trial fails if any assertion fails, including non-critical ones. Budget checks are non-critical.
+Every assertion takes `critical` (default false) and `description`. A grader that raises is reported as `unsupported`, never as an agent result. `budget` (`max_tool_calls`, `max_latency_ms`, `max_cost_usd`) adds non-critical checks; a limit the adapter cannot measure (e.g. cost without `usage.cost_usd`) is `unsupported`. A trial is `failed` if any assertion (critical or not) fails.
 
-Faults (`faults:`) are injected at the fixture boundary:
+Faults: `{tool, when, action, boundary}`.
+- `tool`: `get_order`, `request_approval`, `issue_refund`, `get_refunds`, `delete_customer`.
+- `when`: `first_call` (default), `always`, or an integer for the nth call (1-based) of that tool.
+- `action`: `timeout_after_commit` (the side effect happens, the caller sees a failure: HTTP 504 at the fixture) or `error_before_commit` (no side effect: HTTP 503).
+- `boundary`: `fixture` (default; applied by the environment, works for every harness) or `harness` (sent in `tool_faults` and applied by the adapter; needs `intercept_tools: declared_only`).
 
-- `tool`: the fixture endpoint name, such as `issue_refund`, `request_approval`, `get_order`, or `delete_customer`.
-- `when`: `first_call`, `always`, or `n` (an integer, 1-based call count).
-- `action`: `timeout_after_commit` (the write happens, but the caller gets 504) or `error_before_commit` (the caller gets 503 and nothing is written).
+## Fork / counterfactual
+
+Resume a stored trial from one of its checkpoints, in an environment restored to that point:
+
+```bash
+uv run agentlab fork <trial_id> --checkpoint <checkpoint_id> [--target NAME] [--faults none|scenario]
+```
+
+- `trial_id` is `<experiment>:<target>:<scenario>@<version>:<repeat>`, shown in the console. Checkpoint ids are in the trial's `checkpoint_saved` events (`data.checkpoint_id`).
+- `--faults none` (default) reruns without the scenario's faults (the counterfactual); `scenario` keeps them. `--target` defaults to the source trial's target and must declare `fork` and `resume`.
+- Restore: the runner counts the environment calls that happened before the checkpoint in the source events (each `tool_completed` / `tool_failed` event, excluding harness-injected failures marked `committed: false`), takes that prefix of the stored ledger, creates a fresh schema and replays the committed calls. The agent receives `resume_from` and continues, and the fork is graded like any trial against the same scenario.
+- Requirements: the adapter emits `checkpoint_saved` events, emits exactly one tool event per environment call, and can resume from `{trial_id, checkpoint_id}`.
+- LangGraph example (`examples/langgraph_agent/`): `thread_id` is the trial id; each streamed LangGraph checkpoint becomes a `checkpoint_saved` event; on `resume_from` the graph continues that thread from that checkpoint with no new input. Its checkpoints live in an in-memory saver, so the agent process must stay up between the original run and the fork.
 
 ## CLI reference
 
-```bash
-uv run agentlab test scenarios --candidate ts-fixed --baseline ts-buggy --repeats 3
+```
+agentlab test <suite> --candidate NAME [--baseline NAME] [--max-regression 0.0] [run flags]
+agentlab fork <trial_id> --checkpoint ID [--target NAME] [--faults none|scenario] [run flags]
+agentlab conformance NAME... [--targets targets.yaml]
+agentlab serve   [--port 8800] [--bind 127.0.0.1] [--database-url URL]   # web console + JSON API
+agentlab fixture [--port 8900] [--bind 127.0.0.1] [--database-url URL]   # refund environment standalone
+agentlab schema  [--out protocol]
+agentlab import-otel FILE                                                # print normalized events as JSON
 ```
 
-| Command | Key flags | Purpose |
-|---|---|---|
-| `test <suite>` | `--candidate` (required), `--baseline`, `--repeats N`, `--max-regression 0-1`, `--deadline-ms`, `--targets`, `--fixture-port` (8900), `--fixture-bind` (127.0.0.1), `--fixture-url`, `--db`, `--report-dir` | Run a suite, gate the candidate, write an HTML report |
-| `conformance <names...>` | `--targets` | Check that targets speak the protocol |
-| `fixture` | `--port` (8900), `--bind` | Serve the reference refund environment standalone (`POST /admin/reset`, `GET /admin/state`) |
-| `schema` | `--out` (protocol) | Write protocol JSON Schemas |
-| `import-otel <file>` | | Normalize an OTLP/JSON trace to events and print JSON (observe-only) |
+Run flags (`test`, `fork`): `--targets` (default `targets.yaml`), `--database-url`, `--repeats` (default 1), `--concurrency` (default 4), `--deadline-ms` (default 120000), `--fixture-port` (8900), `--fixture-bind` (127.0.0.1), `--fixture-url`, `--report-dir` (default `.agentlab/reports`). `--max-regression` is the allowed pass-rate drop vs the baseline (0-1).
 
-Exit codes for `test`: `0` PASS, `1` BLOCK, `2` INSUFFICIENT_EVIDENCE, `3` config or usage error (unknown target, invalid YAML, missing file). Usage errors (missing flag, `--repeats 0`) also exit `3`. An assertion that crashes (for example, SQL that tries to write) is recorded as `unsupported` with `grader error: ...`; on a critical check that yields INSUFFICIENT_EVIDENCE, never a pass or a block.
+| Variable | Meaning |
+|---|---|
+| `AGENTLAB_DATABASE_URL` | Postgres URL (required unless `--database-url`) |
+| `AGENTLAB_FIXTURE_PORT` | Default for `--fixture-port` (8900) |
+| `AGENTLAB_FIXTURE_BIND` | Default for `--fixture-bind` (127.0.0.1) |
+| `AGENTLAB_FIXTURE_URL` | Fixture base URL as the agents see it (default `http://127.0.0.1:<port>`) |
+| `AGENTLAB_CONCURRENCY` | Default for `--concurrency` (4) |
+| `OPENROUTER_API_KEY` | Used by the example agents, not by AgentLab itself |
 
-GitHub Actions gate (start your agent in an earlier step):
+Exit codes: `0` PASS, `1` BLOCK (`conformance` also uses 1 for a failed target), `2` INSUFFICIENT_EVIDENCE, `3` usage, config or infrastructure error (argparse errors are mapped to 3, so a typo never reads as 2).
+
+GitHub Actions (mirrors `.github/workflows/ci.yml` for setup; the gate step is yours):
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: astral-sh/setup-uv@v6
-- run: uv run agentlab test scenarios --candidate my-agent --targets targets.yaml
+name: agent-gate
+on: [pull_request]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: agentlab, POSTGRES_PASSWORD: agentlab, POSTGRES_DB: agentlab}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U agentlab" --health-interval 2s --health-retries 30
+    env:
+      AGENTLAB_DATABASE_URL: postgresql://agentlab:agentlab@127.0.0.1:5432/agentlab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      # start your agent here, listed in targets.yaml
+      - run: uv run agentlab test scenarios --candidate my-agent --baseline my-agent-main --repeats 5
 ```
 
-Any non-zero exit fails the job, so only `PASS` (0) lets the release through.
+The CI workflow in this repo itself runs `ruff format --check`, `ruff check`, `ty check`, `pytest`, then `tsc --noEmit` for `packages/adapter-ts`, `examples/vercel_agent`, `examples/http_agent` and `node --test` in `packages/cli`.
 
-## Docker
-
-Use Docker if you don't want Python installed locally. The image has the CLI, the reference fixture, and the default `scenarios/` and `targets.yaml`.
+## Docker and Node CLI (no Python)
 
 ```bash
-docker build -t agentlab .
-docker run --rm agentlab --help
+docker build -t agentlab .                       # once, from the repo root
+npm i -g ./packages/cli                          # or call the script directly
+node packages/cli/bin/agentlab.mjs test scenarios --candidate my-agent --targets targets.yaml
 ```
 
-The baked-in `targets.yaml` points at `127.0.0.1`, which is the container itself inside Docker. To run a suite, use the host-agent setup below.
+The image (entrypoint `agentlab`, unprivileged user) contains the runner, `protocol/`, `scenarios/` and `targets.yaml`, but not the example agents, which run on the host. The wrapper runs it with the current directory mounted at `/work`, the fixture port published on host loopback only (and the console port for `serve`; set `AGENTLAB_PUBLISH_HOST` to widen, since both services are unauthenticated), `host.docker.internal` mapped to the host, and `serve` / `fixture` defaulting to `--bind 0.0.0.0` so published ports work. Details in `packages/cli/README.md`.
 
-The container runs as uid 10001. Anything it writes under `/app/.agentlab` (the database and reports) must be writable by that uid, or you should point `--db` and `--report-dir` at a writable mount.
+Because the runner is inside a container:
+- `AGENTLAB_DATABASE_URL` is passed through by name; a `localhost` / `127.0.0.1` / `[::1]` host in it is rewritten to `host.docker.internal`.
+- Agents on the host must bind `HOST=0.0.0.0` to be reachable from the container, and `targets.yaml` must use `http://host.docker.internal:<port>` (which is in the sample `allowed_hosts`).
+- Agents must reach the fixture at the published port; `AGENTLAB_FIXTURE_URL` defaults to `http://127.0.0.1:<fixture port>/`, which suits agents on the host.
 
-To test agents on your host, bind the fixture to all interfaces and give the container a URL that reaches your host:
+## Development
 
 ```bash
-docker run --rm \
-  -v "$PWD/targets.yaml:/app/targets.yaml" \
-  agentlab test scenarios --candidate ts-fixed --targets targets.yaml \
-  --fixture-bind 0.0.0.0 --fixture-url http://host.docker.internal:8900
+uv run ruff check
+uv run ruff format
+uv run ty check
+uv run pytest                                       # Testcontainers starts Postgres (needs Docker)
+AGENTLAB_TEST_DATABASE_URL=postgresql://... uv run pytest   # reuse an existing Postgres instead
+doppler run -p infra -c prd -- uv run pytest -m live        # real LLM agents; costs money
+(cd packages/cli && node --test)
+(cd packages/adapter-ts && bun install && bunx tsc --noEmit)   # likewise in examples/vercel_agent, examples/http_agent
 ```
 
-Agents on the host must:
-
-- Bind to `0.0.0.0`. The Python adapter takes `serve(..., host="0.0.0.0")`. All reference agents read `HOST` (default `127.0.0.1`); set `HOST=0.0.0.0`.
-- Be listed in `targets.yaml` as `http://host.docker.internal:<port>`, and `host.docker.internal` must be in `allowed_hosts`. On Linux, add `--add-host=host.docker.internal:host-gateway`.
-
-Binding to `0.0.0.0` exposes the fixture and your agents to the local network. Use this only on a trusted network.
+`pytest` deselects `live` tests by default (`-m 'not live'`). Live tests need `OPENROUTER_API_KEY` and assert system guarantees (every trial graded with evidence, capability limits enforced, forks resume in a restored environment), not any model's pass rate. Dependency groups: `dev` (pytest, ruff, testcontainers, ty) and `agents` (langgraph, langchain-openai, openai), both installed by default by `uv sync`; the Docker image installs neither.
 
 ## Gate rules
 
-From `src/agentlab/gate.py`. Only candidate trials count toward these rules. Baseline trials affect stats and pairing only.
+`agentlab test` decides on the candidate's trials (`src/agentlab/gate.py`). Errors never pass.
 
-1. **BLOCK** if any candidate trial has a failed critical check. Also BLOCK if a baseline is given, the candidate pass rate is below the baseline pass rate minus `--max-regression`, and at least one paired trial regressed (passed in the baseline, failed in the candidate).
-2. Otherwise **INSUFFICIENT_EVIDENCE** if any of these hold:
-   - A candidate trial did not complete (adapter error, timeout, unsafe target, or a trial that never finished grading). Such trials are excluded from pass rates.
-   - A scenario has no graded candidate trial.
-   - A critical check is unsupported by the harness (for example, `event_present` against a black-box target).
-3. Otherwise **PASS**.
-
-Non-critical unsupported checks are listed as coverage gaps and do not change the decision.
+- `BLOCK` if any critical assertion failed in any trial (listed by scenario and description), or if a baseline is given and the candidate's pass rate fell below the baseline's by more than `--max-regression`, with at least one paired regression (a scenario+repeat that passed on the baseline and failed on the candidate).
+- Else `INSUFFICIENT_EVIDENCE` if any trial did not complete (error or still `running`; excluded from rates), if a scenario has no graded trial for the candidate, or if a critical assertion was `unsupported` (e.g. a critical `event_present` on a black-box target).
+- Else `PASS`.
+- Non-critical `unsupported` checks are reported as coverage gaps and do not affect the decision.
+- Reported per target: pass rate with a 95% Wilson interval, errors, p50/p95 latency, total cost, and paired regressions/fixes vs the baseline.
+- Same scenario and repeat across targets start from identical seeded state, so comparisons are paired.
 
 ## Safety
 
-- **Allowed hosts.** Each target's host must be in `allowed_hosts` in `targets.yaml`. The default is `127.0.0.1`, `localhost`, and `::1`. A target outside the list is recorded as `UNSAFE_TARGET` and its trials do not complete. This leads to `INSUFFICIENT_EVIDENCE`, not a pass.
-- **Read-only assertions.** `sql` assertions run with `PRAGMA query_only = ON`, so writes are rejected. See the exit-code caveat above.
-- **Redaction.** Output, events, and ledger entries are redacted before they are stored. Keys matching `secret`, `token`, `password`, `authorization`, or `api_key` are replaced with `[REDACTED]`. Grading uses the unredacted values.
-- **Errors are not passes.** Adapter failures and timeouts are stored as errors and excluded from pass rates. They lead to `INSUFFICIENT_EVIDENCE`.
+- Only hosts in `allowed_hosts` (in `targets.yaml`; default loopback only) may be targeted. Others fail with `UNSAFE_TARGET`, because scenarios mutate state.
+- Assertion SQL runs in a `READ ONLY` transaction with a 5 s `statement_timeout` and `search_path` set to the trial schema. It is written by the test author and is not sandboxed against hostile scenarios; do not run untrusted scenario files.
+- Environment ids must match `^[a-z0-9_]{1,48}$` (they become schema names).
+- Everything is redacted before it is written to Postgres: secret-named keys (token, secret, password, authorization, api key, cookie), secret-named URL query parameters, bearer tokens, URL credentials, and common API key formats.
+- Tool allow-list: `examples/refund_api.py` exposes only `get_order`, `request_approval`, `issue_refund`, `get_refunds` to the LLM. `delete_customer` exists in the environment only so `forbidden_tool` can catch a harness that reaches it.
+- Adapter/transport failures and malformed responses become typed errors, which the gate treats as missing evidence, never a pass.
+- The console and fixture have no authentication; keep them bound to localhost (the default) and do not expose them. The Compose Postgres uses a local-dev password and is published on `127.0.0.1` only.
 
 ## Current limits
 
-- One in-memory fixture, so trials run sequentially.
-- Only the reference refund fixture exists.
-- No in-harness tool interception. Faults are injected at the fixture boundary only.
-- No checkpoint or replay.
-- The reference agents are deterministic stand-ins, not LLMs.
-- The only UI is the static HTML report. There is no web console.
-- Generic HTTP targets have no field mapping.
-- The Node CLI is not built. Use Docker instead.
-
-## Testing
-
-```bash
-uv run pytest
-```
+- One reference environment (customers, orders, approvals, refunds). Other domains need a new fixture service.
+- Fork needs adapters that emit `checkpoint_saved` events and exactly one tool event per environment call; restore replays that ledger prefix.
+- Generic HTTP targets have no request/response field mapping, no events, and share one environment, so their trials run one at a time.
+- LLM results are stochastic: use `--repeats` and read the confidence intervals; a single run proves little.
+- No authentication on the console.
+- Market fit is unvalidated.
+- The name "AgentLab" is used by other projects; it may need to change.

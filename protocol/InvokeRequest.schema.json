@@ -17,11 +17,80 @@
       ],
       "title": "Environment",
       "type": "object"
+    },
+    "FaultAction": {
+      "enum": [
+        "timeout_after_commit",
+        "error_before_commit"
+      ],
+      "type": "string"
+    },
+    "FaultWhen": {
+      "anyOf": [
+        {
+          "enum": [
+            "first_call",
+            "always"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "JsonObject": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ResumeFrom": {
+      "description": "Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork.",
+      "properties": {
+        "trial_id": {
+          "title": "Trial Id",
+          "type": "string"
+        },
+        "checkpoint_id": {
+          "title": "Checkpoint Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trial_id",
+        "checkpoint_id"
+      ],
+      "title": "ResumeFrom",
+      "type": "object"
+    },
+    "ToolFault": {
+      "description": "A scripted tool failure. Applied by the fixture service, or by the harness when sent in `tool_faults`.",
+      "properties": {
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "when": {
+          "$ref": "#/$defs/FaultWhen",
+          "default": "first_call"
+        },
+        "action": {
+          "$ref": "#/$defs/FaultAction"
+        }
+      },
+      "required": [
+        "tool",
+        "action"
+      ],
+      "title": "ToolFault",
+      "type": "object"
     }
   },
   "properties": {
     "protocol_version": {
-      "default": "0.2",
+      "default": "0.3",
       "title": "Protocol Version",
       "type": "string"
     },
@@ -45,9 +114,7 @@
       "type": "string"
     },
     "input": {
-      "additionalProperties": true,
-      "title": "Input",
-      "type": "object"
+      "$ref": "#/$defs/JsonObject"
     },
     "deadline_ms": {
       "default": 60000,
@@ -65,6 +132,25 @@
       ],
       "default": null,
       "title": "Traceparent"
+    },
+    "tool_faults": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ToolFault"
+      },
+      "title": "Tool Faults",
+      "type": "array"
+    },
+    "resume_from": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResumeFrom"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

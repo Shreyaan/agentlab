@@ -1,6 +1,6 @@
 [project]
 name = "agentlab"
-version = "0.1.0"
+version = "0.3.0"
 description = "Language-agnostic reliability testing for AI agents: state-grounded evals and release gates"
 readme = "README.md"
 authors = [
@@ -10,6 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.161.0",
     "httpx>=0.28.1",
+    "psycopg[binary,pool]>=3.3.6",
     "pydantic>=2.14.1",
     "pyyaml>=6.0.3",
     "uvicorn>=0.54.0",
@@ -23,9 +24,52 @@ requires = ["uv_build>=0.8.24,<0.9.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
+agents = [
+    "langchain-openai>=1.7.2",
+    "langgraph>=1.2.16",
+    "openai>=3.36.1",
+]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.17.2",
+    "testcontainers[postgres]>=4.15.0",
+    "ty>=0.0.91",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not live'"  # live tests call real LLMs (cost money): run with `pytest -m live`
+markers = ["live: end-to-end against real LLM agents; needs OPENROUTER_API_KEY"]
+
+[tool.uv]
+default-groups = ["dev", "agents"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ANN", "PT", "RET", "TC", "PL", "S", "N", "BLE", "A", "C4", "PIE", "PTH", "PERF", "FBT"]
+ignore = [
+    "PLR2004",  # magic values in tests/HTTP status checks read fine
+    "PLR0913",  # explicit args beat config bags for small functions
+    "S101",     # asserts are the test idiom
+    "S608",     # SQL here is test-author assertions or fixed table names, never user input over a network
+    "TC001", "TC002", "TC003",  # pydantic needs runtime types
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "PLC0415", "S"]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["src", "tests", "examples"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
