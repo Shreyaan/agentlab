@@ -195,3 +195,21 @@ def test_redaction_is_linear_on_hostile_input():
     started = time.perf_counter()
     redact("?" * 50_000 + "token" + "&" * 50_000)
     assert time.perf_counter() - started < 0.5
+
+
+@pytest.mark.parametrize("raw, leaked", [
+    ("http://h/x?a=1?token=s3cr3t", "s3cr3t"),          # benign value must not swallow the next param
+    ("http://h/x?api%5Fkey=s3cr3t&p=2", "s3cr3t"),      # URL-encoded name
+    ("http://h/x?auth[token]=s3cr3t#frag", "s3cr3t"),   # bracketed name
+    ("http://h/x?q=1&Signature=s3cr3t", "s3cr3t"),
+])
+def test_query_secrets_redacted(raw, leaked):
+    from agentlab.store import redact
+
+    assert leaked not in redact(raw)
+
+
+def test_benign_query_params_untouched():
+    from agentlab.store import redact
+
+    assert redact("http://h/x?page=2&sort=asc#top") == "http://h/x?page=2&sort=asc#top"

@@ -11,8 +11,8 @@ SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie
 SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.I)
 SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
     (re.compile(r"(://)[^/\s@]+@"), r"\1[REDACTED]@"),
-    # Bounded name charset (no `?`/`&`) keeps this linear on untrusted text; the secret-word test runs in the callback.
-    (re.compile(r"([?&]([\w.-]{1,64})=)([^&\s\"']+)"),
+    # Name/value classes exclude delimiters (? & # =) and are bounded, so this stays linear and can't swallow a later param.
+    (re.compile(r"([?&]([^=&\s?#]{1,256})=)([^&\s\"'?#]+)"),
      lambda m: m[1] + "[REDACTED]" if SECRET_PARAM.search(m[2]) else m[0]),
     (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.I), r"\1[REDACTED]"),
     (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
