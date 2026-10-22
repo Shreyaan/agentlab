@@ -1,7 +1,7 @@
 """Operator web console: JSON API under /v1 plus the built single-page frontend."""
 
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -10,7 +10,9 @@ from typing import Annotated, Any
 
 import yaml
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from pydantic import ValidationError
 
 from agentlab import report
 from agentlab.api_models import (
@@ -29,8 +31,10 @@ from agentlab.models import Trial
 from agentlab.protocol import PROTOCOL_VERSION, AgentLabError, ErrorCode
 from agentlab.runner import Runner
 from agentlab.scenario import Scenario, load_suite
+from agentlab.store import redact
 
 DIST_DIR = Path(__file__).parent / "console_dist"
+LOCAL_HOSTS = ("localhost", "127.0.0.1")
 PROBE_TIMEOUT_S = 3
 NOT_BUILT = (
     "<!doctype html><title>AgentLab console</title><p>The console frontend is not built. "
@@ -62,11 +66,11 @@ class Console:
         return targets[name]
 
     def probe(self, target: Target) -> TargetHealth:
-        info = {"name": target.name, "mode": target.mode, "url": target.url, "version": target.version}
+        info = {"name": target.name, "mode": target.mode, "url": _redacted(target.url), "version": target.version}
         try:
             manifest = HarnessClient(target, self.runner.allowed_hosts).manifest(timeout=PROBE_TIMEOUT_S)
         except AgentLabError as exc:
-            return TargetHealth(**info, reachable=False, manifest=target.manifest, error=exc.message)
+            return TargetHealth(**info, reachable=False, manifest=target.manifest, error=_redacted(exc.message))
         return TargetHealth(**info, reachable=True, manifest=manifest)
 
     def summary(self, exp_id: str) -> ExperimentSummary:
@@ -160,7 +164,19 @@ def _config[T](load: Callable[[], T], path: str) -> T:
     try:
         return load()
     except (OSError, ValueError, yaml.YAMLError) as exc:  # pydantic ValidationError is a ValueError
-        raise HTTPException(503, f"cannot load {path}: {exc}") from exc
+        raise HTTPException(503, f"cannot load {path}: {_describe(exc)}") from exc
+
+
+def _describe(exc: Exception) -> str:
+    """Error summary without echoing config values (which may hold URLs with credentials)."""
+    if isinstance(exc, ValidationError):
+        errors = exc.errors(include_input=False, include_url=False)
+        return "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in errors)
+    return f"{type(exc).__name__}: {_redacted(str(exc))}"
+
+
+def _redacted(text: str | None) -> str | None:
+    return None if text is None else str(redact(text))
 
 
 def require_csrf_header(x_agentlab_request: Annotated[str, Header()] = "") -> None:
@@ -168,8 +184,10 @@ def require_csrf_header(x_agentlab_request: Annotated[str, Header()] = "") -> No
         raise HTTPException(403, "missing X-AgentLab-Request: 1 header")
 
 
-def create_console(console: Console, dist_dir: Path = DIST_DIR) -> FastAPI:
+def create_console(console: Console, dist_dir: Path = DIST_DIR, allowed_hosts: Sequence[str] = LOCAL_HOSTS) -> FastAPI:
     app = FastAPI(title="AgentLab console")  # no CORS middleware: the console is same-origin only
+    # Rejecting unknown Host headers defeats DNS rebinding, which would otherwise make a hostile site same-origin.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     app.include_router(console.router())
     serve_frontend(app, dist_dir)
     return app

@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from agentlab import report
 from agentlab.client import HarnessClient, load_targets
-from agentlab.console import Console, create_console, openapi_schema
+from agentlab.console import LOCAL_HOSTS, Console, create_console, openapi_schema
 from agentlab.db import database_url, open_pool
 from agentlab.fixture import SHARED_ENV, FixturePool, Seed, create_app, serve_in_thread
 from agentlab.jobs import Jobs
@@ -179,7 +179,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
         jobs = Jobs(runner)
         try:
             app = create_console(
-                Console(runner=runner, jobs=jobs, targets_path=a.targets, suite_path=a.suite, token=a.token)
+                Console(runner=runner, jobs=jobs, targets_path=a.targets, suite_path=a.suite, token=a.token),
+                allowed_hosts=[*LOCAL_HOSTS, *a.allowed_host],
             )
             uvicorn.run(app, host=a.bind, port=a.port, log_level="info")
         finally:
@@ -277,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--bind", default="127.0.0.1")
     sv.add_argument("--suite", default="scenarios", help="scenario YAML file or directory")
     sv.add_argument("--token", default=os.environ.get("AGENTLAB_CONSOLE_TOKEN"), help="bearer token for /v1")
+    sv.add_argument(
+        "--allowed-host",
+        action="append",
+        default=[h for h in os.environ.get("AGENTLAB_CONSOLE_HOSTS", "").split(",") if h],
+        help="extra Host header value the console accepts (repeatable; default localhost and 127.0.0.1)",
+    )
     sv.add_argument(
         "--allow-no-token",
         action="store_true",

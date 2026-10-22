@@ -18,6 +18,8 @@ from agentlab.scenario import load_suite
 
 from .conftest import ROOT, free_port
 
+TEST_HOSTS = ["testserver"]  # TestClient's Host header
+
 CSRF = {"X-AgentLab-Request": "1"}
 SUITE = load_suite(ROOT / "scenarios")
 
@@ -43,7 +45,7 @@ def paths(tmp_path: Path) -> tuple[str, str]:
 
 def make_client(runner: Runner, paths: tuple[str, str], token: str | None = None) -> TestClient:
     console = Console(runner=runner, jobs=Jobs(runner), targets_path=paths[0], suite_path=paths[1], token=token)
-    return TestClient(create_console(console, dist_dir=Path("missing")))
+    return TestClient(create_console(console, dist_dir=Path("missing"), allowed_hosts=TEST_HOSTS))
 
 
 @pytest.fixture
@@ -149,7 +151,7 @@ def test_frontend_not_built_and_built(runner: Runner, paths: tuple[str, str], tm
     (dist / "index.html").write_text("<p>spa</p>")
     (dist / "app.js").write_text("1")
     console = Console(runner=runner, jobs=Jobs(runner), targets_path=paths[0], suite_path=paths[1], token=None)
-    built = TestClient(create_console(console, dist_dir=dist))
+    built = TestClient(create_console(console, dist_dir=dist, allowed_hosts=TEST_HOSTS))
     assert built.get("/app.js").text == "1"
     assert built.get("/some/route").text == "<p>spa</p>"
     assert built.get("/../../etc/passwd").text == "<p>spa</p>"
@@ -172,9 +174,42 @@ def test_broken_config_is_reported_not_500(tmp_path: Path, runner: Runner) -> No
     console = Console(
         runner=runner, jobs=jobs, targets_path=str(tmp_path / "missing.yaml"), suite_path=str(tmp_path), token=None
     )
-    with TestClient(create_console(console)) as client:
+    with TestClient(create_console(console, allowed_hosts=TEST_HOSTS)) as client:
         for path in ("/v1/targets", "/v1/scenarios"):
             r = client.get(path)
             assert r.status_code == 503
             assert "cannot load" in r.json()["detail"]
     jobs.shutdown()
+
+
+def test_unknown_host_header_is_rejected(runner: Runner) -> None:
+    # DNS rebinding: a hostile page resolving to 127.0.0.1 still sends its own Host header.
+    console = Console(runner=runner, jobs=Jobs(runner), targets_path="targets.yaml", suite_path="scenarios", token=None)
+    client = TestClient(create_console(console, dist_dir=Path("missing")))  # default: localhost hosts only
+    assert client.get("/v1/info", headers={"host": "evil.example"}).status_code == 400
+    assert client.get("/v1/info", headers={"host": "127.0.0.1:8800"}).status_code == 200
+
+
+def test_target_health_and_config_errors_do_not_leak_secrets(tmp_path: Path, runner: Runner) -> None:
+    targets = tmp_path / "targets.yaml"
+    targets.write_text(
+        yaml.safe_dump(
+            {
+                "allowed_hosts": ["127.0.0.1"],
+                "targets": {
+                    "t": {"mode": "native", "url": f"http://user:hunter2@127.0.0.1:{free_port()}/?api_key=s3cr3t"}
+                },
+            }
+        )
+    )
+    console = Console(runner=runner, jobs=Jobs(runner), targets_path=str(targets), suite_path="scenarios", token=None)
+    client = TestClient(create_console(console, dist_dir=Path("missing"), allowed_hosts=TEST_HOSTS))
+    body = client.get("/v1/targets").text
+    assert "hunter2" not in body
+    assert "s3cr3t" not in body
+
+    targets.write_text(yaml.safe_dump({"targets": {"t": {"mode": "bogus", "url": "http://u:hunter2@h/"}}}))
+    r = client.get("/v1/targets")
+    assert r.status_code == 503
+    assert "targets.t.mode" in r.json()["detail"]
+    assert "hunter2" not in r.text
