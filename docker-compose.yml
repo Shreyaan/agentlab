@@ -19,6 +19,10 @@ services:
     environment:
       AGENTLAB_DATABASE_URL: postgresql://agentlab:agentlab@postgres:5432/agentlab
     ports: ["127.0.0.1:8800:8800"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8800/v1/info')"]
+      interval: 3s
+      retries: 20
     depends_on:
       postgres: {condition: service_healthy}
 
