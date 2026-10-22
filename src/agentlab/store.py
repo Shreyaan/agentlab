@@ -9,14 +9,26 @@ from pathlib import Path
 
 SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie", re.I)
 SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.I)
+QUERY_PARAM = re.compile(r"[?&]([^=&\s?#]{1,256})=")  # bounded, delimiter-free name: linear on hostile text
+VALUE_END = re.compile(r"[&\s\"']")
 SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
     (re.compile(r"(://)[^/\s@]+@"), r"\1[REDACTED]@"),
-    # Name/value classes exclude delimiters (? & # =) and are bounded, so this stays linear and can't swallow a later param.
-    (re.compile(r"([?&]([^=&\s?#]{1,256})=)([^&\s\"'?#]+)"),
-     lambda m: m[1] + "[REDACTED]" if SECRET_PARAM.search(m[2]) else m[0]),
     (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.I), r"\1[REDACTED]"),
     (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
 ]
+
+
+def redact_query_params(text: str) -> str:
+    """Secret-named params are redacted up to the next & / whitespace / quote (values may contain ? or #).
+    Benign params are skipped without consuming their value, so a param embedded in it is still found."""
+    out, pos = [], 0
+    for m in QUERY_PARAM.finditer(text):
+        if m.start() < pos or not SECRET_PARAM.search(m[1]):
+            continue
+        end = VALUE_END.search(text, m.end())
+        out += [text[pos:m.end()], "[REDACTED]"]
+        pos = end.start() if end else len(text)
+    return "".join(out) + text[pos:]
 
 
 def redact(value):
@@ -26,6 +38,7 @@ def redact(value):
     if isinstance(value, list):
         return [redact(v) for v in value]
     if isinstance(value, str):
+        value = redact_query_params(value)
         for pattern, repl in SECRET_VALUE:
             value = pattern.sub(repl, value)
     return value

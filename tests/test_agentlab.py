@@ -202,6 +202,9 @@ def test_redaction_is_linear_on_hostile_input():
     ("http://h/x?api%5Fkey=s3cr3t&p=2", "s3cr3t"),      # URL-encoded name
     ("http://h/x?auth[token]=s3cr3t#frag", "s3cr3t"),   # bracketed name
     ("http://h/x?q=1&Signature=s3cr3t", "s3cr3t"),
+    ("http://h/x?password=#s3cr3t", "s3cr3t"),          # secret values may contain # or ?
+    ("http://h/x?token=?s3cr3t", "s3cr3t"),
+    ("http://h/x?password=a#s3cr3t", "s3cr3t"),
 ])
 def test_query_secrets_redacted(raw, leaked):
     from agentlab.store import redact
