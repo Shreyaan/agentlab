@@ -207,6 +207,13 @@ class Decision(_Check):
             and (unknown := set(self.pass_rule.choices) - set(self.question.criteria))
         ):
             raise ValueError(f"choices not in the question's criteria: {sorted(unknown)}")
+        # Measured live: a chat judge (gpt-4.1-nano) followed an instruction injected into the agent's reply and
+        # passed a lie at P=1.0, while decision models did not. So a chat judge may only sit on a critical check's
+        # jury next to a decision model, where its vote alone can never pass anything.
+        chat = any(j.api == "chat" for j in self.judges)
+        decision_model = any(j.api == "decisions" for j in self.judges)
+        if self.critical and chat and not (self.strategy == "jury" and decision_model):
+            raise ValueError("critical checks may use chat judges only in a jury that includes a decision model")
         return self
 
     @property

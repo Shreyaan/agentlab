@@ -55,3 +55,60 @@ export type ExperimentData = NonNullable<ReturnType<typeof useExperiment>["data"
 export type Decision = NonNullable<ExperimentData["experiment"]["decision"]>;
 export type TargetStats = Decision["stats"][string];
 export type Paired = NonNullable<Decision["paired"]>;
+
+// --- Builders ---
+
+export const useBuilder = () =>
+  useQuery({ queryKey: ["builder"], queryFn: async () => unwrap(await api.GET("/v1/builder")), staleTime: Infinity });
+
+export const useJudges = () =>
+  useQuery({ queryKey: ["judges"], queryFn: async () => unwrap(await api.GET("/v1/judges")) });
+
+/** Live validation: the caller passes an already-debounced draft. Errors are part of the result, not thrown. */
+export const useValidateScenario = (scenario: Schema["Scenario-Input"]) =>
+  useQuery({
+    queryKey: ["validate", scenario],
+    queryFn: async () => unwrap(await api.POST("/v1/scenarios/validate", { body: { scenario } })),
+    placeholderData: (prev) => prev,
+    retry: false,
+  });
+
+export const useSaveScenario = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (scenario: Schema["Scenario-Input"]) => unwrap(await api.POST("/v1/scenarios", { body: { scenario } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scenarios"] }),
+  });
+};
+
+export const useTestQuery = () =>
+  useMutation({
+    mutationFn: async (body: Schema["QueryTest"]) => unwrap(await api.POST("/v1/scenarios/test-query", { body })),
+  });
+
+export const useDryRun = () => useStartExperiment(async (body: Schema["DryRunRequest"]) => unwrap(await api.POST("/v1/scenarios/dry-run", { body })));
+
+export const useTestTarget = () =>
+  useMutation({
+    mutationFn: async (body: Schema["TargetDraft"]) => unwrap(await api.POST("/v1/targets/test", { body })),
+  });
+
+export const useSaveTarget = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (draft: Schema["TargetDraft"]) =>
+      unwrap(await api.PUT("/v1/targets/{name}", { params: { path: { name: draft.name } }, body: draft })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["targets"] }),
+  });
+};
+
+export const useDeleteTarget = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const result = await api.DELETE("/v1/targets/{name}", { params: { path: { name } } });
+      if (!result.response.ok) unwrap(result); // 204 has no body, so only failures are unwrapped
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["targets"] }),
+  });
+};

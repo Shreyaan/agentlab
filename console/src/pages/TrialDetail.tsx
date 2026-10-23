@@ -4,6 +4,7 @@ import { useExperiment, useTrial } from "../api/hooks";
 import { StatusBadge } from "../components/badges";
 import { canFork } from "../components/capabilities";
 import { ForkDialog } from "../components/ForkDialog";
+import { VerdictDetail, type Decision } from "../components/Verdict";
 import { Badge, Card, EmptyState, JsonBlock, Mono, Notice, PageHeader, QueryState, SectionTitle, type Tone } from "../components/ui";
 import { cost, count, json, ms } from "../lib/format";
 
@@ -42,7 +43,10 @@ function Summary({ trial }: { trial: Schema["Trial"] }) {
   );
 }
 
-function Assertions({ items }: { items: Schema["AssertionResult"][] }) {
+function Assertions({ items, scenario }: { items: Schema["AssertionResult"][]; scenario?: Schema["Scenario-Output"] }) {
+  // Results carry no index, so the decision definition (for score legends) is matched by its description.
+  const decisionFor = (r: Schema["AssertionResult"]): Decision | undefined =>
+    scenario?.assertions.find((a): a is Decision => a.type === "decision" && (a.description || a.question.instructions) === r.description);
   if (items.length === 0) return <EmptyState title="No assertions were graded" />;
   const ordered = [...items].sort((a, b) => Number(b.critical) - Number(a.critical));
   return (
@@ -56,6 +60,7 @@ function Assertions({ items }: { items: Schema["AssertionResult"][] }) {
               <span>{a.description}</span>
             </div>
             {a.detail && <p className="mt-0.5 break-words text-[12px] text-ink2">{a.detail}</p>}
+            {a.judge && <VerdictDetail judge={a.judge} decision={decisionFor(a)} />}
           </div>
         </li>
       ))}
@@ -214,7 +219,7 @@ function Detail({ trial }: { trial: Schema["Trial"] }) {
         </pre>
       </Panel>
       <Panel title="Assertions">
-        <Assertions items={record.assertions} />
+        <Assertions items={record.assertions} scenario={experiment.data?.experiment.meta.scenarios[trial.scenario]} />
       </Panel>
       <Panel title="State diff">
         <StateDiff diff={record.state_diff} />

@@ -11,6 +11,7 @@ const NAV = [
   { to: "/new", label: "New run" },
   { to: "/targets", label: "Targets" },
   { to: "/scenarios", label: "Scenarios" },
+  { to: "/judges", label: "Judges" },
 ];
 
 function TokenDialog() {

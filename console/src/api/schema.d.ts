@@ -21,6 +21,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/builder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Builder */
+        get: operations["builder_v1_builder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/judges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Judges */
+        get: operations["judges_v1_judges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/targets": {
         parameters: {
             query?: never;
@@ -38,6 +72,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/targets/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Target */
+        post: operations["test_target_v1_targets_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/targets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Target */
+        put: operations["put_target_v1_targets__name__put"];
+        post?: never;
+        /** Delete Target */
+        delete: operations["delete_target_v1_targets__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/scenarios": {
         parameters: {
             query?: never;
@@ -48,7 +117,62 @@ export interface paths {
         /** Scenarios */
         get: operations["scenarios_v1_scenarios_get"];
         put?: never;
-        post?: never;
+        /** Save Scenario */
+        post: operations["save_scenario_v1_scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Scenario
+         * @description Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422.
+         */
+        post: operations["validate_scenario_v1_scenarios_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/test-query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Query */
+        post: operations["test_query_v1_scenarios_test_query_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dry Run */
+        post: operations["dry_run_v1_scenarios_dry_run_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -150,7 +274,8 @@ export interface components {
             /** Experiment Id */
             experiment_id: string;
         };
-        Assertion: components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["OutputMatches"];
+        "Assertion-Input": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["Decision-Input"];
+        "Assertion-Output": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["agentlab__assertions__Decision"];
         /** AssertionResult */
         AssertionResult: {
             /** Type */
@@ -169,6 +294,7 @@ export interface components {
              * @default
              */
             detail: string;
+            judge?: components["schemas"]["JudgeVerdict"] | null;
         };
         /** Budget */
         Budget: {
@@ -178,6 +304,32 @@ export interface components {
             max_latency_ms?: number | null;
             /** Max Cost Usd */
             max_cost_usd?: number | null;
+        };
+        /**
+         * BuilderInfo
+         * @description Vocabulary for the editors' dropdowns.
+         */
+        BuilderInfo: {
+            /** Tools */
+            tools: string[];
+            /** Seed Columns */
+            seed_columns: {
+                [key: string]: string[];
+            };
+            /** Assertion Types */
+            assertion_types: string[];
+            /** Judge Models */
+            judge_models: string[];
+        };
+        /**
+         * Calibration
+         * @description Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy.
+         */
+        Calibration: {
+            /** Question */
+            question: components["schemas"]["ChoiceQuestion"] | components["schemas"]["NoulQuestion"];
+            /** Truth Sql */
+            truth_sql: string;
         };
         /** Capabilities */
         Capabilities: {
@@ -214,6 +366,25 @@ export interface components {
              */
             fork: boolean;
         };
+        /** ChoiceQuestion */
+        ChoiceQuestion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "choice";
+            /** Instructions */
+            instructions: string;
+            /** Criteria */
+            criteria: {
+                [key: string]: string;
+            };
+        };
+        /** ChoiceRule */
+        ChoiceRule: {
+            /** Choices */
+            choices: string[];
+        };
         /** ConsoleInfo */
         ConsoleInfo: {
             /** Version */
@@ -227,24 +398,60 @@ export interface components {
             /** Targets Path */
             targets_path: string;
         };
-        /** Decision */
-        Decision: {
-            status: components["schemas"]["GateStatus"];
-            /** Candidate */
-            candidate: string;
-            /** Baseline */
-            baseline: string | null;
-            /** Block Reasons */
-            block_reasons: string[];
-            /** Insufficient Reasons */
-            insufficient_reasons: string[];
-            /** Coverage Gaps */
-            coverage_gaps: string[];
-            /** Stats */
-            stats: {
-                [key: string]: components["schemas"]["TargetStats"];
-            };
-            paired: components["schemas"]["Paired"] | null;
+        /**
+         * Decision
+         * @description A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).
+         *
+         *     A critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason).
+         */
+        "Decision-Input": {
+            /**
+             * Critical
+             * @default false
+             */
+            critical: boolean;
+            /**
+             * Requires Faults
+             * @default false
+             */
+            requires_faults: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "decision";
+            question: components["schemas"]["Question"];
+            pass_rule: components["schemas"]["PassRule"];
+            /**
+             * Min Confidence
+             * @default 0.8
+             */
+            min_confidence: number;
+            /**
+             * Evidence
+             * @default [
+             *       "input",
+             *       "output",
+             *       "final_state"
+             *     ]
+             */
+            evidence: components["schemas"]["EvidenceKind"][];
+            /** Judges */
+            judges?: components["schemas"]["JudgeSpec"][];
+            /** @default cascade */
+            strategy: components["schemas"]["Strategy"];
+            calibration?: components["schemas"]["Calibration"] | null;
+        };
+        /** DryRunRequest */
+        DryRunRequest: {
+            scenario: components["schemas"]["Scenario-Input"];
+            /** Target */
+            target: string;
         };
         /**
          * ErrorCode
@@ -299,6 +506,8 @@ export interface components {
         };
         /** @enum {string} */
         EventType: "run_started" | "agent_step" | "model_call" | "tool_requested" | "tool_completed" | "tool_failed" | "approval_requested" | "retry_scheduled" | "checkpoint_saved" | "run_completed" | "run_failed";
+        /** @enum {string} */
+        EvidenceKind: "input" | "output" | "final_state" | "state_diff" | "ledger" | "events";
         /** Experiment */
         Experiment: {
             /** Id */
@@ -309,7 +518,7 @@ export interface components {
              */
             created_at: string;
             meta: components["schemas"]["ExperimentMeta"];
-            decision?: components["schemas"]["Decision"] | null;
+            decision?: components["schemas"]["agentlab__models__Decision"] | null;
         };
         /** ExperimentDetail */
         ExperimentDetail: {
@@ -326,7 +535,7 @@ export interface components {
             };
             /** Scenarios */
             scenarios: {
-                [key: string]: components["schemas"]["Scenario"];
+                [key: string]: components["schemas"]["Scenario-Output"];
             };
             /** Repeats */
             repeats: number;
@@ -432,6 +641,71 @@ export interface components {
         };
         JsonValue: unknown;
         /**
+         * JudgeAnswer
+         * @description One decision model's typed answer (Decisions API), kept verbatim for audit.
+         */
+        JudgeAnswer: {
+            /** Model */
+            model: string;
+            answer: components["schemas"]["JsonObject"];
+            calibration_answer?: components["schemas"]["JsonObject"] | null;
+            /** Cost Usd */
+            cost_usd?: number | null;
+        };
+        /** JudgeSpec */
+        JudgeSpec: {
+            /** Model */
+            model: string;
+            /**
+             * Api
+             * @default decisions
+             * @enum {string}
+             */
+            api: "decisions" | "chat";
+        };
+        /**
+         * JudgeStats
+         * @description Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy.
+         */
+        JudgeStats: {
+            /** Model */
+            model: string;
+            /** Samples */
+            samples: number;
+            /** Correct */
+            correct: number;
+            /** Accuracy */
+            accuracy: number | null;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Calibrated */
+            calibrated: boolean;
+        };
+        /** JudgeVerdict */
+        JudgeVerdict: {
+            /** Judges */
+            judges: components["schemas"]["JudgeAnswer"][];
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "pass" | "fail" | "abstain";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Calibration Truth */
+            calibration_truth?: string | null;
+            /**
+             * Calibration Correct
+             * @default {}
+             */
+            calibration_correct: {
+                [key: string]: boolean;
+            };
+        };
+        /**
          * LedgerEntry
          * @description One tool call as the environment saw it.
          *
@@ -485,30 +759,27 @@ export interface components {
              */
             capabilities: components["schemas"]["Capabilities"];
         };
-        /** OutputMatches */
-        OutputMatches: {
-            /**
-             * Critical
-             * @default false
-             */
-            critical: boolean;
-            /**
-             * Requires Faults
-             * @default false
-             */
-            requires_faults: boolean;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
+        /**
+         * NoulQuestion
+         * @description Probability that the statement is true. criteria keys: "true" and "false".
+         */
+        NoulQuestion: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "output_matches";
-            /** Pattern */
-            pattern: string;
+            type: "noul";
+            /** Instructions */
+            instructions: string;
+            /** Criteria */
+            criteria: {
+                [key: string]: string;
+            };
+        };
+        /** NoulRule */
+        NoulRule: {
+            /** Noul At Least */
+            noul_at_least: number;
         };
         /** Paired */
         Paired: {
@@ -519,6 +790,27 @@ export interface components {
             /** Fixes */
             fixes: number;
         };
+        PassRule: components["schemas"]["NoulRule"] | components["schemas"]["ChoiceRule"] | components["schemas"]["ScoreRule"];
+        /** QueryResult */
+        QueryResult: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Rows
+             * @default []
+             */
+            rows: components["schemas"]["JsonValue"][][];
+            value?: components["schemas"]["JsonValue"];
+            /** Error */
+            error?: string | null;
+        };
+        /** QueryTest */
+        QueryTest: {
+            seed: components["schemas"]["Seed"];
+            /** Query */
+            query: string;
+        };
+        Question: components["schemas"]["NoulQuestion"] | components["schemas"]["ChoiceQuestion"] | components["schemas"]["ScoreQuestion"];
         /**
          * ResumeFrom
          * @description Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork.
@@ -554,8 +846,24 @@ export interface components {
              */
             max_regression: number;
         };
+        /** SavedScenario */
+        SavedScenario: {
+            /** Key */
+            key: string;
+            /** Path */
+            path: string;
+            /** Created */
+            created: boolean;
+        };
+        /** SavedTarget */
+        SavedTarget: {
+            /** Name */
+            name: string;
+            /** Created */
+            created: boolean;
+        };
         /** Scenario */
-        Scenario: {
+        "Scenario-Input": {
             /** Id */
             id: string;
             /** Version */
@@ -584,9 +892,47 @@ export interface components {
              */
             faults: components["schemas"]["ScenarioFault"][];
             /** Assertions */
-            assertions: components["schemas"]["Assertion"][];
+            assertions: components["schemas"]["Assertion-Input"][];
             /** @default {} */
             budget: components["schemas"]["Budget"];
+        };
+        /** Scenario */
+        "Scenario-Output": {
+            /** Id */
+            id: string;
+            /** Version */
+            version: number;
+            /**
+             * Risk Tier
+             * @default normal
+             * @enum {string}
+             */
+            risk_tier: "critical" | "high" | "normal";
+            /**
+             * Source
+             * @default synthetic
+             */
+            source: string;
+            /**
+             * Slices
+             * @default []
+             */
+            slices: string[];
+            fixture: components["schemas"]["Seed"];
+            input: components["schemas"]["JsonObject"];
+            /**
+             * Faults
+             * @default []
+             */
+            faults: components["schemas"]["ScenarioFault"][];
+            /** Assertions */
+            assertions: components["schemas"]["Assertion-Output"][];
+            /** @default {} */
+            budget: components["schemas"]["Budget"];
+        };
+        /** ScenarioDraft */
+        ScenarioDraft: {
+            scenario: components["schemas"]["Scenario-Input"];
         };
         /** ScenarioFault */
         ScenarioFault: {
@@ -606,7 +952,38 @@ export interface components {
         ScenarioInfo: {
             /** Key */
             key: string;
-            scenario: components["schemas"]["Scenario"];
+            scenario: components["schemas"]["Scenario-Output"];
+        };
+        /** ScenarioValidation */
+        ScenarioValidation: {
+            /** Valid */
+            valid: boolean;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+            /** Yaml */
+            yaml?: string | null;
+            /** Key */
+            key?: string | null;
+        };
+        /** ScoreQuestion */
+        ScoreQuestion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "score";
+            /** Instructions */
+            instructions: string;
+            /** Criteria */
+            criteria: string[];
+        };
+        /** ScoreRule */
+        ScoreRule: {
+            /** Score At Least */
+            score_at_least: number;
         };
         /** Seed */
         Seed: {
@@ -658,6 +1035,8 @@ export interface components {
         State: {
             [key: string]: components["schemas"]["Row"][];
         };
+        /** @enum {string} */
+        Strategy: "cascade" | "jury";
         /** TableDiff */
         TableDiff: {
             /**
@@ -670,6 +1049,12 @@ export interface components {
              * @default []
              */
             removed: components["schemas"]["Row"][];
+        };
+        /** TargetDraft */
+        TargetDraft: {
+            /** Name */
+            name: string;
+            spec: components["schemas"]["TargetSpec"];
         };
         /** TargetHealth */
         TargetHealth: {
@@ -697,6 +1082,18 @@ export interface components {
         };
         /** @enum {string} */
         TargetMode: "native" | "http" | "otel";
+        /** TargetSpec */
+        TargetSpec: {
+            mode: components["schemas"]["TargetMode"];
+            /** Url */
+            url?: string | null;
+            /**
+             * Version
+             * @default unversioned
+             */
+            version: string;
+            manifest?: components["schemas"]["Manifest"] | null;
+        };
         /** TargetStats */
         TargetStats: {
             /** Passed */
@@ -847,6 +1244,74 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * Decision
+         * @description A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).
+         *
+         *     A critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason).
+         */
+        agentlab__assertions__Decision: {
+            /**
+             * Critical
+             * @default false
+             */
+            critical: boolean;
+            /**
+             * Requires Faults
+             * @default false
+             */
+            requires_faults: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "decision";
+            question: components["schemas"]["Question"];
+            pass_rule: components["schemas"]["PassRule"];
+            /**
+             * Min Confidence
+             * @default 0.8
+             */
+            min_confidence: number;
+            /**
+             * Evidence
+             * @default [
+             *       "input",
+             *       "output",
+             *       "final_state"
+             *     ]
+             */
+            evidence: components["schemas"]["EvidenceKind"][];
+            /** Judges */
+            judges?: components["schemas"]["JudgeSpec"][];
+            /** @default cascade */
+            strategy: components["schemas"]["Strategy"];
+            calibration?: components["schemas"]["Calibration"] | null;
+        };
+        /** Decision */
+        agentlab__models__Decision: {
+            status: components["schemas"]["GateStatus"];
+            /** Candidate */
+            candidate: string;
+            /** Baseline */
+            baseline: string | null;
+            /** Block Reasons */
+            block_reasons: string[];
+            /** Insufficient Reasons */
+            insufficient_reasons: string[];
+            /** Coverage Gaps */
+            coverage_gaps: string[];
+            /** Stats */
+            stats: {
+                [key: string]: components["schemas"]["TargetStats"];
+            };
+            paired: components["schemas"]["Paired"] | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -874,6 +1339,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    builder_v1_builder_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    judges_v1_judges_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JudgeStats"][];
                 };
             };
             /** @description Validation Error */
@@ -918,6 +1445,112 @@ export interface operations {
             };
         };
     };
+    test_target_v1_targets_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetHealth"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_target_v1_targets__name__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedTarget"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_target_v1_targets__name__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     scenarios_v1_scenarios_get: {
         parameters: {
             query?: never;
@@ -936,6 +1569,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScenarioInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_scenario_v1_scenarios_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedScenario"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_scenario_v1_scenarios_validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioValidation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_query_v1_scenarios_test_query_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueryTest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dry_run_v1_scenarios_dry_run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DryRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
                 };
             };
             /** @description Validation Error */

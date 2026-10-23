@@ -32,7 +32,7 @@ const middleware: Middleware = {
   onRequest({ request }) {
     const token = tokenStore.get();
     if (token) request.headers.set("Authorization", `Bearer ${token}`);
-    if (request.method === "POST") request.headers.set("X-AgentLab-Request", "1");
+    if (request.method !== "GET") request.headers.set("X-AgentLab-Request", "1");
     return request;
   },
   onResponse({ response }) {

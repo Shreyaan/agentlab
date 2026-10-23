@@ -45,6 +45,90 @@
         }
       }
     },
+    "/v1/builder": {
+      "get": {
+        "summary": "Builder",
+        "operationId": "builder_v1_builder_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/judges": {
+      "get": {
+        "summary": "Judges",
+        "operationId": "judges_v1_judges_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JudgeStats"
+                  },
+                  "title": "Response Judges V1 Judges Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/targets": {
       "get": {
         "summary": "Targets",
@@ -89,6 +173,185 @@
         }
       }
     },
+    "/v1/targets/test": {
+      "post": {
+        "summary": "Test Target",
+        "operationId": "test_target_v1_targets_test_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetHealth"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/targets/{name}": {
+      "put": {
+        "summary": "Put Target",
+        "operationId": "put_target_v1_targets__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedTarget"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Target",
+        "operationId": "delete_target_v1_targets__name__delete",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/scenarios": {
       "get": {
         "summary": "Scenarios",
@@ -116,6 +379,245 @@
                     "$ref": "#/components/schemas/ScenarioInfo"
                   },
                   "title": "Response Scenarios V1 Scenarios Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save Scenario",
+        "operationId": "save_scenario_v1_scenarios_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedScenario"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios/validate": {
+      "post": {
+        "summary": "Validate Scenario",
+        "description": "Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422.",
+        "operationId": "validate_scenario_v1_scenarios_validate_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioValidation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioDraft"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios/test-query": {
+      "post": {
+        "summary": "Test Query",
+        "operationId": "test_query_v1_scenarios_test_query_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryTest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios/dry-run": {
+      "post": {
+        "summary": "Dry Run",
+        "operationId": "dry_run_v1_scenarios_dry_run_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DryRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
                 }
               }
             }
@@ -470,7 +972,7 @@
         ],
         "title": "Accepted"
       },
-      "Assertion": {
+      "Assertion-Input": {
         "oneOf": [
           {
             "$ref": "#/components/schemas/Sql"
@@ -485,15 +987,44 @@
             "$ref": "#/components/schemas/EventPresent"
           },
           {
-            "$ref": "#/components/schemas/OutputMatches"
+            "$ref": "#/components/schemas/Decision-Input"
           }
         ],
         "discriminator": {
           "propertyName": "type",
           "mapping": {
+            "decision": "#/components/schemas/Decision-Input",
             "event_present": "#/components/schemas/EventPresent",
             "forbidden_tool": "#/components/schemas/ForbiddenTool",
-            "output_matches": "#/components/schemas/OutputMatches",
+            "sql": "#/components/schemas/Sql",
+            "tool_order": "#/components/schemas/ToolOrder"
+          }
+        }
+      },
+      "Assertion-Output": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Sql"
+          },
+          {
+            "$ref": "#/components/schemas/ToolOrder"
+          },
+          {
+            "$ref": "#/components/schemas/ForbiddenTool"
+          },
+          {
+            "$ref": "#/components/schemas/EventPresent"
+          },
+          {
+            "$ref": "#/components/schemas/agentlab__assertions__Decision"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "decision": "#/components/schemas/agentlab__assertions__Decision",
+            "event_present": "#/components/schemas/EventPresent",
+            "forbidden_tool": "#/components/schemas/ForbiddenTool",
             "sql": "#/components/schemas/Sql",
             "tool_order": "#/components/schemas/ToolOrder"
           }
@@ -527,6 +1058,16 @@
             "type": "string",
             "title": "Detail",
             "default": ""
+          },
+          "judge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgeVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -577,6 +1118,83 @@
         "type": "object",
         "title": "Budget"
       },
+      "BuilderInfo": {
+        "properties": {
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tools"
+          },
+          "seed_columns": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Seed Columns"
+          },
+          "assertion_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assertion Types"
+          },
+          "judge_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Judge Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tools",
+          "seed_columns",
+          "assertion_types",
+          "judge_models"
+        ],
+        "title": "BuilderInfo",
+        "description": "Vocabulary for the editors' dropdowns."
+      },
+      "Calibration": {
+        "properties": {
+          "question": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChoiceQuestion"
+              },
+              {
+                "$ref": "#/components/schemas/NoulQuestion"
+              }
+            ],
+            "title": "Question",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "choice": "#/components/schemas/ChoiceQuestion",
+                "noul": "#/components/schemas/NoulQuestion"
+              }
+            }
+          },
+          "truth_sql": {
+            "type": "string",
+            "title": "Truth Sql"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "truth_sql"
+        ],
+        "title": "Calibration",
+        "description": "Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy."
+      },
       "Capabilities": {
         "properties": {
           "invoke": {
@@ -622,6 +1240,52 @@
         "type": "object",
         "title": "Capabilities"
       },
+      "ChoiceQuestion": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "choice",
+            "title": "Type",
+            "default": "choice"
+          },
+          "instructions": {
+            "type": "string",
+            "title": "Instructions"
+          },
+          "criteria": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "minProperties": 2,
+            "title": "Criteria"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instructions",
+          "criteria"
+        ],
+        "title": "ChoiceQuestion"
+      },
+      "ChoiceRule": {
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Choices"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "choices"
+        ],
+        "title": "ChoiceRule"
+      },
       "ConsoleInfo": {
         "properties": {
           "version": {
@@ -655,58 +1319,71 @@
         ],
         "title": "ConsoleInfo"
       },
-      "Decision": {
+      "Decision-Input": {
         "properties": {
-          "status": {
-            "$ref": "#/components/schemas/GateStatus"
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
           },
-          "candidate": {
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
             "type": "string",
-            "title": "Candidate"
+            "title": "Description",
+            "default": ""
           },
-          "baseline": {
+          "type": {
+            "type": "string",
+            "const": "decision",
+            "title": "Type",
+            "default": "decision"
+          },
+          "question": {
+            "$ref": "#/components/schemas/Question"
+          },
+          "pass_rule": {
+            "$ref": "#/components/schemas/PassRule"
+          },
+          "min_confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Confidence",
+            "default": 0.8
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceKind"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Evidence",
+            "default": [
+              "input",
+              "output",
+              "final_state"
+            ]
+          },
+          "judges": {
+            "items": {
+              "$ref": "#/components/schemas/JudgeSpec"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Judges"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/Strategy",
+            "default": "cascade"
+          },
+          "calibration": {
             "anyOf": [
               {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Baseline"
-          },
-          "block_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Block Reasons"
-          },
-          "insufficient_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Insufficient Reasons"
-          },
-          "coverage_gaps": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Coverage Gaps"
-          },
-          "stats": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/TargetStats"
-            },
-            "type": "object",
-            "title": "Stats"
-          },
-          "paired": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Paired"
+                "$ref": "#/components/schemas/Calibration"
               },
               {
                 "type": "null"
@@ -716,16 +1393,28 @@
         },
         "type": "object",
         "required": [
-          "status",
-          "candidate",
-          "baseline",
-          "block_reasons",
-          "insufficient_reasons",
-          "coverage_gaps",
-          "stats",
-          "paired"
+          "question",
+          "pass_rule"
         ],
-        "title": "Decision"
+        "title": "Decision",
+        "description": "A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).\n\nA critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason)."
+      },
+      "DryRunRequest": {
+        "properties": {
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario-Input"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario",
+          "target"
+        ],
+        "title": "DryRunRequest"
       },
       "ErrorCode": {
         "type": "string",
@@ -867,6 +1556,17 @@
           "run_failed"
         ]
       },
+      "EvidenceKind": {
+        "type": "string",
+        "enum": [
+          "input",
+          "output",
+          "final_state",
+          "state_diff",
+          "ledger",
+          "events"
+        ]
+      },
       "Experiment": {
         "properties": {
           "id": {
@@ -884,7 +1584,7 @@
           "decision": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Decision"
+                "$ref": "#/components/schemas/agentlab__models__Decision"
               },
               {
                 "type": "null"
@@ -935,7 +1635,7 @@
           },
           "scenarios": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/Scenario"
+              "$ref": "#/components/schemas/Scenario-Output"
             },
             "type": "object",
             "title": "Scenarios"
@@ -1236,6 +1936,170 @@
         "type": "object"
       },
       "JsonValue": {},
+      "JudgeAnswer": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "answer": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "calibration_answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "answer"
+        ],
+        "title": "JudgeAnswer",
+        "description": "One decision model's typed answer (Decisions API), kept verbatim for audit."
+      },
+      "JudgeSpec": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "api": {
+            "type": "string",
+            "enum": [
+              "decisions",
+              "chat"
+            ],
+            "title": "Api",
+            "default": "decisions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "title": "JudgeSpec"
+      },
+      "JudgeStats": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "samples": {
+            "type": "integer",
+            "title": "Samples"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "calibrated": {
+            "type": "boolean",
+            "title": "Calibrated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "samples",
+          "correct",
+          "accuracy",
+          "cost_usd",
+          "calibrated"
+        ],
+        "title": "JudgeStats",
+        "description": "Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy."
+      },
+      "JudgeVerdict": {
+        "properties": {
+          "judges": {
+            "items": {
+              "$ref": "#/components/schemas/JudgeAnswer"
+            },
+            "type": "array",
+            "title": "Judges"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "abstain"
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "calibration_truth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Truth"
+          },
+          "calibration_correct": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Calibration Correct",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "judges",
+          "verdict"
+        ],
+        "title": "JudgeVerdict"
+      },
       "LedgerEntry": {
         "properties": {
           "seq": {
@@ -1323,39 +2187,49 @@
         ],
         "title": "Manifest"
       },
-      "OutputMatches": {
+      "NoulQuestion": {
         "properties": {
-          "critical": {
-            "type": "boolean",
-            "title": "Critical",
-            "default": false
-          },
-          "requires_faults": {
-            "type": "boolean",
-            "title": "Requires Faults",
-            "default": false
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "default": ""
-          },
           "type": {
             "type": "string",
-            "const": "output_matches",
+            "const": "noul",
             "title": "Type",
-            "default": "output_matches"
+            "default": "noul"
           },
-          "pattern": {
+          "instructions": {
             "type": "string",
-            "title": "Pattern"
+            "title": "Instructions"
+          },
+          "criteria": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Criteria"
           }
         },
         "type": "object",
         "required": [
-          "pattern"
+          "instructions",
+          "criteria"
         ],
-        "title": "OutputMatches"
+        "title": "NoulQuestion",
+        "description": "Probability that the statement is true. criteria keys: \"true\" and \"false\"."
+      },
+      "NoulRule": {
+        "properties": {
+          "noul_at_least": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Noul At Least"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "noul_at_least"
+        ],
+        "title": "NoulRule"
       },
       "Paired": {
         "properties": {
@@ -1379,6 +2253,95 @@
           "fixes"
         ],
         "title": "Paired"
+      },
+      "PassRule": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/NoulRule"
+          },
+          {
+            "$ref": "#/components/schemas/ChoiceRule"
+          },
+          {
+            "$ref": "#/components/schemas/ScoreRule"
+          }
+        ]
+      },
+      "QueryResult": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Rows",
+            "default": []
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "QueryResult"
+      },
+      "QueryTest": {
+        "properties": {
+          "seed": {
+            "$ref": "#/components/schemas/Seed"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seed",
+          "query"
+        ],
+        "title": "QueryTest"
+      },
+      "Question": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NoulQuestion"
+          },
+          {
+            "$ref": "#/components/schemas/ChoiceQuestion"
+          },
+          {
+            "$ref": "#/components/schemas/ScoreQuestion"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "choice": "#/components/schemas/ChoiceQuestion",
+            "noul": "#/components/schemas/NoulQuestion",
+            "score": "#/components/schemas/ScoreQuestion"
+          }
+        }
       },
       "ResumeFrom": {
         "properties": {
@@ -1451,14 +2414,57 @@
         ],
         "title": "RunRequest"
       },
-      "Scenario": {
+      "SavedScenario": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "path",
+          "created"
+        ],
+        "title": "SavedScenario"
+      },
+      "SavedTarget": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "created"
+        ],
+        "title": "SavedTarget"
+      },
+      "Scenario-Input": {
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
             "title": "Id"
           },
           "version": {
             "type": "integer",
+            "minimum": 1.0,
             "title": "Version"
           },
           "risk_tier": {
@@ -1500,7 +2506,7 @@
           },
           "assertions": {
             "items": {
-              "$ref": "#/components/schemas/Assertion"
+              "$ref": "#/components/schemas/Assertion-Input"
             },
             "type": "array",
             "title": "Assertions"
@@ -1519,6 +2525,89 @@
           "assertions"
         ],
         "title": "Scenario"
+      },
+      "Scenario-Output": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "risk_tier": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal"
+            ],
+            "title": "Risk Tier",
+            "default": "normal"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "synthetic"
+          },
+          "slices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Slices",
+            "default": []
+          },
+          "fixture": {
+            "$ref": "#/components/schemas/Seed"
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "faults": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioFault"
+            },
+            "type": "array",
+            "title": "Faults",
+            "default": []
+          },
+          "assertions": {
+            "items": {
+              "$ref": "#/components/schemas/Assertion-Output"
+            },
+            "type": "array",
+            "title": "Assertions"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "fixture",
+          "input",
+          "assertions"
+        ],
+        "title": "Scenario"
+      },
+      "ScenarioDraft": {
+        "properties": {
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario-Input"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "ScenarioDraft"
       },
       "ScenarioFault": {
         "properties": {
@@ -1557,7 +2646,7 @@
             "title": "Key"
           },
           "scenario": {
-            "$ref": "#/components/schemas/Scenario"
+            "$ref": "#/components/schemas/Scenario-Output"
           }
         },
         "type": "object",
@@ -1566,6 +2655,91 @@
           "scenario"
         ],
         "title": "ScenarioInfo"
+      },
+      "ScenarioValidation": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "yaml": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yaml"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid"
+        ],
+        "title": "ScenarioValidation"
+      },
+      "ScoreQuestion": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "score",
+            "title": "Type",
+            "default": "score"
+          },
+          "instructions": {
+            "type": "string",
+            "title": "Instructions"
+          },
+          "criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Criteria"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instructions",
+          "criteria"
+        ],
+        "title": "ScoreQuestion"
+      },
+      "ScoreRule": {
+        "properties": {
+          "score_at_least": {
+            "type": "number",
+            "title": "Score At Least"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score_at_least"
+        ],
+        "title": "ScoreRule"
       },
       "Seed": {
         "properties": {
@@ -1642,6 +2816,13 @@
         },
         "type": "object"
       },
+      "Strategy": {
+        "type": "string",
+        "enum": [
+          "cascade",
+          "jury"
+        ]
+      },
       "TableDiff": {
         "properties": {
           "added": {
@@ -1663,6 +2844,24 @@
         },
         "type": "object",
         "title": "TableDiff"
+      },
+      "TargetDraft": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "title": "Name"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/TargetSpec"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "spec"
+        ],
+        "title": "TargetDraft"
       },
       "TargetHealth": {
         "properties": {
@@ -1772,6 +2971,44 @@
           "http",
           "otel"
         ]
+      },
+      "TargetSpec": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TargetMode"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "unversioned"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Manifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "TargetSpec"
       },
       "TargetStats": {
         "properties": {
@@ -2173,6 +3410,158 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "agentlab__assertions__Decision": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "decision",
+            "title": "Type",
+            "default": "decision"
+          },
+          "question": {
+            "$ref": "#/components/schemas/Question"
+          },
+          "pass_rule": {
+            "$ref": "#/components/schemas/PassRule"
+          },
+          "min_confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Confidence",
+            "default": 0.8
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceKind"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Evidence",
+            "default": [
+              "input",
+              "output",
+              "final_state"
+            ]
+          },
+          "judges": {
+            "items": {
+              "$ref": "#/components/schemas/JudgeSpec"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Judges"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/Strategy",
+            "default": "cascade"
+          },
+          "calibration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Calibration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "pass_rule"
+        ],
+        "title": "Decision",
+        "description": "A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).\n\nA critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason)."
+      },
+      "agentlab__models__Decision": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/GateStatus"
+          },
+          "candidate": {
+            "type": "string",
+            "title": "Candidate"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "block_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Block Reasons"
+          },
+          "insufficient_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Insufficient Reasons"
+          },
+          "coverage_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Coverage Gaps"
+          },
+          "stats": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TargetStats"
+            },
+            "type": "object",
+            "title": "Stats"
+          },
+          "paired": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Paired"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "candidate",
+          "baseline",
+          "block_reasons",
+          "insufficient_reasons",
+          "coverage_gaps",
+          "stats",
+          "paired"
+        ],
+        "title": "Decision"
       }
     }
   }

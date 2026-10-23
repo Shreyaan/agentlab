@@ -52,3 +52,18 @@ export const CiBar = ({ rate, ci }: { rate: number | null; ci: readonly number[]
     </div>
   );
 };
+
+const BAR_TONE = { accent: "bg-accent", block: "bg-block", pass: "bg-pass" } as const;
+
+/** A 0-1 probability as a labelled bar. */
+export const ProbBar = ({ label, value, tone = "accent" }: { label: string; value: number; tone?: "accent" | "block" | "pass" }) => (
+  <div className="flex items-center gap-2" role="img" aria-label={`${label}: ${percent(value)}`}>
+    <span className="w-24 shrink-0 truncate text-[12px] text-ink2" title={label}>
+      {label}
+    </span>
+    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
+      <div className={`h-full rounded-full ${BAR_TONE[tone]}`} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+    </div>
+    <span className="w-10 shrink-0 text-right text-[12px] tabular-nums text-ink2">{percent(value)}</span>
+  </div>
+);

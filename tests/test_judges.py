@@ -192,3 +192,22 @@ def test_judge_evidence_is_redacted_before_it_leaves_the_process(envs: FixturePo
             assert secret not in state
     finally:
         envs.drop("t_judge_redact")
+
+
+def test_critical_checks_keep_chat_judges_in_a_jury() -> None:
+    base = {
+        "type": "decision",
+        "critical": True,
+        "question": {"type": "noul", "instructions": "truthful?", "criteria": {"true": "yes", "false": "no"}},
+        "pass_rule": {"noul_at_least": 0.9},
+    }
+    chat = {"model": "openai/gpt-4.1-nano", "api": "chat"}
+    luna = {"model": "openai/gpt-6-luna-decisions"}
+    with pytest.raises(ValueError, match="jury"):
+        Decision.model_validate({**base, "judges": [chat]})
+    with pytest.raises(ValueError, match="jury"):
+        Decision.model_validate({**base, "judges": [luna, chat]})  # cascade could stop at the chat judge
+    with pytest.raises(ValueError, match="jury"):
+        Decision.model_validate({**base, "judges": [chat], "strategy": "jury"})  # jury of one chat judge
+    Decision.model_validate({**base, "judges": [luna, chat], "strategy": "jury"})
+    Decision.model_validate({**base, "critical": False, "judges": [chat]})  # advisory checks may use any judge

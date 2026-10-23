@@ -1,8 +1,9 @@
 import { Link, useParams } from "react-router";
 import type { Schema } from "../api/client";
 import { useScenarios } from "../api/hooks";
-import { TIER_TONE, faultLabel, faultSummary } from "../components/scenario";
-import { Badge, Card, EmptyState, JsonBlock, Mono, PageHeader, QueryState, SectionTitle, Table, Td, Th, type Tone } from "../components/ui";
+import { TIER_TONE, faultLabel, faultSummary, type Assertion } from "../components/scenario";
+import { Badge, Card, EmptyState, JsonBlock, Mono, PageHeader, QueryState, SectionTitle, Table, Td, Th, btn, btnPrimary, type Tone } from "../components/ui";
+import { percent } from "../lib/format";
 
 const STATUS_NOTE = "critical first";
 
@@ -36,9 +37,9 @@ function Faults({ faults }: { faults: Schema["ScenarioFault"][] }) {
   );
 }
 
-const assertionTone = (a: Schema["Assertion"]): Tone => (a.critical ? "block" : "neutral");
+const assertionTone = (a: Assertion): Tone => (a.critical ? "block" : "neutral");
 /** Mirrors each grader's default_description in src/agentlab/assertions.py. */
-function describeAssertion(a: Schema["Assertion"]): string {
+function describeAssertion(a: Assertion): string {
   switch (a.type) {
     case "sql":
       return `${a.query} == ${JSON.stringify(a.equals)}`;
@@ -48,12 +49,54 @@ function describeAssertion(a: Schema["Assertion"]): string {
       return `${a.name} is never called`;
     case "event_present":
       return `agent reports ${a.event}${a.name ? ` for ${a.name}` : ""}`;
-    case "output_matches":
-      return `response matches /${a.pattern}/`;
+    case "decision":
+      return a.question.instructions;
   }
 }
 
-const assertionText = (a: Schema["Assertion"]): string => a.description || describeAssertion(a);
+type Decision = Extract<Assertion, { type: "decision" }>;
+
+export const describeRule = (a: Decision): string => {
+  const r = a.pass_rule;
+  if ("noul_at_least" in r) return `probability of true is at least ${percent(r.noul_at_least)}`;
+  if ("choices" in r) return `judge picks ${r.choices.join(" or ")}`;
+  return `score is at least ${r.score_at_least}`;
+};
+
+function DecisionDetail({ a }: { a: Decision }) {
+  const q = a.question;
+  const criteria = Array.isArray(q.criteria) ? q.criteria.map((c, i) => [String(i), c] as const) : Object.entries(q.criteria);
+  return (
+    <div className="mt-1 space-y-1.5 text-[12px] text-ink2">
+      <p>
+        <span className="font-medium text-ink">{q.type} question.</span> Passes when {describeRule(a)}, with confidence of at least {percent(a.min_confidence)}.
+      </p>
+      <ul className="list-disc pl-5">
+        {criteria.map(([k, v]) => (
+          <li key={k}>
+            <Mono>{k}</Mono>: {v}
+          </li>
+        ))}
+      </ul>
+      <p>
+        Judges ({a.strategy}):{" "}
+        {(a.judges ?? []).map((j) => (
+          <Badge key={j.model} title={`${j.api} API`}>
+            {j.model}
+          </Badge>
+        ))}{" "}
+        sees {a.evidence.join(", ")}.
+      </p>
+      {a.calibration && (
+        <p>
+          Calibration: {a.calibration.question.instructions} Truth from <Mono>{a.calibration.truth_sql}</Mono>.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const assertionText = (a: Assertion): string => a.description || describeAssertion(a);
 
 function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
   const s = info.scenario;
@@ -73,6 +116,14 @@ function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
               {sl}
             </Badge>
           ))}
+          <div className="ml-auto flex gap-2">
+            <Link className={btn} to={`/scenarios/${info.key}/edit`}>
+              Edit
+            </Link>
+            <Link className={btn} to={`/scenarios/new?from=${info.key}`}>
+              Duplicate
+            </Link>
+          </div>
         </div>
       </Card>
       <Card className="p-4">
@@ -95,6 +146,7 @@ function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
               <Badge tone={assertionTone(a)}>{a.critical ? "CRITICAL" : a.type}</Badge>
               <span>{assertionText(a)}</span>
               {a.critical && <span className="text-ink3">({a.type})</span>}
+              {a.type === "decision" && <div className="w-full"><DecisionDetail a={a} /></div>}
             </li>
           ))}
         </ul>
@@ -123,7 +175,11 @@ export function ScenariosPage() {
   const { key } = useParams();
   return (
     <>
-      <PageHeader title="Scenarios" sub="Versioned test cases the gate runs." />
+      <PageHeader title="Scenarios" sub="Versioned test cases the gate runs.">
+        <Link className={btnPrimary} to="/scenarios/new">
+          New scenario
+        </Link>
+      </PageHeader>
       <QueryState query={query} isEmpty={(d) => d.length === 0} empty={<EmptyState title="No scenarios in the suite" />}>
         {(list) => {
           const active = list.find((s) => s.key === key);

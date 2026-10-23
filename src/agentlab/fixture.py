@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
-from typing import Annotated, ClassVar, LiteralString
+from typing import Annotated, ClassVar, LiteralString, cast
 
 import psycopg
 import uvicorn
@@ -152,6 +152,9 @@ class Fixture:
             raise ValueError(f"invalid environment id {env_id!r}")
         self.db, self.env_id, self.seed = db, env_id, seed
         self.schema = sql.Identifier(f"env_{env_id}")
+        # Author SQL (assertions, test queries) runs as this role: it can read this environment's schema and nothing
+        # else, so a query cannot reach stored results (schema agentlab) or other trials' environments.
+        self.reader = sql.Identifier(f"agentlab_r_{env_id}")
         self.faults, self.calls = list(faults), Counter[str]()
         self.lock = threading.Lock()
         with db.connection() as conn, conn.transaction(), conn.cursor() as cur:
@@ -169,6 +172,12 @@ class Fixture:
                         sql.SQL(", ").join(sql.Placeholder() * len(row)),
                     )
                     cur.execute(query, list(row.values()))
+            cur.execute(
+                sql.SQL(
+                    "DROP ROLE IF EXISTS {r}; CREATE ROLE {r} NOLOGIN; GRANT USAGE ON SCHEMA {s} TO {r}; "
+                    "GRANT SELECT ON ALL TABLES IN SCHEMA {s} TO {r}; GRANT {r} TO CURRENT_USER"
+                ).format(r=self.reader, s=self.schema)
+            )
 
     @classmethod
     def restore(
@@ -225,9 +234,16 @@ class Fixture:
         )
 
     def query(self, query: str) -> list[tuple[JsonValue, ...]]:
-        """Run a test-author assertion read-only, scoped to this environment's schema."""
+        """Run author SQL read-only as this environment's reader role.
+
+        Wrapping it as a subquery admits only a row-returning query (no RESET ROLE / SET / DDL), and a prepared
+        statement makes the server reject multiple commands, so the role cannot be shed."""
+        # Untrusted by design (it is the test author's assertion); contained by the reader role and the wrapper.
+        author_sql = cast("LiteralString", query.strip().rstrip(";"))
+        wrapped = sql.SQL("SELECT * FROM ({}) AS author_query").format(sql.SQL(author_sql))
         with self._tx(read_only=True) as cur:
-            cur.execute(query.encode())
+            cur.execute(sql.SQL("SET LOCAL ROLE {}").format(self.reader))
+            cur.execute(wrapped, prepare=True)
             return [tuple(r.values()) for r in cur.fetchall()]
 
     def state(self) -> State:
@@ -246,6 +262,7 @@ class Fixture:
     def drop(self) -> None:
         with self.db.connection() as conn:
             conn.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(self.schema))
+            conn.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(self.reader))
 
 
 class FixturePool:

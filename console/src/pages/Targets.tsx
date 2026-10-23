@@ -1,9 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { Schema } from "../api/client";
-import { useTargets } from "../api/hooks";
+import { useDeleteTarget, useTargets } from "../api/hooks";
 import { ReachDot } from "../components/badges";
 import { CAPABILITY_ROWS, INVOKE_MEANING } from "../components/capabilities";
-import { Badge, Card, EmptyState, Mono, Notice, PageHeader, QueryState, btn } from "../components/ui";
+import { ConnectPanel } from "../components/ConnectPanel";
+import { TargetDialog, formFromTarget, type TargetForm } from "../components/TargetDialog";
+import { Badge, Card, ConfirmDialog, EmptyState, Mono, Notice, PageHeader, QueryState, btn, btnPrimary } from "../components/ui";
 
 function CapabilityMatrix({ caps }: { caps: Schema["Capabilities"] }) {
   const rows = [
@@ -25,7 +28,7 @@ function CapabilityMatrix({ caps }: { caps: Schema["Capabilities"] }) {
   );
 }
 
-function TargetCard({ t }: { t: Schema["TargetHealth"] }) {
+function TargetCard({ t, onEdit, onDelete }: { t: Schema["TargetHealth"]; onEdit: () => void; onDelete: () => void }) {
   const m = t.manifest;
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -63,6 +66,14 @@ function TargetCard({ t }: { t: Schema["TargetHealth"] }) {
         )}
       </dl>
       {m ? <CapabilityMatrix caps={m.capabilities} /> : <p className="text-ink3">No manifest available.</p>}
+      <div className="mt-auto flex gap-2">
+        <button className={btn} onClick={onEdit}>
+          Edit
+        </button>
+        <button className={`${btn} text-block`} onClick={onDelete}>
+          Delete
+        </button>
+      </div>
     </Card>
   );
 }
@@ -70,22 +81,41 @@ function TargetCard({ t }: { t: Schema["TargetHealth"] }) {
 export function TargetsPage() {
   const query = useTargets();
   const qc = useQueryClient();
+  const remove = useDeleteTarget();
+  const [editing, setEditing] = useState<{ initial: TargetForm | null } | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   return (
     <>
       <PageHeader title="Targets" sub="Agent harnesses AgentLab can run scenarios against.">
         <button className={btn} disabled={query.isFetching} onClick={() => void qc.invalidateQueries({ queryKey: ["targets"] })}>
           {query.isFetching ? "Checking..." : "Refresh"}
         </button>
+        <button className={btnPrimary} onClick={() => setEditing({ initial: null })}>
+          Add target
+        </button>
       </PageHeader>
-      <QueryState query={query} isEmpty={(d) => d.length === 0} empty={<EmptyState title="No targets configured">Add targets to targets.yaml.</EmptyState>}>
+      <QueryState query={query} isEmpty={(d) => d.length === 0} empty={<EmptyState title="No targets configured">Add a target to start running scenarios.</EmptyState>}>
         {(targets) => (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {targets.map((t) => (
-              <TargetCard key={t.name} t={t} />
+              <TargetCard key={t.name} t={t} onEdit={() => setEditing({ initial: formFromTarget(t) })} onDelete={() => { remove.reset(); setDeleting(t.name); }} />
             ))}
           </div>
         )}
       </QueryState>
+      <ConnectPanel />
+      <TargetDialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)} initial={editing?.initial ?? null} />
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete ${deleting ?? "target"}?`}
+        confirmLabel="Delete target"
+        pending={remove.isPending}
+        error={remove.error?.message}
+        onConfirm={() => deleting && remove.mutate(deleting, { onSuccess: () => setDeleting(null) })}
+      >
+        This removes the target from targets.yaml. Past experiments keep their results.
+      </ConfirmDialog>
     </>
   );
 }

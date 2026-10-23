@@ -4,6 +4,7 @@ import pytest
 
 from agentlab.fixture import FixturePool, Seed
 from agentlab.protocol import ToolFault
+from agentlab.store import Store
 
 SEED = Seed(
     customers=[{"id": "C-1", "name": "Ada"}], orders=[{"id": "ORD-1", "customer_id": "C-1", "amount_cents": 500}]
@@ -56,7 +57,7 @@ def test_environments_are_isolated(envs: FixturePool, fixture_url: str) -> None:
 def test_assertion_queries_are_read_only(envs: FixturePool) -> None:
     fx = envs.create("t_ro", SEED)
     try:
-        with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
+        with pytest.raises(psycopg.Error):  # rejected by the SELECT wrapper; the read-only tx is a second layer
             fx.query("DELETE FROM orders")
         assert fx.query("SELECT COUNT(*) FROM orders") == [(1,)]
     finally:
@@ -103,3 +104,28 @@ def test_runner_server_exposes_no_admin_routes(envs: FixturePool, fixture_url: s
         assert httpx.get(f"{fixture_url}/env/t_admin/admin/state").status_code == 404
     finally:
         envs.drop("t_admin")
+
+
+def test_author_sql_cannot_escape_its_environment(envs: FixturePool, store: Store) -> None:
+    mine = envs.create("t_sbx_a", SEED)
+    envs.create("t_sbx_b", SEED)
+    try:
+        assert mine.query("SELECT COUNT(*) FROM orders") == [(1,)]  # its own schema is readable
+        for escape in (
+            "SELECT COUNT(*) FROM agentlab.trials",  # stored results
+            "SELECT COUNT(*) FROM env_t_sbx_b.orders",  # another trial's environment
+        ):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                mine.query(escape)
+        for shed_role in (
+            "SELECT 1; SELECT 2",  # one statement only
+            "RESET ROLE; SELECT COUNT(*) FROM agentlab.trials",
+            "RESET ROLE",
+            "SET ROLE NONE",
+        ):
+            with pytest.raises(psycopg.Error):
+                mine.query(shed_role)
+        assert mine.query("WITH o AS (SELECT * FROM orders) SELECT COUNT(*) FROM o;") == [(1,)]  # CTEs still work
+    finally:
+        envs.drop("t_sbx_a")
+        envs.drop("t_sbx_b")
