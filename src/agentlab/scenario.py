@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agentlab.assertions import Assertion, Budget
 from agentlab.fixture import Seed
@@ -18,8 +18,8 @@ class ScenarioFault(ToolFault):
 
 
 class Scenario(BaseModel):
-    id: str
-    version: int
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")
+    version: int = Field(ge=1)
     risk_tier: Literal["critical", "high", "normal"] = "normal"
     source: str = "synthetic"
     slices: list[str] = []

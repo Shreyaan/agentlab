@@ -9,7 +9,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from agentlab.assertions import Evidence, grade
@@ -28,7 +28,7 @@ from agentlab.protocol import (
     ToolFault,
     new_traceparent,
 )
-from agentlab.records import LedgerEntry, state_diff
+from agentlab.records import JudgeStats, LedgerEntry, state_diff
 from agentlab.scenario import Scenario
 from agentlab.store import Store
 
@@ -61,6 +61,7 @@ class TrialPlan:
     harness_faults: list[ToolFault]
     history: list[LedgerEntry]  # ledger prefix to restore (forks); empty for fresh runs
     resume_from: ResumeFrom | None = None
+    judge_stats: list[JudgeStats] = field(default_factory=list)  # loaded once per experiment
 
 
 def ledger_calls_before(events: list[Event], checkpoint_id: str) -> int:
@@ -113,6 +114,7 @@ class Runner:
             baseline=baseline,
             max_regression=max_regression,
         )
+        stats = self.store.judge_stats()
         # Same scenario+repeat across targets shares identical initial state, so comparisons are paired.
         plans = [
             TrialPlan(
@@ -125,6 +127,7 @@ class Runner:
                 s.faults_at("fixture"),
                 s.faults_at("harness"),
                 [],
+                judge_stats=stats,
             )
             for s in scenarios
             for r in range(repeats)
@@ -194,6 +197,7 @@ class Runner:
             scenario.faults_at("harness") if keep else [],
             history,
             resume,
+            self.store.judge_stats(),
         )
         return exp_id, [plan]
 
@@ -293,6 +297,7 @@ class Runner:
         latency_ms = (time.perf_counter() - started) * 1000
 
         ledger, final = fixture.ledger(), fixture.state()
+        diff = state_diff(initial, final)
         ev = Evidence(
             fixture=fixture,
             ledger=ledger,
@@ -301,6 +306,10 @@ class Runner:
             capabilities=conn.manifest.capabilities,
             latency_ms=latency_ms,
             usage=resp.usage,
+            input=plan.scenario.input,
+            final_state=final,
+            state_diff=diff,
+            judge_stats=plan.judge_stats,
         )
         faults_active = bool(plan.fixture_faults or plan.harness_faults)
         results = grade(plan.scenario.assertions, plan.scenario.budget, ev, faults_active=faults_active)
@@ -315,7 +324,7 @@ class Runner:
                 ledger=ledger,
                 initial_state=initial,
                 final_state=final,
-                state_diff=state_diff(initial, final),
+                state_diff=diff,
                 assertions=results,
                 latency_ms=latency_ms,
                 usage=resp.usage,

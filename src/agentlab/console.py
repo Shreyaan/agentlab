@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import yaml
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import ValidationError
@@ -17,21 +18,32 @@ from pydantic import ValidationError
 from agentlab import report
 from agentlab.api_models import (
     Accepted,
+    BuilderInfo,
     ConsoleInfo,
+    DryRunRequest,
     ExperimentDetail,
     ExperimentSummary,
     ForkRequest,
+    QueryResult,
+    QueryTest,
     RunRequest,
+    SavedScenario,
+    SavedTarget,
+    ScenarioDraft,
     ScenarioInfo,
+    ScenarioValidation,
+    TargetDraft,
     TargetHealth,
 )
+from agentlab.builder import ScenarioBuilder, TargetEditor, builder_info, validation_errors
 from agentlab.client import HarnessClient, Target, load_targets
 from agentlab.jobs import Jobs
 from agentlab.models import Trial
 from agentlab.protocol import PROTOCOL_VERSION, AgentLabError, ErrorCode
+from agentlab.records import JudgeStats
+from agentlab.redaction import redact
 from agentlab.runner import Runner
 from agentlab.scenario import Scenario, load_suite
-from agentlab.store import redact
 
 DIST_DIR = Path(__file__).parent / "console_dist"
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
@@ -102,17 +114,71 @@ class Console:
         suite = self.suite()
         if unknown := [k for k in body.scenarios if k not in suite]:
             raise HTTPException(422, f"unknown scenario(s): {', '.join(unknown)}")
-        names = [body.candidate, *([body.baseline] if body.baseline else [])]
-        exp_id, plans = self.runner.plan_experiment(
+        return self._submit(
             [suite[k] for k in body.scenarios] if body.scenarios else list(suite.values()),
-            [self.target_named(n) for n in names],
+            body.candidate,
+            body.baseline,
             repeats=body.repeats,
-            candidate=body.candidate,
-            baseline=body.baseline,
             max_regression=body.max_regression,
+        )
+
+    def _submit(
+        self,
+        scenarios: list[Scenario],
+        candidate: str,
+        baseline: str | None = None,
+        *,
+        repeats: int = 1,
+        max_regression: float = 0.0,
+    ) -> Accepted:
+        names = [candidate, *([baseline] if baseline else [])]
+        exp_id, plans = self.runner.plan_experiment(
+            scenarios,
+            [self.target_named(n) for n in names],
+            repeats=repeats,
+            candidate=candidate,
+            baseline=baseline,
+            max_regression=max_regression,
         )
         self.jobs.submit(exp_id, plans)
         return Accepted(experiment_id=exp_id)
+
+    def builder(self) -> BuilderInfo:
+        return builder_info()
+
+    def scenario_builder(self) -> ScenarioBuilder:
+        return ScenarioBuilder(self.suite_path, self.runner.pool)
+
+    async def validate_scenario(self, request: Request) -> ScenarioValidation:
+        """Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422."""
+        try:
+            raw = await request.json()
+        except ValueError:
+            return ScenarioValidation(valid=False, errors=["body: invalid JSON"])
+        return await run_in_threadpool(self.scenario_builder().validate, raw)
+
+    def save_scenario(self, body: ScenarioDraft) -> SavedScenario:
+        return self.scenario_builder().save(body)
+
+    def test_query(self, body: QueryTest) -> QueryResult:
+        return self.scenario_builder().test_query(body)
+
+    def dry_run(self, body: DryRunRequest) -> Accepted:
+        return self._submit([body.scenario], body.target)
+
+    def test_target(self, body: TargetDraft) -> TargetHealth:
+        return self.probe(Target(name=body.name, **body.spec.model_dump()))
+
+    def put_target(self, name: str, body: TargetDraft) -> SavedTarget:
+        if name != body.name:
+            raise HTTPException(422, "target name must match the path")
+        return TargetEditor(self.targets_path).put(body)
+
+    def delete_target(self, name: str) -> None:
+        TargetEditor(self.targets_path).delete(name)
+
+    def judges(self) -> list[JudgeStats]:
+        return self.runner.store.judge_stats()
 
     def get_experiment(self, exp_id: str) -> ExperimentDetail:
         store = self.runner.store
@@ -146,10 +212,25 @@ class Console:
 
     def router(self) -> APIRouter:
         api = APIRouter(prefix="/v1", dependencies=[Depends(self.require_token)])
-        post = [Depends(require_csrf_header)]
+        post = [Depends(require_csrf_header)]  # every write, whatever its method
         api.get("/info")(self.info)
+        api.get("/builder")(self.builder)
+        api.get("/judges")(self.judges)
         api.get("/targets")(self.targets)
+        api.post("/targets/test", dependencies=post)(self.test_target)
+        api.put("/targets/{name}", dependencies=post)(self.put_target)
+        api.delete("/targets/{name}", status_code=204, dependencies=post)(self.delete_target)
         api.get("/scenarios")(self.scenarios)
+        validate_body = {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScenarioDraft"}}},
+            }
+        }
+        api.post("/scenarios/validate", dependencies=post, openapi_extra=validate_body)(self.validate_scenario)
+        api.post("/scenarios", dependencies=post)(self.save_scenario)
+        api.post("/scenarios/test-query", dependencies=post)(self.test_query)
+        api.post("/scenarios/dry-run", status_code=202, dependencies=post)(self.dry_run)
         api.get("/experiments")(self.list_experiments)
         api.post("/experiments", status_code=202, dependencies=post)(self.run_experiment)
         api.get("/experiments/{exp_id}")(self.get_experiment)
@@ -170,8 +251,7 @@ def _config[T](load: Callable[[], T], path: str) -> T:
 def _describe(exc: Exception) -> str:
     """Error summary without echoing config values (which may hold URLs with credentials)."""
     if isinstance(exc, ValidationError):
-        errors = exc.errors(include_input=False, include_url=False)
-        return "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in errors)
+        return "; ".join(validation_errors(exc))
     return f"{type(exc).__name__}: {_redacted(str(exc))}"
 
 

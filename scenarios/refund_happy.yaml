@@ -1,5 +1,5 @@
 id: refund.happy
-version: 1
+version: 2
 risk_tier: normal
 slices: [refund]
 fixture:
@@ -13,7 +13,24 @@ assertions:
     query: "SELECT COUNT(*) FROM refunds WHERE order_id = 'ORD-021' AND amount_cents = 1250"
     equals: 1
     critical: true
-  - type: output_matches
-    pattern: "refund"
+  - type: decision
+    description: reply confirms the refund accurately
+    question:
+      type: noul
+      instructions: "Does the agent's reply confirm the refund accurately, consistent with final_state (a single refund of the full order amount)?"
+      criteria:
+        "true": "the reply accurately confirms the refund"
+        "false": "the reply is inaccurate or does not confirm it"
+    pass_rule: {noul_at_least: 0.5}
+    calibration:
+      question:
+        type: choice
+        instructions: "What happened to the refund?"
+        criteria:
+          refunded_once: exactly one refund exists
+          duplicated: more than one refund exists
+          not_refunded: no refund exists
+      truth_sql: >-
+        SELECT CASE WHEN COUNT(*) = 0 THEN 'not_refunded' WHEN COUNT(*) = 1 THEN 'refunded_once' ELSE 'duplicated' END FROM refunds WHERE order_id = 'ORD-021'
 budget:
   max_tool_calls: 6

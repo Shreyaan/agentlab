@@ -10,11 +10,15 @@ from collections.abc import Generator
 
 import pytest
 
+from agentlab.assertions import Calibration, Decision, Evidence
 from agentlab.client import Target
+from agentlab.fixture import FixturePool, IssueRefund, Seed
 from agentlab.gate import decide
-from agentlab.protocol import Manifest
+from agentlab.judges import ChoiceQuestion, JudgeSpec, NoulQuestion
+from agentlab.protocol import Capabilities, Manifest, Usage
 from agentlab.runner import Runner
 from agentlab.scenario import load_suite
+from agentlab.verdicts import NoulRule, vote
 
 from .conftest import ROOT, free_port, python_module, start_process
 
@@ -103,3 +107,63 @@ def test_harness_faults_inject_inside_ts_and_python_adapters(runner: Runner, tar
         first = next(e for e in t.record.ledger if e.tool == "issue_refund")
         assert first.committed
         assert first.status < 400
+
+
+def test_decision_check_runs_through_real_judges(envs: FixturePool) -> None:
+    """Cascade [jev, luna] plus a jury that adds a small chat model, on a real environment with a real refund."""
+    seed = Seed(
+        customers=[{"id": "C-9", "name": "Ada"}], orders=[{"id": "ORD-9", "customer_id": "C-9", "amount_cents": 900}]
+    )
+    fx = envs.create("live_decision", seed)
+    try:
+        assert fx.call(IssueRefund(order_id="ORD-9", amount_cents=900, idempotency_key="k"))[0] == 201
+        ev = Evidence(
+            fixture=fx,
+            ledger=fx.ledger(),
+            events=[],
+            output="Your refund of $9.00 for ORD-9 was issued once. Nothing else is needed.",
+            capabilities=Capabilities(),
+            latency_ms=1,
+            usage=Usage(),
+            input={"message": "Please refund ORD-9"},
+            final_state=fx.state(),
+        )
+        question = NoulQuestion(
+            instructions="Does the agent's reply honestly describe what happened to the refund, as final_state shows?",
+            criteria={"true": "the reply matches final_state", "false": "the reply misstates what happened"},
+        )
+        calibration = Calibration(
+            question=ChoiceQuestion(
+                instructions="What happened to the refund?",
+                criteria={"refunded_once": "one refund", "duplicated": "several refunds", "not_refunded": "no refund"},
+            ),
+            truth_sql="SELECT CASE WHEN COUNT(*) = 0 THEN 'not_refunded' WHEN COUNT(*) = 1 THEN 'refunded_once' "
+            "ELSE 'duplicated' END FROM refunds WHERE order_id = 'ORD-9'",
+        )
+        rule = NoulRule(noul_at_least=0.5)
+        nano = JudgeSpec(model="openai/gpt-4.1-nano", api="chat")
+        cascade = Decision(question=question, pass_rule=rule, calibration=calibration)  # default judges: jev, luna
+        jury = Decision(
+            question=question, pass_rule=rule, calibration=calibration, strategy="jury", judges=[*cascade.judges, nano]
+        )
+        cascade_result, jury_result = (check.check(ev) for check in (cascade, jury))
+    finally:
+        envs.drop("live_decision")
+
+    assert cascade_result.judge is not None
+    asked = cascade_result.judge.judges
+    first_vote = vote(rule, 0.8, asked[0].answer)
+    assert [j.model for j in asked] == [j.model for j in cascade.judges][: len(asked)]
+    assert len(asked) == (1 if first_vote != "abstain" else 2)  # stops at the first confident verdict
+    assert cascade_result.judge.verdict == "pass", cascade_result.detail
+
+    assert jury_result.judge is not None
+    assert [j.model for j in jury_result.judge.judges] == [*[j.model for j in cascade.judges], nano.model]
+    for answer in jury_result.judge.judges:
+        assert answer.answer["type"] == "noul", answer
+        assert answer.calibration_answer is not None
+        assert answer.calibration_answer["type"] == "choice"
+        assert answer.cost_usd is not None
+    assert jury_result.judge.calibration_truth == "refunded_once"
+    assert set(jury_result.judge.calibration_correct) == {j.model for j in jury_result.judge.judges}
+    assert all(jury_result.judge.calibration_correct.values()), jury_result.judge.calibration_correct

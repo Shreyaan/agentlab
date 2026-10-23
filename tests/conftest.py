@@ -1,6 +1,7 @@
 """Shared test infrastructure: a real Postgres (Testcontainers) and a real fixture service. Nothing is mocked."""
 
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 from testcontainers.community.postgres import PostgresContainer
 
 from agentlab.db import Pool, open_pool
@@ -64,6 +66,25 @@ def store(db: Pool) -> Store:
 @pytest.fixture
 def runner(store: Store, envs: FixturePool, fixture_url: str) -> Runner:
     return Runner(store, envs, HOSTS, RunConfig(fixture_url=fixture_url, concurrency=4))
+
+
+@pytest.fixture
+def paths(tmp_path: Path) -> tuple[str, str]:
+    suite = tmp_path / "suite"
+    suite.mkdir()
+    shutil.copy(ROOT / "scenarios" / "refund_happy.yaml", suite)
+    targets = tmp_path / "targets.yaml"
+    targets.write_text(
+        yaml.dump(
+            {
+                "targets": {
+                    "down": {"mode": "native", "url": f"http://127.0.0.1:{free_port()}"},
+                    "blackbox": {"mode": "http", "url": f"http://127.0.0.1:{free_port()}/chat"},
+                }
+            }
+        )
+    )
+    return str(targets), str(suite)
 
 
 def start_process(args: list[str], port: int, env: dict[str, str]) -> subprocess.Popen[bytes]:

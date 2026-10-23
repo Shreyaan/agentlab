@@ -47,6 +47,17 @@ class JudgeVerdict(BaseModel):
     calibration_correct: dict[str, bool] = {}  # model -> did its calibration answer match the truth
 
 
+class JudgeStats(BaseModel):
+    """Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy."""
+
+    model: str
+    samples: int  # calibration answers seen
+    correct: int
+    accuracy: float | None
+    cost_usd: float | None
+    calibrated: bool  # meets the bar to make critical decision checks block releases
+
+
 class AssertionResult(BaseModel):
     type: str
     description: str

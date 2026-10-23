@@ -1,15 +1,32 @@
-"""Graders, in precedence order: executable environment state first, then process (ledger/events), then output text."""
+"""Graders, in precedence order: executable environment state first, then process (ledger/events), then model-judged
+language and intent (decision checks), calibrated against the recorded facts."""
 
-import re
+import json
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Annotated, Literal
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, model_validator
 
 from agentlab.fixture import Fixture
-from agentlab.protocol import Capabilities, Event, Usage
-from agentlab.records import AssertionResult, LedgerEntry
+from agentlab.judges import JUDGE_MODELS, ChoiceQuestion, JudgeError, JudgeSpec, NoulQuestion, Question, ask
+from agentlab.protocol import Capabilities, Event, JsonObject, Usage
+from agentlab.records import AssertionResult, JudgeAnswer, JudgeStats, JudgeVerdict, LedgerEntry, State, TableDiff
+from agentlab.redaction import redact
+from agentlab.verdicts import (
+    ChoiceRule,
+    NoulRule,
+    PassRule,
+    ScoreRule,
+    Strategy,
+    Vote,
+    combine,
+    reading_correct,
+    single_cell,
+    uncalibrated_reason,
+    vote,
+)
 
 type Status = Literal["pass", "fail", "unsupported", "skipped"]
 
@@ -23,6 +40,10 @@ class Evidence:
     capabilities: Capabilities
     latency_ms: float
     usage: Usage
+    input: JsonObject = field(default_factory=dict)
+    final_state: State = field(default_factory=dict)
+    state_diff: dict[str, TableDiff] = field(default_factory=dict)
+    judge_stats: list[JudgeStats] = field(default_factory=list)  # loaded once per experiment
 
 
 class _Check(BaseModel, ABC):
@@ -37,7 +58,7 @@ class _Check(BaseModel, ABC):
     @abstractmethod
     def check(self, ev: Evidence) -> AssertionResult: ...
 
-    def result(self, status: Status, detail: str = "") -> AssertionResult:
+    def result(self, status: Status, detail: str = "", judge: JudgeVerdict | None = None) -> AssertionResult:
         kind = type(self).model_fields["type"].default
         return AssertionResult(
             type=str(kind),
@@ -45,6 +66,7 @@ class _Check(BaseModel, ABC):
             critical=self.critical,
             status=status,
             detail=detail,
+            judge=judge,
         )
 
 
@@ -116,20 +138,133 @@ class EventPresent(_Check):
         return self.result("pass" if hit else "fail")
 
 
-class OutputMatches(_Check):
-    type: Literal["output_matches"] = "output_matches"
-    pattern: str
+STATE_LIMIT_BYTES = 24_000
+TRUNCATED = " [truncated]"
+QUESTION, CALIBRATION = "check", "calibration"
+type EvidenceKind = Literal["input", "output", "final_state", "state_diff", "ledger", "events"]
+
+
+class Calibration(BaseModel):
+    """Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy."""
+
+    question: ChoiceQuestion | NoulQuestion = Field(discriminator="type")
+    truth_sql: str  # read-only, scoped to the trial schema, single cell, compared as a string
+
+
+def _size(value: JsonValue) -> int:
+    return len(json.dumps(value, separators=(",", ":")))
+
+
+def cap_state(state: dict[str, JsonValue], limit: int = STATE_LIMIT_BYTES) -> tuple[dict[str, JsonValue], bool]:
+    """Halve the largest field until the serialized state fits, marking what was cut."""
+    truncated = False
+    while _size(state) > limit:
+        key = max(state, key=lambda k: _size(state[k]))
+        value = state[key]
+        text = value if isinstance(value, str) else json.dumps(value, separators=(",", ":"))
+        state = {**state, key: text[: len(text) // 2] + TRUNCATED}
+        truncated = True
+    return state, truncated
+
+
+def judge_state(ev: Evidence, kinds: list[EvidenceKind]) -> dict[str, JsonValue]:
+    available: dict[str, Callable[[], JsonValue]] = {
+        "input": lambda: ev.input,
+        "output": lambda: ev.output,
+        "final_state": lambda: {t: [dict(r) for r in rows] for t, rows in ev.final_state.items()},
+        "state_diff": lambda: {t: d.model_dump(mode="json") for t, d in ev.state_diff.items()},
+        "ledger": lambda: [
+            e.model_dump(mode="json", include={"seq", "tool", "status", "committed"}) for e in ev.ledger
+        ],
+        "events": lambda: [e.model_dump(mode="json", exclude_none=True) for e in ev.events],
+    }
+    return {k: redact(available[k]()) for k in kinds}  # evidence leaves the process: scrub it like persisted data
+
+
+class Decision(_Check):
+    """A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).
+
+    A critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason).
+    """
+
+    type: Literal["decision"] = "decision"
+    question: Question
+    pass_rule: PassRule
+    min_confidence: float = Field(default=0.8, ge=0, le=1)
+    evidence: list[EvidenceKind] = Field(default=["input", "output", "final_state"], min_length=1)
+    judges: list[JudgeSpec] = Field(default_factory=lambda: [JudgeSpec(model=m) for m in JUDGE_MODELS], min_length=1)
+    strategy: Strategy = "cascade"
+    calibration: Calibration | None = None
+
+    @model_validator(mode="after")
+    def _rule_fits_question(self) -> Self:
+        rules = {"noul": NoulRule, "choice": ChoiceRule, "score": ScoreRule}
+        if not isinstance(self.pass_rule, rules[self.question.type]):
+            raise ValueError(f"pass_rule does not fit a {self.question.type} question")
+        if (
+            isinstance(self.pass_rule, ChoiceRule)
+            and isinstance(self.question, ChoiceQuestion)
+            and (unknown := set(self.pass_rule.choices) - set(self.question.criteria))
+        ):
+            raise ValueError(f"choices not in the question's criteria: {sorted(unknown)}")
+        return self
 
     @property
     def default_description(self) -> str:
-        return f"response matches /{self.pattern}/"
+        return self.question.instructions
 
     def check(self, ev: Evidence) -> AssertionResult:
-        text = ev.output if isinstance(ev.output, str) else str(ev.output)
-        return self.result("pass" if re.search(self.pattern, text, re.IGNORECASE) else "fail", text[:200])
+        state, truncated = cap_state(judge_state(ev, self.evidence))
+        questions: dict[str, Question] = {QUESTION: self.question}
+        truth = None
+        if self.calibration:
+            questions[CALIBRATION] = self.calibration.question
+            truth = single_cell(ev.fixture.query(self.calibration.truth_sql))
+        asked: list[JudgeAnswer] = []
+        votes: list[Vote] = []
+        for spec in self.judges:
+            asked.append(_ask_judge(spec, questions, state))
+            votes.append(vote(self.pass_rule, self.min_confidence, asked[-1].answer))
+            if self.strategy == "cascade" and votes[-1] != "abstain":
+                break
+        verdict = combine(self.strategy, votes)
+        reason = "; ".join(f"{a.model}: {v}" for a, v in zip(asked, votes, strict=True))
+        judge = JudgeVerdict(
+            judges=asked,
+            verdict=verdict,
+            reason=reason,
+            calibration_truth=truth,
+            calibration_correct={
+                a.model: reading_correct(a.calibration_answer, truth)
+                for a in asked
+                if truth is not None and a.calibration_answer is not None
+            },
+        )
+        note = "; evidence truncated to fit the judge" if truncated else ""
+        if verdict == "abstain":
+            return self.result("unsupported", f"judges abstained ({reason}){note}", judge)
+        if verdict == "pass":
+            return self.result("pass", reason + note, judge)
+        blockers = [a.model for a, v in zip(asked, votes, strict=True) if v == "fail"]
+        if self.critical and (why := uncalibrated_reason(blockers, ev.judge_stats)):
+            return self.result("unsupported", f"{why}; {reason}{note}", judge)
+        return self.result("fail", reason + note, judge)
 
 
-type Assertion = Annotated[Sql | ToolOrder | ForbiddenTool | EventPresent | OutputMatches, Field(discriminator="type")]
+def _ask_judge(spec: JudgeSpec, questions: dict[str, Question], state: dict[str, JsonValue]) -> JudgeAnswer:
+    try:
+        reply = ask(spec, questions, state)
+    except JudgeError as exc:
+        return JudgeAnswer(model=spec.model, answer={"type": "error", "error": str(exc)})
+    return JudgeAnswer(
+        model=spec.model,
+        answer=reply.answers[QUESTION],
+        calibration_answer=reply.answers.get(CALIBRATION),
+        cost_usd=reply.cost_usd,
+    )
+
+
+type Assertion = Annotated[Sql | ToolOrder | ForbiddenTool | EventPresent | Decision, Field(discriminator="type")]
 
 
 class Budget(BaseModel):

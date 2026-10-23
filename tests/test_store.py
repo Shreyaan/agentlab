@@ -5,7 +5,8 @@ import pytest
 
 from agentlab.models import ExperimentMeta, TrialError, TrialRecord
 from agentlab.protocol import ErrorCode, JsonObject, Usage
-from agentlab.store import Store, redact
+from agentlab.redaction import redact
+from agentlab.store import Store
 
 META = ExperimentMeta(targets={}, scenarios={}, repeats=1, fixture_url="http://127.0.0.1:1")
 

@@ -131,12 +131,3 @@ class TargetDraft(BaseModel):
 class SavedTarget(BaseModel):
     name: str
     created: bool
-
-
-class JudgeStats(BaseModel):
-    model: str
-    samples: int  # calibration answers seen
-    correct: int
-    accuracy: float | None
-    cost_usd: float | None
-    calibrated: bool  # meets the bar to make critical decision checks block releases

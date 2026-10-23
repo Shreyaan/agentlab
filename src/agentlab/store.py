@@ -4,26 +4,17 @@ A trial is written as `running` before invocation, so a crash leaves an inspecta
 treats as an error, never a pass. Everything is redacted on the way in.
 """
 
-import re
 from collections.abc import Callable
 from typing import Any
 
 from psycopg.types.json import Jsonb
-from pydantic import JsonValue
 
 from agentlab.api_models import ExperimentStatus, ExperimentSummary
 from agentlab.db import Pool
 from agentlab.models import Decision, Experiment, ExperimentMeta, Trial, TrialRecord, TrialStatus
-
-SECRET_KEY = re.compile(r"secret|token|password|authorization|api[_-]?key|cookie", re.IGNORECASE)
-SECRET_PARAM = re.compile(r"token|key|secret|sig|password", re.IGNORECASE)
-QUERY_PARAM = re.compile(r"[?&]([^=&\s?#]{1,256})=")  # bounded, delimiter-free name: linear on hostile text
-VALUE_END = re.compile(r"[&\s\"']")
-AUTHORITY_END = re.compile(r"[/\s]")
-SECRET_VALUE = [  # (pattern, replacement) for secrets embedded in free text: errors, outputs, URLs
-    (re.compile(r"(bearer\s+)[\w.~+/=-]+", re.IGNORECASE), r"\1[REDACTED]"),
-    (re.compile(r"\b(?:sk|pk|rk)[-_][\w-]{16,}|\bgh[pousr]_\w{20,}|\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
-]
+from agentlab.records import JudgeStats
+from agentlab.redaction import redact
+from agentlab.verdicts import is_calibrated
 
 SCHEMA = """
 SELECT pg_advisory_xact_lock(7311);  -- concurrent first runs must not race the DDL
@@ -49,52 +40,20 @@ SELECT e.id, e.created_at, e.meta, e.decision, e.error,
 FROM agentlab.experiments e LEFT JOIN agentlab.trials t ON t.experiment_id = e.id
 """
 
-
-def redact_query_params(text: str) -> str:
-    """Secret-named params are redacted up to the next & / whitespace / quote (values may contain ? or #).
-    Benign params are skipped without consuming their value, so a param embedded in it is still found."""
-    out, pos = [], 0
-    for m in QUERY_PARAM.finditer(text):
-        if m.start() < pos or not SECRET_PARAM.search(m[1]):
-            continue
-        end = VALUE_END.search(text, m.end())
-        out += [text[pos : m.end()], "[REDACTED]"]
-        pos = end.start() if end else len(text)
-    return "".join(out) + text[pos:]
-
-
-def _is_number_or_null(value: JsonValue) -> bool:
-    return value is None or (isinstance(value, int | float) and not isinstance(value, bool))
-
-
-def redact_userinfo(text: str) -> str:
-    """Redact URL credentials up to the LAST '@' before the next '/' or whitespace (passwords may contain '@', '?',
-    '#'). No length bound, so nothing fails open; each authority span is scanned once, so it is linear."""
-    out, pos = [], 0
-    while (scheme := text.find("://", pos)) != -1:
-        start = scheme + 3
-        end = m.start() if (m := AUTHORITY_END.search(text, start)) else len(text)
-        at = text.rfind("@", start, end)
-        out.append(text[pos:start] + ("[REDACTED]" if at != -1 else ""))
-        pos = at if at != -1 else start
-    return "".join(out) + text[pos:]
-
-
-def redact(value: JsonValue) -> JsonValue:
-    """Key-based for structured data, pattern-based for free text. Under a secret-looking key everything is redacted
-    except numbers and nulls, so numeric telemetry such as input_tokens survives."""
-    if isinstance(value, dict):
-        return {
-            k: redact(v) if not SECRET_KEY.search(k) or _is_number_or_null(v) else "[REDACTED]"
-            for k, v in value.items()
-        }
-    if isinstance(value, list):
-        return [redact(v) for v in value]
-    if isinstance(value, str):
-        value = redact_query_params(redact_userinfo(value))
-        for pattern, repl in SECRET_VALUE:
-            value = pattern.sub(repl, value)
-    return value
+JUDGE_STATS_SQL = """
+WITH verdicts AS (
+    SELECT a->'judge' AS j FROM agentlab.trials t, jsonb_array_elements(t.record->'assertions') a
+    WHERE jsonb_typeof(a->'judge') = 'object'
+), calibration AS (
+    SELECT c.key AS model, count(*) AS samples, count(*) FILTER (WHERE c.value = 'true'::jsonb) AS correct
+    FROM verdicts, jsonb_each(j->'calibration_correct') c GROUP BY c.key
+), cost AS (
+    SELECT x->>'model' AS model, sum((x->>'cost_usd')::float8) AS cost_usd
+    FROM verdicts, jsonb_array_elements(j->'judges') x GROUP BY 1
+)
+SELECT model, coalesce(samples, 0) AS samples, coalesce(correct, 0) AS correct, cost_usd
+FROM calibration FULL JOIN cost USING (model) ORDER BY model
+"""
 
 
 class Store:
@@ -163,6 +122,21 @@ class Store:
                 "SELECT * FROM agentlab.trials WHERE experiment_id = %s ORDER BY created_at, id", (exp_id,)
             ).fetchall()
         return [Trial.model_validate(r) for r in rows]
+
+    def judge_stats(self) -> list[JudgeStats]:
+        with self.db.connection() as conn:
+            rows = conn.execute(JUDGE_STATS_SQL).fetchall()
+        return [
+            JudgeStats(
+                model=r["model"],
+                samples=r["samples"],
+                correct=r["correct"],
+                accuracy=r["correct"] / r["samples"] if r["samples"] else None,
+                cost_usd=r["cost_usd"],
+                calibrated=is_calibrated(r["samples"], r["correct"]),
+            )
+            for r in rows
+        ]
 
     def trial(self, trial_id: str) -> Trial:
         with self.db.connection() as conn:

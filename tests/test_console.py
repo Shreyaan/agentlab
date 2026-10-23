@@ -1,5 +1,4 @@
 import json
-import shutil
 import time
 import uuid
 from pathlib import Path
@@ -22,25 +21,6 @@ TEST_HOSTS = ["testserver"]  # TestClient's Host header
 
 CSRF = {"X-AgentLab-Request": "1"}
 SUITE = load_suite(ROOT / "scenarios")
-
-
-@pytest.fixture
-def paths(tmp_path: Path) -> tuple[str, str]:
-    suite = tmp_path / "suite"
-    suite.mkdir()
-    shutil.copy(ROOT / "scenarios" / "refund_happy.yaml", suite)
-    targets = tmp_path / "targets.yaml"
-    targets.write_text(
-        yaml.dump(
-            {
-                "targets": {
-                    "down": {"mode": "native", "url": f"http://127.0.0.1:{free_port()}"},
-                    "blackbox": {"mode": "http", "url": f"http://127.0.0.1:{free_port()}/chat"},
-                }
-            }
-        )
-    )
-    return str(targets), str(suite)
 
 
 def make_client(runner: Runner, paths: tuple[str, str], token: str | None = None) -> TestClient:
@@ -82,7 +62,7 @@ def stored_trial_id(runner: Runner) -> str:
 def test_info_and_scenarios(client: TestClient) -> None:
     info = client.get("/v1/info").json()
     assert info["auth_required"] is False
-    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@1"]
+    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@2"]
 
 
 def test_targets_report_unreachable(client: TestClient) -> None:
