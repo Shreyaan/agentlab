@@ -18,7 +18,8 @@ from agentlab import report
 from agentlab.client import HarnessClient, load_targets
 from agentlab.console import LOCAL_HOSTS, Console, create_console, openapi_schema
 from agentlab.db import database_url, open_pool
-from agentlab.fixture import SHARED_ENV, FixturePool, Seed, create_app, serve_in_thread
+from agentlab.environment import load_environments
+from agentlab.fixture import SHARED_ENV, FixturePool, create_app, serve_in_thread
 from agentlab.jobs import Jobs
 from agentlab.models import Decision
 from agentlab.otel import parse_otlp
@@ -44,6 +45,7 @@ def session(a: argparse.Namespace) -> Generator[Runner]:
             fixture_url=a.fixture_url or f"http://127.0.0.1:{a.fixture_port}",
             deadline_ms=a.deadline_ms,
             concurrency=a.concurrency,
+            environments=a.environments,
         )
         yield Runner(Store(db), pool, allowed, cfg)
     finally:
@@ -147,9 +149,15 @@ def cmd_conformance(a: argparse.Namespace) -> int:
 def cmd_fixture(a: argparse.Namespace) -> int:
     db = open_pool(database_url(a.database_url))
     pool = FixturePool(db)
-    pool.create(SHARED_ENV, Seed())
-    server = serve_in_thread(create_app(pool, admin=True), a.port, a.bind)
-    print(f"fixture on http://{a.bind}:{a.port}/env/<id>  (POST /env/<id>/admin/reset, GET /env/<id>/admin/state)")
+    environments = load_environments(a.environments)
+    if not (spec := environments.get(a.environment)):
+        raise ValueError(f"unknown environment {a.environment!r}; known: {', '.join(environments) or 'none'}")
+    pool.create(SHARED_ENV, spec, {})
+    server = serve_in_thread(create_app(pool, admin=True, environments=environments), a.port, a.bind)
+    print(
+        f"{spec.key} on http://{a.bind}:{a.port}/env/{SHARED_ENV}/tools  "
+        f"(POST /env/<id>/admin/reset, GET /env/<id>/admin/state)"
+    )
     try:
         while not server.should_exit:
             time.sleep(0.5)
@@ -220,6 +228,7 @@ def cmd_import_otel(a: argparse.Namespace) -> int:
 
 def _fixture_flags(p: argparse.ArgumentParser) -> None:
     p.add_argument("--targets", default="targets.yaml")
+    p.add_argument("--environments", default="environments", help="directory of environment specs")
     p.add_argument("--database-url", help="Postgres URL (default $AGENTLAB_DATABASE_URL)")
     p.add_argument("--concurrency", type=int, default=int(os.environ.get("AGENTLAB_CONCURRENCY", "4")))
     p.add_argument("--deadline-ms", type=int, default=120_000)
@@ -268,7 +277,9 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--targets", default="targets.yaml")
     c.set_defaults(fn=cmd_conformance)
 
-    fx = sub.add_parser("fixture", help="serve the refund environment standalone")
+    fx = sub.add_parser("fixture", help="serve one environment standalone")
+    fx.add_argument("--environment", default="refund@1", help="environment key (id@version)")
+    fx.add_argument("--environments", default="environments", help="directory of environment specs")
     fx.add_argument("--port", type=int, default=8900)
     fx.add_argument("--bind", default="127.0.0.1")
     fx.add_argument("--database-url")

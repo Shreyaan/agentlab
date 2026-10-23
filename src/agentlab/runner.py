@@ -7,6 +7,7 @@ environment, so their trials share one environment and run one at a time.
 import threading
 import time
 import uuid
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
@@ -14,6 +15,7 @@ from typing import Literal
 
 from agentlab.assertions import Decision as DecisionCheck, Evidence, grade
 from agentlab.client import HarnessClient, Target
+from agentlab.environment import EnvironmentSpec, load_environments
 from agentlab.fixture import SHARED_ENV, FixturePool
 from agentlab.gate import decide
 from agentlab.models import Decision, Experiment, ExperimentMeta, TargetInfo, Trial, TrialError, TrialRecord
@@ -38,6 +40,7 @@ class RunConfig:
     fixture_url: str  # base URL of the fixture service as agents see it, without /env/<id>
     deadline_ms: int = 60_000
     concurrency: int = 4
+    environments: str = "environments"  # directory of environment specs
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,7 @@ class TrialPlan:
     target: Target
     conn: Conn
     scenario: Scenario
+    environment: EnvironmentSpec  # pinned for the experiment
     repeat: int
     fixture_faults: list[ToolFault]
     harness_faults: list[ToolFault]
@@ -93,6 +97,17 @@ class Runner:
             )
         return Connection(client, manifest)
 
+    def environments_for(
+        self, scenarios: Sequence[Scenario], pinned: Mapping[str, EnvironmentSpec] | None = None
+    ) -> dict[str, EnvironmentSpec]:
+        """The environment each scenario runs in: an experiment's pin if it has one (history recorded before pinning
+        has none and falls back to the registry), else the registry's current spec."""
+        known = {**load_environments(self.cfg.environments), **(pinned or {})}
+        wanted = {s.environment for s in scenarios}
+        if missing := sorted(wanted - set(known)):
+            raise ValueError(f"unknown environment(s): {', '.join(missing)}")
+        return {key: known[key] for key in wanted}
+
     def plan_experiment(
         self,
         scenarios: list[Scenario],
@@ -103,11 +118,13 @@ class Runner:
         baseline: str | None = None,
         max_regression: float = 0.0,
     ) -> tuple[str, list[TrialPlan]]:
+        environments = self.environments_for(scenarios)
         conns = {t.name: self.connect(t) for t in targets}
         exp_id = self._create_experiment(
             scenarios,
             targets,
             conns,
+            environments,
             repeats=repeats,
             planned=len(scenarios) * repeats * len(targets),
             candidate=candidate,
@@ -123,6 +140,7 @@ class Runner:
                 t,
                 conns[t.name],
                 s,
+                environments[s.environment],
                 r,
                 s.faults_at("fixture"),
                 s.faults_at("harness"),
@@ -190,6 +208,7 @@ class Runner:
     ) -> tuple[str, list[TrialPlan]]:
         """Counterfactual: restore the environment as it was at `checkpoint_id` and resume the agent from there."""
         scenario = experiment.meta.scenarios[source.scenario]
+        environments = self.environments_for([scenario], experiment.meta.environments)
         history = source.record.ledger[: ledger_calls_before(source.record.events, checkpoint_id)]
         conn = self.connect(target)
         if isinstance(conn, AgentLabError):
@@ -198,7 +217,13 @@ class Runner:
             raise AgentLabError(ErrorCode.CAPABILITY_UNSUPPORTED, f"{target.name} cannot fork from checkpoints")
         resume = ResumeFrom(trial_id=source.id, checkpoint_id=checkpoint_id)
         exp_id = self._create_experiment(
-            [scenario], [target], {target.name: conn}, planned=1, candidate=target.name, forked_from=resume
+            [scenario],
+            [target],
+            {target.name: conn},
+            environments,
+            planned=1,
+            candidate=target.name,
+            forked_from=resume,
         )
         keep = faults == "scenario"
         plan = TrialPlan(
@@ -207,6 +232,7 @@ class Runner:
             target,
             conn,
             scenario,
+            environments[scenario.environment],
             0,
             scenario.faults_at("fixture") if keep else [],
             scenario.faults_at("harness") if keep else [],
@@ -233,6 +259,7 @@ class Runner:
         scenarios: list[Scenario],
         targets: list[Target],
         conns: dict[str, Conn],
+        environments: dict[str, EnvironmentSpec],
         *,
         planned: int,
         repeats: int = 1,
@@ -255,6 +282,7 @@ class Runner:
                     for t in targets
                 },
                 scenarios={s.key: s for s in scenarios},
+                environments=environments,
                 repeats=repeats,
                 fixture_url=self.cfg.fixture_url,
                 forked_from=forked_from,
@@ -282,7 +310,7 @@ class Runner:
         env_id = SHARED_ENV if shared else uuid.uuid4().hex[:16]
         lock: AbstractContextManager[object] = self._shared_env_lock if shared else nullcontext()
         with lock:
-            self.pool.create(env_id, plan.scenario.fixture, plan.fixture_faults, plan.history)
+            self.pool.create(env_id, plan.environment, plan.scenario.seed, plan.fixture_faults, plan.history)
             try:
                 self._execute(plan, conn, env_id)
             finally:

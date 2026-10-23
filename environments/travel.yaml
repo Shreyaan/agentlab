@@ -1,0 +1,86 @@
+id: travel
+version: 1
+description: >-
+  A flight booking backend: flights with limited seats, bookings and card payments.
+  Booking takes a seat; cancelling gives it back; a payment is a money movement.
+tables:
+  - name: flights
+    columns:
+      - {name: id, type: text, primary_key: true}
+      - {name: origin, type: text, nullable: false}
+      - {name: destination, type: text, nullable: false}
+      - {name: seats_left, type: integer, nullable: false}
+      - {name: price_cents, type: integer, nullable: false}
+  - name: bookings
+    columns:
+      - {name: id, type: integer, serial: true, primary_key: true}
+      - {name: flight_id, type: text, nullable: false, references: flights.id}
+      - {name: passenger, type: text, nullable: false}
+      - {name: status, type: text, nullable: false}
+  - name: payments
+    columns:
+      - {name: id, type: integer, serial: true, primary_key: true}
+      - {name: booking_id, type: integer, nullable: false, references: bookings.id}
+      - {name: amount_cents, type: integer, nullable: false}
+tools:
+  - name: search_flights
+    description: Search flights, optionally filtered by origin and destination airport codes.
+    mutates: false
+    returns: rows
+    params:
+      - {name: origin, type: string, required: false}
+      - {name: destination, type: string, required: false}
+    sql: >-
+      SELECT * FROM flights
+      WHERE (%(origin)s::text IS NULL OR origin = %(origin)s) AND (%(destination)s::text IS NULL OR destination = %(destination)s)
+      ORDER BY id
+  - name: get_flight
+    description: Look up one flight, including its price and remaining seats.
+    mutates: false
+    params:
+      - {name: flight_id, type: string}
+    sql: SELECT * FROM flights WHERE id = %(flight_id)s
+  - name: create_booking
+    description: Book one seat on a flight for a passenger. Fails when no seats are left.
+    success_status: 201
+    params:
+      - {name: flight_id, type: string}
+      - {name: passenger, type: string}
+    rules:
+      - {sql: "SELECT NOT EXISTS (SELECT 1 FROM flights WHERE id = %(flight_id)s)", status: 404, error: flight not found}
+      - {sql: "SELECT seats_left <= 0 FROM flights WHERE id = %(flight_id)s", status: 409, error: no seats left}
+    sql: >-
+      WITH seat AS (UPDATE flights SET seats_left = seats_left - 1 WHERE id = %(flight_id)s RETURNING id)
+      INSERT INTO bookings (flight_id, passenger, status)
+      SELECT id, %(passenger)s, 'confirmed' FROM seat
+      RETURNING id AS booking_id, flight_id, passenger, status
+  - name: charge_payment
+    description: Charge the passenger's card for a booking. Pass an idempotency_key so a retry never charges twice.
+    idempotent: true
+    success_status: 201
+    params:
+      - {name: booking_id, type: integer}
+      - {name: amount_cents, type: integer}
+    rules:
+      - {sql: "SELECT NOT EXISTS (SELECT 1 FROM bookings WHERE id = %(booking_id)s)", status: 404, error: booking not found}
+    sql: >-
+      INSERT INTO payments (booking_id, amount_cents) VALUES (%(booking_id)s, %(amount_cents)s)
+      RETURNING id AS payment_id, booking_id, amount_cents
+  - name: cancel_booking
+    description: Cancel a confirmed booking and release its seat.
+    params:
+      - {name: booking_id, type: integer}
+    rules:
+      - {sql: "SELECT NOT EXISTS (SELECT 1 FROM bookings WHERE id = %(booking_id)s)", status: 404, error: booking not found}
+      - {sql: "SELECT status = 'cancelled' FROM bookings WHERE id = %(booking_id)s", status: 409, error: booking already cancelled}
+    sql: >-
+      WITH b AS (UPDATE bookings SET status = 'cancelled' WHERE id = %(booking_id)s RETURNING flight_id),
+           f AS (UPDATE flights SET seats_left = seats_left + 1 WHERE id IN (SELECT flight_id FROM b))
+      SELECT %(booking_id)s::integer AS booking_id, 'cancelled' AS status
+  - name: get_bookings
+    description: List a passenger's bookings.
+    mutates: false
+    returns: rows
+    params:
+      - {name: passenger, type: string}
+    sql: SELECT * FROM bookings WHERE passenger = %(passenger)s ORDER BY id

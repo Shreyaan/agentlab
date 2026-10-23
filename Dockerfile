@@ -19,6 +19,7 @@ COPY src/ ./src/
 COPY --from=console /build/src/agentlab/console_dist/ ./src/agentlab/console_dist/
 COPY protocol/ ./protocol/
 COPY scenarios/ ./scenarios/
+COPY environments/ ./environments/
 COPY targets.yaml ./
 RUN uv sync --frozen --no-default-groups
 

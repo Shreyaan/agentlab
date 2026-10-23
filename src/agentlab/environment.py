@@ -7,8 +7,10 @@ read-only author SQL. Agents discover tools at runtime (HTTP catalog or MCP), so
 """
 
 import re
-from typing import Literal
+from pathlib import Path
+from typing import Literal, cast
 
+import yaml
 from pydantic import BaseModel, Field, JsonValue, field_validator, model_validator
 
 IDENTIFIER = re.compile(r"[a-z][a-z0-9_]{0,47}")
@@ -127,3 +129,69 @@ class ToolCatalog(BaseModel):
     environment: str  # id@version
     description: str
     tools: list[CatalogTool]
+
+
+def _param_schema(p: ToolParam) -> dict[str, JsonValue]:
+    schema: dict[str, JsonValue] = {"type": p.type}
+    if p.description:
+        schema["description"] = p.description
+    if p.enum:
+        schema["enum"] = list(p.enum)
+    return schema
+
+
+def tool_schema(tool: ToolSpec) -> dict[str, JsonValue]:
+    props = {p.name: _param_schema(p) for p in tool.params}
+    if tool.idempotent:
+        props.setdefault(
+            "idempotency_key", {"type": "string", "description": "a repeated key replays the first result"}
+        )
+    required: list[JsonValue] = [p.name for p in tool.params if p.required]
+    return {
+        "type": "object",
+        "properties": cast("JsonValue", props),
+        "required": required,
+        "additionalProperties": False,
+    }
+
+
+def catalog(spec: EnvironmentSpec) -> ToolCatalog:
+    tools = [CatalogTool(name=t.name, description=t.description, parameters=tool_schema(t)) for t in spec.tools]
+    return ToolCatalog(environment=spec.key, description=spec.description, tools=tools)
+
+
+_PYTHON_TYPES: dict[str, type | tuple[type, ...]] = {
+    "string": str,
+    "integer": int,
+    "number": (int, float),
+    "boolean": bool,
+}
+
+
+def bind_args(tool: ToolSpec, args: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """Check agent-supplied arguments against the tool's declared parameters and return the SQL parameters (every
+    declared name, None when an optional one is absent). Messages name parameters, never echo values."""
+    allowed = {p.name for p in tool.params} | ({"idempotency_key"} if tool.idempotent else set())
+    if unknown := sorted(set(args) - allowed):
+        raise ValueError(f"unknown argument(s): {unknown}")
+    if not isinstance(args.get("idempotency_key", ""), str):
+        raise ValueError("argument 'idempotency_key' must be string")
+    bound: dict[str, JsonValue] = {}
+    for p in tool.params:
+        value = bound[p.name] = args.get(p.name)
+        if value is None:
+            if p.required:
+                raise ValueError(f"missing required argument {p.name!r}")
+        elif isinstance(value, bool) != (p.type == "boolean") or not isinstance(value, _PYTHON_TYPES[p.type]):
+            raise ValueError(f"argument {p.name!r} must be {p.type}")
+        elif p.enum and str(value) not in p.enum:
+            raise ValueError(f"argument {p.name!r} must be one of {p.enum}")
+    return bound
+
+
+def load_environments(path: str | Path) -> dict[str, EnvironmentSpec]:
+    specs = [EnvironmentSpec.model_validate(yaml.safe_load(f.read_text())) for f in sorted(Path(path).glob("*.y*ml"))]
+    keys = [s.key for s in specs]
+    if len(keys) != len(set(keys)):
+        raise ValueError(f"duplicate environment id@version in {path}")
+    return {s.key: s for s in specs}

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, R
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 
 from agentlab import report
 from agentlab.api_models import (
@@ -21,6 +21,8 @@ from agentlab.api_models import (
     BuilderInfo,
     ConsoleInfo,
     DryRunRequest,
+    EnvironmentDraft,
+    EnvironmentInfo,
     ExperimentDetail,
     ExperimentSummary,
     ForkRequest,
@@ -35,8 +37,18 @@ from agentlab.api_models import (
     TargetDraft,
     TargetHealth,
 )
-from agentlab.builder import ScenarioBuilder, TargetEditor, builder_info, validation_errors
+from agentlab.authoring import Author, authoring_router
+from agentlab.builder import (
+    EnvironmentBuilder,
+    ScenarioBuilder,
+    TargetEditor,
+    builder_info,
+    environment_errors,
+    semantic_errors,
+    validation_errors,
+)
 from agentlab.client import HarnessClient, Target, load_targets
+from agentlab.environment import EnvironmentSpec, load_environments
 from agentlab.jobs import Jobs
 from agentlab.models import Trial
 from agentlab.protocol import PROTOCOL_VERSION, AgentLabError, ErrorCode
@@ -71,6 +83,10 @@ class Console:
 
     def suite(self) -> dict[str, Scenario]:
         return _config(lambda: {s.key: s for s in load_suite(self.suite_path)}, self.suite_path)
+
+    def environments(self) -> dict[str, EnvironmentSpec]:
+        path = self.runner.cfg.environments
+        return _config(lambda: load_environments(path), path)
 
     def target_named(self, name: str) -> Target:
         if name not in (targets := self.known_targets()):
@@ -107,6 +123,9 @@ class Console:
     def scenarios(self) -> list[ScenarioInfo]:
         return [ScenarioInfo(key=key, scenario=s) for key, s in self.suite().items()]
 
+    def list_environments(self) -> list[EnvironmentInfo]:
+        return [EnvironmentInfo(key=key, environment=spec) for key, spec in self.environments().items()]
+
     def list_experiments(self, limit: Annotated[int, Query(ge=1, le=500)] = 50) -> list[ExperimentSummary]:
         return self.runner.store.experiment_summaries(limit, self.jobs.is_running)
 
@@ -132,30 +151,40 @@ class Console:
         max_regression: float = 0.0,
     ) -> Accepted:
         names = [candidate, *([baseline] if baseline else [])]
-        exp_id, plans = self.runner.plan_experiment(
-            scenarios,
-            [self.target_named(n) for n in names],
-            repeats=repeats,
-            candidate=candidate,
-            baseline=baseline,
-            max_regression=max_regression,
-        )
+        targets = [self.target_named(n) for n in names]
+        try:
+            exp_id, plans = self.runner.plan_experiment(
+                scenarios,
+                targets,
+                repeats=repeats,
+                candidate=candidate,
+                baseline=baseline,
+                max_regression=max_regression,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         self.jobs.submit(exp_id, plans)
         return Accepted(experiment_id=exp_id)
 
-    def builder(self) -> BuilderInfo:
-        return builder_info()
+    def environment_builder_info(self, key: str) -> BuilderInfo:
+        if not (spec := self.environments().get(key)):
+            raise HTTPException(404, f"unknown environment {key!r}")
+        return builder_info(spec)
 
     def scenario_builder(self) -> ScenarioBuilder:
-        return ScenarioBuilder(self.suite_path, self.runner.pool)
+        return ScenarioBuilder(self.suite_path, self.runner.pool, self.environments())
+
+    def environment_builder(self) -> EnvironmentBuilder:
+        return EnvironmentBuilder(self.runner.cfg.environments, self.runner.pool)
 
     async def validate_scenario(self, request: Request) -> ScenarioValidation:
-        """Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422."""
-        try:
-            raw = await request.json()
-        except ValueError:
-            return ScenarioValidation(valid=False, errors=["body: invalid JSON"])
-        return await run_in_threadpool(self.scenario_builder().validate, raw)
+        return await _validate(request, self.scenario_builder().validate)
+
+    async def validate_environment(self, request: Request) -> ScenarioValidation:
+        return await _validate(request, self.environment_builder().validate)
+
+    def save_environment(self, body: EnvironmentDraft) -> SavedScenario:
+        return self.environment_builder().save(body)
 
     def save_scenario(self, body: ScenarioDraft) -> SavedScenario:
         return self.scenario_builder().save(body)
@@ -214,24 +243,35 @@ class Console:
         self.jobs.submit(exp_id, plans)
         return Accepted(experiment_id=exp_id)
 
+    def author_router(self) -> APIRouter:
+        # Resolve the pool per request: the OpenAPI schema is built without a database (runner placeholder).
+        return authoring_router(
+            Author,
+            self.environments,
+            lambda spec: environment_errors(self.runner.pool, spec),
+            lambda s, spec: semantic_errors(self.runner.pool, s, {**self.environments(), spec.key: spec}),
+            dependencies=[self.require_token, require_csrf_header],
+        )
+
     def router(self) -> APIRouter:
         api = APIRouter(prefix="/v1", dependencies=[Depends(self.require_token)])
         post = [Depends(require_csrf_header)]  # every write, whatever its method
         api.get("/info")(self.info)
-        api.get("/builder")(self.builder)
         api.get("/judges")(self.judges)
         api.get("/targets")(self.targets)
         api.post("/targets/test", dependencies=post)(self.test_target)
         api.put("/targets/{name}", dependencies=post)(self.put_target)
         api.delete("/targets/{name}", status_code=204, dependencies=post)(self.delete_target)
+        api.get("/environments")(self.list_environments)
+        api.get("/environments/{key}/builder")(self.environment_builder_info)
+        api.post("/environments/validate", dependencies=post, openapi_extra=_body_schema("EnvironmentDraft"))(
+            self.validate_environment
+        )
+        api.post("/environments", dependencies=post)(self.save_environment)
         api.get("/scenarios")(self.scenarios)
-        validate_body = {
-            "requestBody": {
-                "required": True,
-                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScenarioDraft"}}},
-            }
-        }
-        api.post("/scenarios/validate", dependencies=post, openapi_extra=validate_body)(self.validate_scenario)
+        api.post("/scenarios/validate", dependencies=post, openapi_extra=_body_schema("ScenarioDraft"))(
+            self.validate_scenario
+        )
         api.post("/scenarios", dependencies=post)(self.save_scenario)
         api.post("/scenarios/test-query", dependencies=post)(self.test_query)
         api.post("/scenarios/dry-run", status_code=202, dependencies=post)(self.dry_run)
@@ -243,6 +283,20 @@ class Console:
         api.get("/trials/{trial_id:path}")(self.get_trial)
         api.post("/forks", status_code=202, dependencies=post)(self.fork)
         return api
+
+
+async def _validate(request: Request, validate: Callable[[JsonValue], ScenarioValidation]) -> ScenarioValidation:
+    """Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422."""
+    try:
+        raw = await request.json()
+    except ValueError:
+        return ScenarioValidation(valid=False, errors=["body: invalid JSON"])
+    return await run_in_threadpool(validate, raw)
+
+
+def _body_schema(name: str) -> dict[str, Any]:
+    ref = {"$ref": f"#/components/schemas/{name}"}
+    return {"requestBody": {"required": True, "content": {"application/json": {"schema": ref}}}}
 
 
 def _config[T](load: Callable[[], T], path: str) -> T:
@@ -274,6 +328,7 @@ def create_console(console: Console, dist_dir: Path = DIST_DIR, allowed_hosts: S
     # Rejecting unknown Host headers defeats DNS rebinding, which would otherwise make a hostile site same-origin.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     app.include_router(console.router())
+    app.include_router(console.author_router())
     serve_frontend(app, dist_dir)
     return app
 

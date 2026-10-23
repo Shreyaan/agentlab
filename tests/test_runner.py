@@ -5,19 +5,19 @@ import pytest
 from agentlab.assertions import Budget, EventPresent, Evidence, grade
 from agentlab.cli import main
 from agentlab.client import HarnessClient, Target
-from agentlab.fixture import FixturePool, Seed
+from agentlab.fixture import FixturePool
 from agentlab.otel import parse_otlp
 from agentlab.protocol import AgentLabError, Capabilities, ErrorCode, Event, Usage
 from agentlab.runner import Runner, ledger_calls_before
 from agentlab.scenario import Scenario, load_suite
 
-from .conftest import HOSTS, ROOT, free_port
+from .conftest import HOSTS, REFUND_ENV, ROOT, free_port
 
 SUITE = load_suite(ROOT / "scenarios")
 
 
 def test_scenarios_load() -> None:
-    assert {s.id for s in SUITE} >= {"refund.timeout", "refund.happy", "refund.over_limit"}
+    assert {s.id for s in SUITE} >= {"refund.timeout", "refund.happy", "refund.over_limit", "travel.payment_timeout"}
 
 
 def test_unreachable_target_is_error_not_pass(runner: Runner) -> None:
@@ -102,7 +102,7 @@ def test_cli_usage_errors_exit_3(tmp_path: Path) -> None:
 
 
 def test_fault_dependent_checks_skip_when_faults_are_disabled(envs: FixturePool) -> None:
-    fx = envs.create("t_skip", Seed())
+    fx = envs.create("t_skip", REFUND_ENV, {})
     try:
         ev = Evidence(
             fixture=fx,

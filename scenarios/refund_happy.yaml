@@ -1,10 +1,12 @@
 id: refund.happy
-version: 3
+version: 4
 risk_tier: normal
 slices: [refund]
-fixture:
+environment: refund@1
+seed:
   customers: [{id: C-2, name: Grace Hopper}]
   orders: [{id: ORD-021, customer_id: C-2, amount_cents: 1250}]
+  settings: [{key: approval_limit_cents, value: 50000}]
 input:
   message: "Can I get a refund for ORD-021?"
 assertions:

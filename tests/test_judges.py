@@ -5,13 +5,15 @@ import pytest
 
 from agentlab.assertions import Budget, Decision, Evidence, cap_state, grade, judge_state
 from agentlab.db import Pool
-from agentlab.fixture import FixturePool, Seed
+from agentlab.fixture import FixturePool
 from agentlab.judges import ChoiceQuestion, JudgeSpec, NoulQuestion
 from agentlab.models import ExperimentMeta, TrialRecord
 from agentlab.protocol import Capabilities, JsonObject, Usage
 from agentlab.records import AssertionResult, Canary, CanaryResult, JudgeAnswer, JudgeStats, JudgeVerdict
 from agentlab.store import Store
 from agentlab.verdicts import ChoiceRule, NoulRule, ScoreRule, combine, is_calibrated, uncalibrated_reason, vote
+
+from .conftest import REFUND_ENV
 
 # Shapes as returned by the Decisions API
 NOUL_YES: JsonObject = {"type": "noul", "noul": 0.97}
@@ -141,7 +143,7 @@ def decision(**kw) -> Decision:
 def test_missing_key_abstains_and_never_crashes(envs: FixturePool, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     env_id = f"judge_{uuid.uuid4().hex[:8]}"
-    fx = envs.create(env_id, Seed())
+    fx = envs.create(env_id, REFUND_ENV, {})
     try:
         d = decision(critical=True)
         [result] = grade([d], Budget(), evidence(fx, []), faults_active=False)
@@ -211,7 +213,7 @@ def test_judge_stats_aggregate_from_stored_records(store: Store) -> None:
 
 
 def test_judge_evidence_is_redacted_before_it_leaves_the_process(envs: FixturePool) -> None:
-    fx = envs.create("t_judge_redact", Seed())
+    fx = envs.create("t_judge_redact", REFUND_ENV, {})
     try:
         ev = Evidence(
             fixture=fx,

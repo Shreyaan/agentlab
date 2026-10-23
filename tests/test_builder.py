@@ -21,9 +21,11 @@ def draft(scenario_id: str = "builder.demo", **overrides: object) -> dict:
 
 
 def test_builder_info(client: TestClient) -> None:
-    info = client.get("/v1/builder").json()
+    info = client.get("/v1/environments/refund@1/builder").json()
     assert "issue_refund" in info["tools"]
     assert info["seed_columns"]["orders"] == ["id", "customer_id", "amount_cents"]
+    assert "flights" in client.get("/v1/environments/travel@1/builder").json()["seed_columns"]
+    assert client.get("/v1/environments/nope@1/builder").status_code == 404
     assert {"sql", "decision", "tool_order"} <= set(info["assertion_types"])
     assert "output_matches" not in info["assertion_types"]
     assert info["judge_models"] == ["typesafe/jev-1.14", "openai/gpt-6-luna-decisions"]
@@ -60,14 +62,14 @@ def test_validate_semantic_errors(client: TestClient) -> None:
     errors = client.post("/v1/scenarios/validate", json=body, headers=CSRF).json()["errors"]
     assert len(errors) == 2
     assert all(e.startswith("assertions.") for e in errors)
-    bad_seed = draft(fixture={"orders": [{"id": "O", "bogus": 1}]})
+    bad_seed = draft(seed={"orders": [{"id": "O", "bogus": 1}]})
     assert client.post("/v1/scenarios/validate", json=bad_seed, headers=CSRF).json()["valid"] is False
 
 
 def test_validate_ok_with_calibration_sql(client: TestClient) -> None:
     out = client.post("/v1/scenarios/validate", json=draft(), headers=CSRF).json()
     assert out["valid"] is True
-    assert out["key"] == "builder.demo@3"
+    assert out["key"] == "builder.demo@4"
     normalized = yaml.safe_load(out["yaml"])
     assert normalized["assertions"][1]["type"] == "decision"
     assert "slices" in normalized
@@ -78,19 +80,19 @@ def test_save_new_bump_and_identical_noop(client: TestClient, paths: tuple[str, 
     first = client.post("/v1/scenarios", json=draft(), headers=CSRF)
     assert first.status_code == 200
     assert first.json() == {
-        "key": "builder.demo@3",
+        "key": "builder.demo@4",
         "path": str(Path(paths[1]).resolve() / "builder.demo.yaml"),
         "created": True,
     }
     again = client.post("/v1/scenarios", json=draft(), headers=CSRF).json()
-    assert (again["key"], again["created"]) == ("builder.demo@3", False)
+    assert (again["key"], again["created"]) == ("builder.demo@4", False)
     changed = client.post("/v1/scenarios", json=draft(risk_tier="critical"), headers=CSRF).json()
-    assert (changed["key"], changed["created"]) == ("builder.demo@4", False)
-    assert "builder.demo@4" in [s["key"] for s in client.get("/v1/scenarios").json()]
+    assert (changed["key"], changed["created"]) == ("builder.demo@5", False)
+    assert "builder.demo@5" in [s["key"] for s in client.get("/v1/scenarios").json()]
     assert not list(Path(paths[1]).glob("*.tmp"))
     # an existing hand-written file is updated in place, not duplicated under another name
     bumped = client.post("/v1/scenarios", json=draft("refund.happy", risk_tier="high"), headers=CSRF).json()
-    assert bumped["key"] == "refund.happy@4"
+    assert bumped["key"] == "refund.happy@5"
     assert bumped["path"].endswith("refund_happy.yaml")
 
 
@@ -104,6 +106,10 @@ def test_save_rejects_bad_ids_and_semantics(client: TestClient, paths: tuple[str
 
 def test_test_query(client: TestClient) -> None:
     seed = {"orders": [{"id": "O-1", "customer_id": "C", "amount_cents": 5}]}
+    unknown = client.post(
+        "/v1/scenarios/test-query", json={"environment": "nope@1", "query": "SELECT 1"}, headers=CSRF
+    ).json()
+    assert unknown["ok"] is False
     ok = client.post(
         "/v1/scenarios/test-query", json={"seed": seed, "query": "SELECT COUNT(*) FROM orders"}, headers=CSRF
     )
@@ -123,7 +129,7 @@ def test_dry_run_is_accepted_for_unsaved_scenario(client: TestClient) -> None:
     r = client.post("/v1/scenarios/dry-run", json={**draft("builder.unsaved"), "target": "blackbox"}, headers=CSRF)
     assert r.status_code == 202
     detail = wait_complete(client, r.json()["experiment_id"])
-    assert list(detail["experiment"]["meta"]["scenarios"]) == ["builder.unsaved@3"]
+    assert list(detail["experiment"]["meta"]["scenarios"]) == ["builder.unsaved@4"]
     assert client.post("/v1/scenarios/dry-run", json={**draft(), "target": "ghost"}, headers=CSRF).status_code == 422
 
 

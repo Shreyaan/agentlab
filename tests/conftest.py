@@ -15,12 +15,15 @@ import yaml
 from testcontainers.community.postgres import PostgresContainer
 
 from agentlab.db import Pool, open_pool
+from agentlab.environment import load_environments
 from agentlab.fixture import FixturePool, create_app, serve_in_thread
 from agentlab.runner import RunConfig, Runner
 from agentlab.store import Store
 
 ROOT = Path(__file__).parent.parent
 HOSTS = ["127.0.0.1"]
+ENVIRONMENTS = load_environments(ROOT / "environments")
+REFUND_ENV, TRAVEL_ENV = ENVIRONMENTS["refund@1"], ENVIRONMENTS["travel@1"]
 
 
 def free_port() -> int:
@@ -65,7 +68,9 @@ def store(db: Pool) -> Store:
 
 @pytest.fixture
 def runner(store: Store, envs: FixturePool, fixture_url: str) -> Runner:
-    return Runner(store, envs, HOSTS, RunConfig(fixture_url=fixture_url, concurrency=4))
+    return Runner(
+        store, envs, HOSTS, RunConfig(fixture_url=fixture_url, concurrency=4, environments=str(ROOT / "environments"))
+    )
 
 
 @pytest.fixture

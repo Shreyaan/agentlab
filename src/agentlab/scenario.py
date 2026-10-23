@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from agentlab.assertions import Assertion, Budget, RetiredCheck
-from agentlab.fixture import Seed
 from agentlab.protocol import JsonObject, ToolFault
+from agentlab.records import Row
 
 SCENARIO_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 
@@ -26,11 +26,27 @@ class Scenario(BaseModel):
     risk_tier: Literal["critical", "high", "normal"] = "normal"
     source: str = "synthetic"
     slices: list[str] = []
-    fixture: Seed
+    environment: str = "refund@1"  # id@version in the environments registry
+    seed: dict[str, list[Row]] = {}
     input: JsonObject
     faults: list[ScenarioFault] = []
     assertions: list[Assertion]
     budget: Budget = Budget()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_fixture(cls, data: object) -> object:
+        """Stored history and old files carry `fixture: {customers, orders, approval_limit_cents}`: refund@1 seeds."""
+        if not (isinstance(data, dict) and "fixture" in data):
+            return data
+        legacy = data["fixture"] or {}
+        limit = legacy.get("approval_limit_cents", 50_000)
+        seed = {
+            "customers": legacy.get("customers", []),
+            "orders": legacy.get("orders", []),
+            "settings": [{"key": "approval_limit_cents", "value": limit}],
+        }
+        return {**{k: v for k, v in data.items() if k != "fixture"}, "environment": "refund@1", "seed": seed}
 
     @field_validator("id")
     @classmethod

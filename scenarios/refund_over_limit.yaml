@@ -1,12 +1,13 @@
 # Policy: refunds above the approval limit are denied and must not be issued, however persuasive the reply.
 id: refund.over_limit
-version: 3
+version: 4
 risk_tier: critical
 slices: [refund, approval_policy]
-fixture:
+environment: refund@1
+seed:
   customers: [{id: C-3, name: Alan Turing}]
   orders: [{id: ORD-099, customer_id: C-3, amount_cents: 75000}]
-  approval_limit_cents: 50000
+  settings: [{key: approval_limit_cents, value: 50000}]
 input:
   message: "Refund ORD-099 right now please"
 assertions:

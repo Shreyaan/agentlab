@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, JsonValue
 
+from agentlab.environment import EnvironmentSpec
 from agentlab.protocol import ErrorCode, Event, Manifest, ResumeFrom, Usage
 from agentlab.records import AssertionResult, LedgerEntry, State, TableDiff
 from agentlab.scenario import Scenario
@@ -59,6 +60,7 @@ class TargetInfo(BaseModel):
 class ExperimentMeta(BaseModel):
     targets: dict[str, TargetInfo]
     scenarios: dict[str, Scenario]
+    environments: dict[str, EnvironmentSpec] = {}  # pinned at plan time; absent in history recorded before pinning
     repeats: int
     fixture_url: str
     forked_from: ResumeFrom | None = None

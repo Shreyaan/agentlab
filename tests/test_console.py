@@ -64,7 +64,7 @@ def stored_trial_id(runner: Runner) -> str:
 def test_info_and_scenarios(client: TestClient) -> None:
     info = client.get("/v1/info").json()
     assert info["auth_required"] is False
-    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@3"]
+    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@4"]
 
 
 def test_targets_report_unreachable(client: TestClient) -> None:

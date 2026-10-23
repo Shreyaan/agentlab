@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field, JsonValue
 
 from agentlab.client import TargetSpec
 from agentlab.environment import EnvironmentSpec
-from agentlab.fixture import Seed
 from agentlab.models import Experiment, GateStatus, TargetMode, Trial
 from agentlab.protocol import Manifest, ResumeFrom
+from agentlab.records import Row
 from agentlab.scenario import Scenario
 
 type ExperimentStatus = Literal["running", "complete", "incomplete"]  # incomplete = job died before a decision
@@ -84,8 +84,8 @@ class ExperimentDetail(BaseModel):
 class BuilderInfo(BaseModel):
     """Vocabulary for the editors' dropdowns."""
 
-    tools: list[str]  # fixture tool names, for faults / tool_order / forbidden_tool / events
-    seed_columns: dict[str, list[str]]  # seedable table -> columns
+    tools: list[str]  # the environment's tool names, for faults / tool_order / forbidden_tool / events
+    seed_columns: dict[str, list[str]]  # the environment's table -> columns
     assertion_types: list[str]
     judge_models: list[str]  # suggested decision models; the first is the default judge
 
@@ -108,7 +108,8 @@ class SavedScenario(BaseModel):
 
 
 class QueryTest(BaseModel):
-    seed: Seed
+    environment: str = "refund@1"
+    seed: dict[str, list[Row]] = {}
     query: str
 
 
@@ -155,7 +156,7 @@ class AuthorDraft(BaseModel):
     """A model-written draft, already validated against a real temporary environment. Never saved automatically."""
 
     environment: EnvironmentSpec | None  # set when a new environment was drafted
-    scenario: Scenario
+    scenario: Scenario | None  # None only when no attempt produced a parseable scenario (then valid is False)
     valid: bool
     errors: list[str] = []  # remaining problems after the repair attempts
     notes: list[str] = []  # assumptions the author model made, for the human to review

@@ -1,201 +1,260 @@
-"""Reference environment: a customer/refund service backed by Postgres, one isolated schema per environment id.
+"""Environment runtime: any EnvironmentSpec, backed by one isolated Postgres schema per environment id.
 
 Faults live at the service boundary, so they work for any harness language, including black-box HTTP agents.
 Every tool call is recorded in a side-effect ledger; replaying the committed prefix of a ledger restores the exact
 state at any point of a run, which is how checkpoint forks get a matching environment.
+
+Three database identities, none of which can reach another's privileges:
+- the owner (the pool's role) creates the schema and writes the ledger and idempotency rows;
+- the writer (LOGIN role) runs tool SQL: it can change this environment's tables and nothing else;
+- the reader (LOGIN role) runs author assertion SQL: it can read this environment's tables and the ledger.
 """
 
+import json
 import re
 import secrets
 import threading
 import time
-from abc import ABC, abstractmethod
 from collections import Counter
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Annotated, ClassVar, LiteralString, cast
+from dataclasses import dataclass, field
+from decimal import Decimal
+from functools import partial
+from typing import Annotated, LiteralString, cast
 
 import psycopg
 import uvicorn
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from psycopg import Cursor, sql
 from psycopg.conninfo import make_conninfo
-from psycopg.rows import DictRow
+from psycopg.rows import DictRow, RowFactory, dict_row, tuple_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, JsonValue
 
 from agentlab.db import Pool, pool_conninfo
+from agentlab.environment import Column, EnvironmentSpec, Rule, Table, ToolCatalog, ToolSpec, bind_args, catalog
+from agentlab.mcp_env import EnvironmentMcp
 from agentlab.protocol import JsonObject, ToolFault
 from agentlab.records import LedgerEntry, Row, State
 
-DDL = """
-CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT NOT NULL);
-CREATE TABLE orders (id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, amount_cents INTEGER NOT NULL);
-CREATE TABLE approvals (id SERIAL PRIMARY KEY, order_id TEXT NOT NULL, status TEXT NOT NULL);
-CREATE TABLE refunds (
-    id SERIAL PRIMARY KEY, order_id TEXT NOT NULL, amount_cents INTEGER NOT NULL,
-    approval_id INTEGER, idempotency_key TEXT UNIQUE
-);
+RUNTIME_DDL = """
 CREATE TABLE ledger (
     seq BIGSERIAL PRIMARY KEY, tool TEXT NOT NULL, request JSONB NOT NULL, status INTEGER NOT NULL,
     response JSONB NOT NULL, committed BOOLEAN NOT NULL, ts DOUBLE PRECISION NOT NULL
 );
+CREATE TABLE idempotency (key TEXT PRIMARY KEY, tool TEXT NOT NULL, status INTEGER NOT NULL, response JSONB NOT NULL);
 """
-BUSINESS_TABLES = ("customers", "orders", "approvals", "refunds")
-SEED_COLUMNS = {"customers": ("id", "name"), "orders": ("id", "customer_id", "amount_cents")}
+SQL_TYPES: dict[str, LiteralString] = {
+    "text": "TEXT",
+    "integer": "INTEGER",
+    "bigint": "BIGINT",
+    "numeric": "NUMERIC",
+    "boolean": "BOOLEAN",
+    "timestamptz": "TIMESTAMPTZ",
+    "jsonb": "JSONB",
+}
+DUMMY_PARAMS: dict[str, JsonValue] = {"string": "x", "integer": 1, "number": 1.0, "boolean": True}
 ENV_ID = re.compile(r"^[a-z0-9_]{1,48}$")
 SHARED_ENV = "shared"  # for black-box agents configured with one static fixture URL
 ASSERTION_TIMEOUT = "5s"
+TOOL_TIMEOUT = "5s"
 
 type ToolResult = tuple[int, JsonValue]
 type Cur = Cursor[DictRow]
 
-
-class Seed(BaseModel):
-    customers: list[Row] = []
-    orders: list[Row] = []
-    approval_limit_cents: int = 50_000
+UNAVAILABLE: ToolResult = (503, {"error": "service unavailable"})
+TIMEOUT: ToolResult = (504, {"error": "upstream timeout"})
 
 
-def _one(cur: Cur, query: LiteralString, *args: JsonValue) -> Row | None:
-    cur.execute(query, args)
+class _Rollback(Exception):  # noqa: N818 - control flow, not an error
+    """Ends a dry run: everything the statement did is discarded."""
+
+
+def json_safe(value: object) -> JsonValue:
+    """Numerics and timestamps come back from Postgres as Decimal/datetime, which JSON cannot carry."""
+    return json.loads(json.dumps(value, default=lambda o: float(o) if isinstance(o, Decimal) else str(o)))
+
+
+def _untrusted(text: str) -> sql.SQL:
+    # Spec SQL (tools, rules) and author SQL: contained by the writer/reader role, never built from agent input.
+    return sql.SQL(cast("LiteralString", text))
+
+
+def _db_message(exc: psycopg.Error) -> str:
+    return exc.diag.message_primary or str(exc)
+
+
+def _rows(cur: Cur) -> list[Row]:
+    return cast("list[Row]", json_safe([dict(r) for r in cur.fetchall()]))
+
+
+def _column_ddl(column: Column) -> sql.Composable:
+    parts = [sql.Identifier(column.name), sql.SQL(SQL_TYPES[column.type])]
+    if column.serial:  # BY DEFAULT: seeds may pin ids
+        parts.append(sql.SQL("GENERATED BY DEFAULT AS IDENTITY"))
+    if not column.nullable:
+        parts.append(sql.SQL("NOT NULL"))
+    if column.unique:
+        parts.append(sql.SQL("UNIQUE"))
+    return sql.SQL(" ").join(parts)
+
+
+def _table_ddl(table: Table) -> sql.Composed:
+    items = [_column_ddl(c) for c in table.columns]
+    if keys := [c.name for c in table.columns if c.primary_key]:
+        items.append(sql.SQL("PRIMARY KEY ({})").format(sql.SQL(", ").join(map(sql.Identifier, keys))))
+    return sql.SQL("CREATE TABLE {} ({})").format(sql.Identifier(table.name), sql.SQL(", ").join(items))
+
+
+def _reference_ddl(table: Table, column: Column) -> sql.Composed:
+    target, _, target_column = (column.references or "").partition(".")
+    return sql.SQL("ALTER TABLE {} ADD FOREIGN KEY ({}) REFERENCES {} ({})").format(
+        sql.Identifier(table.name), sql.Identifier(column.name), sql.Identifier(target), sql.Identifier(target_column)
+    )
+
+
+def _rule_fires(rule: Rule, cur: Cur, params: dict[str, JsonValue]) -> bool:
+    cur.execute(_untrusted(rule.sql), params, prepare=True)
     row = cur.fetchone()
-    return dict(row) if row else None
+    cells = list(row.values()) if row else [None]
+    if len(cells) != 1 or not isinstance(cells[0], bool | None):
+        raise psycopg.DataError("a rule must return a single boolean")
+    return cells[0] is True
 
 
-class ToolCall(BaseModel, ABC):
-    """A validated tool request. `run` performs it inside the caller's transaction."""
-
-    tool: ClassVar[str]
-
-    @abstractmethod
-    def run(self, cur: Cur, seed: Seed) -> ToolResult: ...
-
-
-class GetOrder(ToolCall):
-    tool: ClassVar[str] = "get_order"
-    order_id: str
-
-    def run(self, cur: Cur, seed: Seed) -> ToolResult:
-        row = _one(cur, "SELECT * FROM orders WHERE id = %s", self.order_id)
-        return (200, row) if row else (404, {"error": "order not found"})
+def _effect(tool: ToolSpec, cur: Cur, params: dict[str, JsonValue]) -> ToolResult:
+    cur.execute(_untrusted(tool.sql), params, prepare=True)
+    if tool.returns == "none":
+        return tool.success_status, {}
+    rows = _rows(cur)
+    if tool.returns == "rows":
+        return tool.success_status, cast("JsonValue", rows)
+    return (tool.success_status, rows[0]) if rows else (404, {"error": "not found"})
 
 
-class RequestApproval(ToolCall):
-    tool: ClassVar[str] = "request_approval"
-    order_id: str
-    reason: str = ""
-
-    def run(self, cur: Cur, seed: Seed) -> ToolResult:
-        order = _one(cur, "SELECT amount_cents FROM orders WHERE id = %s", self.order_id)
-        if not order:
-            return 404, {"error": "order not found"}
-        amount = order["amount_cents"]
-        status = "granted" if isinstance(amount, int) and amount <= seed.approval_limit_cents else "denied"
-        row = _one(cur, "INSERT INTO approvals (order_id, status) VALUES (%s, %s) RETURNING id", self.order_id, status)
-        return 200, {"approval_id": row["id"] if row else None, "status": status}
+def _run(tool: ToolSpec, cur: Cur, params: dict[str, JsonValue]) -> ToolResult:
+    """Rules first (the first that fires fails the call with no side effect), then the effect."""
+    for rule in tool.rules:
+        if _rule_fires(rule, cur, params):
+            return rule.status, {"error": rule.error}
+    return _effect(tool, cur, params)
 
 
-class IssueRefund(ToolCall):
-    tool: ClassVar[str] = "issue_refund"
-    order_id: str
-    amount_cents: int
-    approval_id: int | None = None
-    idempotency_key: str | None = None
+@dataclass(frozen=True)
+class Login:
+    """A per-environment LOGIN role. As the session user it cannot shed its privileges for the owner's, so
+    `RESET ROLE` or set_config('role', ...) inside a statement falls back to the role itself."""
 
-    def run(self, cur: Cur, seed: Seed) -> ToolResult:
-        if self.idempotency_key and (
-            prior := _one(cur, "SELECT * FROM refunds WHERE idempotency_key = %s", self.idempotency_key)
-        ):
-            return 200, prior
-        if not _one(cur, "SELECT 1 FROM orders WHERE id = %s", self.order_id):
-            return 404, {"error": "order not found"}
-        row = _one(
-            cur,
-            "INSERT INTO refunds (order_id, amount_cents, approval_id, idempotency_key) VALUES (%s, %s, %s, %s) "
-            "RETURNING *",
-            self.order_id,
-            self.amount_cents,
-            self.approval_id,
-            self.idempotency_key,
-        )
-        return 201, row
+    name: str
+    password: str = field(default_factory=lambda: secrets.token_urlsafe(32))
 
+    @property
+    def ident(self) -> sql.Identifier:
+        return sql.Identifier(self.name)
 
-class GetRefunds(ToolCall):
-    tool: ClassVar[str] = "get_refunds"
-    order_id: str
-
-    def run(self, cur: Cur, seed: Seed) -> ToolResult:
-        cur.execute("SELECT * FROM refunds WHERE order_id = %s ORDER BY id", (self.order_id,))
-        return 200, [dict(r) for r in cur.fetchall()]
-
-
-class DeleteCustomer(ToolCall):
-    tool: ClassVar[str] = "delete_customer"
-    customer_id: str
-
-    def run(self, cur: Cur, seed: Seed) -> ToolResult:
-        cur.execute("DELETE FROM customers WHERE id = %s", (self.customer_id,))
-        return 200, {"deleted": self.customer_id}
-
-
-TOOL_CALLS: dict[str, type[ToolCall]] = {
-    c.tool: c for c in (GetOrder, RequestApproval, IssueRefund, GetRefunds, DeleteCustomer)
-}
+    def create(self, schema: sql.Identifier) -> sql.Composed:
+        return sql.SQL(
+            "DROP ROLE IF EXISTS {r}; CREATE ROLE {r} LOGIN NOINHERIT PASSWORD {p} CONNECTION LIMIT 4; "
+            "GRANT USAGE ON SCHEMA {s} TO {r}"
+        ).format(r=self.ident, s=schema, p=sql.Literal(self.password))
 
 
 class Fixture:
     """One isolated environment: its own Postgres schema. Calls are serialized so the ledger order is exact."""
 
-    def __init__(self, db: Pool, env_id: str, seed: Seed, faults: Sequence[ToolFault] = ()) -> None:
+    def __init__(
+        self,
+        db: Pool,
+        env_id: str,
+        spec: EnvironmentSpec,
+        seed: Mapping[str, list[Row]],
+        faults: Sequence[ToolFault] = (),
+    ) -> None:
         if not ENV_ID.match(env_id):
             raise ValueError(f"invalid environment id {env_id!r}")
-        self.db, self.env_id, self.seed = db, env_id, seed
-        self.schema = sql.Identifier(f"env_{env_id}")
-        # Author SQL (assertions, test queries) runs on its own connection that LOGS IN as this role. It can read
-        # this environment's schema and nothing else, and since it is the session user, `RESET ROLE` or
-        # set_config('role', 'none') inside a query falls back to the reader itself, never to the owner.
-        self.reader_name = f"agentlab_r_{env_id}"
-        self.reader = sql.Identifier(self.reader_name)
-        self._reader_password = secrets.token_urlsafe(32)
+        self.db, self.env_id, self.spec = db, env_id, spec
+        self.schema_name = f"env_{env_id}"
+        self.schema = sql.Identifier(self.schema_name)
+        self.reader, self.writer = Login(f"agentlab_r_{env_id}"), Login(f"agentlab_w_{env_id}")
+        self.tools = {t.name: t for t in spec.tools}
         self.faults, self.calls = list(faults), Counter[str]()
         self.lock = threading.Lock()
         with db.connection() as conn, conn.transaction(), conn.cursor() as cur:
             cur.execute(sql.SQL("DROP SCHEMA IF EXISTS {s} CASCADE; CREATE SCHEMA {s}").format(s=self.schema))
             cur.execute(sql.SQL("SET LOCAL search_path TO {}").format(self.schema))
-            cur.execute(DDL)
-            for table, rows in (("customers", seed.customers), ("orders", seed.orders)):
-                for row in rows:
-                    cols = SEED_COLUMNS[table]
-                    if unknown := set(row) - set(cols):
-                        raise ValueError(f"unknown {table} column(s): {sorted(unknown)}")
-                    query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
-                        sql.Identifier(table),
-                        sql.SQL(", ").join(map(sql.Identifier, row)),
-                        sql.SQL(", ").join(sql.Placeholder() * len(row)),
-                    )
-                    cur.execute(query, list(row.values()))
+            for table in spec.tables:
+                cur.execute(_table_ddl(table))
+            for table in spec.tables:
+                for column in table.columns:
+                    if column.references:
+                        cur.execute(_reference_ddl(table, column))
+            self._seed(cur, seed)
+            # Grants come before the runtime tables exist, so "ALL TABLES/SEQUENCES" can never include them.
+            cur.execute(self.reader.create(self.schema))
+            cur.execute(self.writer.create(self.schema))
             cur.execute(
                 sql.SQL(
-                    "DROP ROLE IF EXISTS {r}; CREATE ROLE {r} LOGIN NOINHERIT PASSWORD {p} CONNECTION LIMIT 4; "
-                    "GRANT USAGE ON SCHEMA {s} TO {r}; GRANT SELECT ON ALL TABLES IN SCHEMA {s} TO {r}"
-                ).format(r=self.reader, s=self.schema, p=sql.Literal(self._reader_password))
+                    "GRANT SELECT ON ALL TABLES IN SCHEMA {s} TO {r}; "
+                    "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {s} TO {w}; "
+                    "GRANT USAGE ON ALL SEQUENCES IN SCHEMA {s} TO {w}"
+                ).format(s=self.schema, r=self.reader.ident, w=self.writer.ident)
             )
+            cur.execute(RUNTIME_DDL)
+            cur.execute(sql.SQL("GRANT SELECT ON ledger TO {}").format(self.reader.ident))
+
+    def _seed(self, cur: Cur, seed: Mapping[str, list[Row]]) -> None:
+        tables = {t.name: {c.name: c for c in t.columns} for t in self.spec.tables}
+        for name, rows in seed.items():
+            if name not in tables:
+                raise ValueError(f"unknown table {name!r} in seed")
+            for row in rows:
+                if unknown := sorted(set(row) - set(tables[name])):
+                    raise ValueError(f"unknown {name} column(s): {unknown}")
+                values = [Jsonb(v) if tables[name][k].type == "jsonb" else v for k, v in row.items()]
+                cur.execute(
+                    sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+                        sql.Identifier(name),
+                        sql.SQL(", ").join(map(sql.Identifier, row)),
+                        sql.SQL(", ").join(sql.Placeholder() * len(row)),
+                    ),
+                    values,
+                )
+        for table in self.spec.tables:  # pinned seed ids must not collide with the ids the tools generate
+            for column in (c for c in table.columns if c.serial):
+                qualified = sql.Identifier(self.schema_name, table.name).as_string(cur)
+                cur.execute(
+                    sql.SQL(
+                        "SELECT setval(pg_get_serial_sequence({}, {}), COALESCE(MAX({}), 0) + 1, false) FROM {}"
+                    ).format(
+                        sql.Literal(qualified),
+                        sql.Literal(column.name),
+                        sql.Identifier(column.name),
+                        sql.Identifier(table.name),
+                    )
+                )
 
     @classmethod
     def restore(
-        cls, db: Pool, env_id: str, seed: Seed, history: Sequence[LedgerEntry], faults: Sequence[ToolFault] = ()
+        cls,
+        db: Pool,
+        env_id: str,
+        spec: EnvironmentSpec,
+        seed: Mapping[str, list[Row]],
+        history: Sequence[LedgerEntry],
+        *,
+        faults: Sequence[ToolFault] = (),
     ) -> "Fixture":
         """Rebuild the state after `history` by re-applying its committed calls; fault counters continue from there."""
-        fx = cls(db, env_id, seed, faults)
-        with fx.lock, fx._tx() as cur:
+        fx = cls(db, env_id, spec, seed, faults)
+        with fx.lock, fx._tx() as owner:
             for entry in history:
                 if entry.committed:
-                    TOOL_CALLS[entry.tool].model_validate(entry.request).run(cur, seed)
+                    tool = fx.tools[entry.tool]
+                    fx._apply(owner, tool, entry.request)
                 fx.calls[entry.tool] += 1
-                fx._log(cur, entry.tool, entry.request, entry.status, entry.response, committed=entry.committed)
+                fx._log(owner, entry.tool, entry.request, entry.status, entry.response, committed=entry.committed)
         return fx
 
     @contextmanager
@@ -207,36 +266,102 @@ class Fixture:
             cur.execute(sql.SQL("SET LOCAL search_path TO {}").format(self.schema))
             yield cur
 
-    def call(self, call: ToolCall) -> ToolResult:
-        """Run one tool call: apply any scripted fault, commit, and record it in the side-effect ledger."""
-        with self.lock, self._tx() as cur:
-            self.calls[call.tool] += 1
-            fault = next((f for f in self.faults if f.fires_on(call.tool, self.calls[call.tool])), None)
+    @contextmanager
+    def _session[R](self, login: Login, row_factory: RowFactory[R], timeout: str) -> Generator[Cursor[R]]:
+        """One transaction on a connection that logs in as `login`, scoped to this environment's schema."""
+        conninfo = make_conninfo(pool_conninfo(self.db), user=login.name, password=login.password)
+        with (
+            psycopg.Connection[R].connect(conninfo, row_factory=row_factory) as conn,
+            conn.transaction(),
+            conn.cursor() as cur,
+        ):
+            cur.execute(sql.SQL("SET LOCAL statement_timeout = {}").format(sql.Literal(timeout)))
+            cur.execute(sql.SQL("SET LOCAL search_path TO {}").format(self.schema))
+            yield cur
+
+    def call(self, name: str, args: JsonObject) -> ToolResult:
+        """Run one tool call: validate, apply any scripted fault, execute, and record it in the side-effect ledger."""
+        if not (tool := self.tools.get(name)):
+            return 404, {"error": f"unknown tool {name!r}"}
+        try:
+            bind_args(tool, args)
+        except ValueError as exc:
+            return 422, {"error": str(exc)}
+        with self.lock, self._tx() as owner:
+            self.calls[name] += 1
             status: int
             body: JsonValue
-            committed = False
+            fault = next((f for f in self.faults if f.fires_on(name, self.calls[name])), None)
             if fault and fault.action == "error_before_commit":
-                status = 503
-                body = {"error": "service unavailable"}
+                (status, body), committed = UNAVAILABLE, False
             else:
-                try:
-                    with cur.connection.transaction():  # savepoint: a failed call must not poison the ledger write
-                        status, body = call.run(cur, self.seed)
-                    committed = status < 400
-                except psycopg.Error as exc:
-                    status = 500
-                    body = {"error": f"database error: {exc.diag.message_primary or exc}"}
+                status, body, committed = self._apply(owner, tool, args)
                 if fault:  # timeout_after_commit: committed, but the caller never learns it
-                    status = 504
-                    body = {"error": "upstream timeout"}
-            self._log(cur, call.tool, call.model_dump(mode="json"), status, body, committed=committed)
+                    status, body = TIMEOUT
+            self._log(owner, name, args, status, body, committed=committed)
         return status, body
 
-    def _log(self, cur: Cur, tool: str, request: JsonObject, status: int, body: JsonValue, *, committed: bool) -> None:
-        cur.execute(
+    def _apply(self, owner: Cur, tool: ToolSpec, args: JsonObject) -> tuple[int, JsonValue, bool]:
+        """Replay a seen idempotency key, else run the tool as the writer. Returns (status, body, committed)."""
+        key = args.get("idempotency_key") if tool.idempotent else None
+        if isinstance(key, str) and (prior := self._replayed(owner, tool, key)):
+            return *prior, tool.mutates and prior[0] < 400
+        try:
+            with self._session(self.writer, dict_row, TOOL_TIMEOUT) as cur:
+                status, body = _run(tool, cur, bind_args(tool, args))
+        except psycopg.Error as exc:
+            return 500, {"error": f"database error: {_db_message(exc)}"}, False
+        committed = tool.mutates and status < 400
+        if committed and isinstance(key, str):
+            owner.execute(
+                "INSERT INTO idempotency (key, tool, status, response) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (key, tool.name, status, Jsonb(body)),
+            )
+        return status, body, committed
+
+    def _replayed(self, owner: Cur, tool: ToolSpec, key: str) -> ToolResult | None:
+        owner.execute("SELECT tool, status, response FROM idempotency WHERE key = %s", (key,))
+        if not (row := owner.fetchone()):
+            return None
+        if row["tool"] != tool.name:
+            return 409, {"error": "idempotency key already used by another tool"}
+        return row["status"], row["response"]
+
+    def _log(
+        self, owner: Cur, tool: str, request: JsonObject, status: int, body: JsonValue, *, committed: bool
+    ) -> None:
+        owner.execute(
             "INSERT INTO ledger (tool, request, status, response, committed, ts) VALUES (%s, %s, %s, %s, %s, %s)",
             (tool, Jsonb(request), status, Jsonb(body), committed, time.time()),
         )
+
+    def tool_errors(self) -> list[str]:
+        """Dry-run every rule and effect SQL as the writer with type-appropriate dummy parameters, rolled back."""
+        errors: list[str] = []
+        for tool in self.spec.tools:
+            params = {p.name: p.enum[0] if p.enum else DUMMY_PARAMS[p.type] for p in tool.params}
+            steps: list[tuple[str, Callable[[Cur, dict[str, JsonValue]], object]]] = [
+                (f"rules.{i}.sql", partial(_rule_fires, r)) for i, r in enumerate(tool.rules)
+            ]
+            steps.append(("sql", partial(_effect, tool)))
+            errors += [
+                f"tools.{tool.name}.{path}: {message}"
+                for path, step in steps
+                if (message := self._dry_run(step, params))
+            ]
+        return errors
+
+    def _dry_run(self, step: Callable[[Cur, dict[str, JsonValue]], object], params: dict[str, JsonValue]) -> str | None:
+        try:
+            with self._session(self.writer, dict_row, TOOL_TIMEOUT) as cur:
+                step(cur, params)
+                raise _Rollback
+        except _Rollback:
+            return None
+        except (psycopg.IntegrityError, psycopg.DataError):  # dummy values may violate constraints; the SQL is valid
+            return None
+        except psycopg.Error as exc:
+            return _db_message(exc)
 
     def query(self, query: str) -> list[tuple[JsonValue, ...]]:
         """Run author SQL read-only, logged in as this environment's reader role.
@@ -244,23 +369,18 @@ class Fixture:
         The login role is the boundary: it has no path to the owner's privileges, so functions that change the role
         or run nested SQL (set_config, query_to_xml, ...) still execute as the reader. The subquery wrapper (rows
         only) and the prepared statement (one command) are defense in depth."""
-        # Untrusted by design (it is the test author's assertion); contained by the reader role and the wrapper.
-        author_sql = cast("LiteralString", query.strip().rstrip(";"))
-        wrapped = sql.SQL("SELECT * FROM ({}) AS author_query").format(sql.SQL(author_sql))
-        conninfo = make_conninfo(pool_conninfo(self.db), user=self.reader_name, password=self._reader_password)
-        with psycopg.connect(conninfo, autocommit=False) as conn, conn.transaction(), conn.cursor() as cur:
+        wrapped = sql.SQL("SELECT * FROM ({}) AS author_query").format(_untrusted(query.strip().rstrip(";")))
+        with self._session(self.reader, tuple_row, ASSERTION_TIMEOUT) as cur:
             cur.execute("SET TRANSACTION READ ONLY")
-            cur.execute(sql.SQL("SET LOCAL statement_timeout = {}").format(sql.Literal(ASSERTION_TIMEOUT)))
-            cur.execute(sql.SQL("SET LOCAL search_path TO {}").format(self.schema))
             cur.execute(wrapped, prepare=True)
             return list(cur.fetchall())
 
     def state(self) -> State:
         with self._tx(read_only=True) as cur:
             out: State = {}
-            for t in BUSINESS_TABLES:
-                cur.execute(sql.SQL("SELECT * FROM {} ORDER BY 1").format(sql.Identifier(t)))
-                out[t] = [dict(r) for r in cur.fetchall()]
+            for table in self.spec.tables:
+                cur.execute(sql.SQL("SELECT * FROM {} ORDER BY 1").format(sql.Identifier(table.name)))
+                out[table.name] = _rows(cur)
             return out
 
     def ledger(self) -> list[LedgerEntry]:
@@ -271,7 +391,8 @@ class Fixture:
     def drop(self) -> None:
         with self.db.connection() as conn:
             conn.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(self.schema))
-            conn.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(self.reader))
+            for login in (self.reader, self.writer):
+                conn.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(login.ident))
 
 
 class FixturePool:
@@ -283,12 +404,17 @@ class FixturePool:
         self._lock = threading.Lock()
 
     def create(
-        self, env_id: str, seed: Seed, faults: Sequence[ToolFault] = (), history: Sequence[LedgerEntry] = ()
+        self,
+        env_id: str,
+        spec: EnvironmentSpec,
+        seed: Mapping[str, list[Row]],
+        faults: Sequence[ToolFault] = (),
+        history: Sequence[LedgerEntry] = (),
     ) -> Fixture:
         fx = (
-            Fixture.restore(self.db, env_id, seed, history, faults)
+            Fixture.restore(self.db, env_id, spec, seed, history, faults=faults)
             if history
-            else Fixture(self.db, env_id, seed, faults)
+            else Fixture(self.db, env_id, spec, seed, faults)
         )
         with self._lock:
             self._envs[env_id] = fx
@@ -311,14 +437,19 @@ class EnvState(BaseModel):
 
 
 class ResetBody(BaseModel):
-    seed: Seed = Seed()
+    environment: str  # id@version
+    seed: dict[str, list[Row]] = {}
     faults: list[ToolFault] = []
 
 
-def create_app(pool: FixturePool, *, admin: bool = False) -> FastAPI:
+def create_app(
+    pool: FixturePool, *, admin: bool = False, environments: Mapping[str, EnvironmentSpec] | None = None
+) -> FastAPI:
     """Agent-facing tool routes. `admin=True` adds reset/state routes for standalone manual use only: agents under
     test share this server, so on the runner's server they could otherwise wipe evidence or read other environments."""
-    app = FastAPI(title="AgentLab refund fixture")
+    mcp = EnvironmentMcp(pool)
+    app = FastAPI(title="AgentLab environment service", lifespan=lambda _: mcp.lifespan())
+    mcp.mount(app)
     env = APIRouter(prefix="/env/{env_id}")
 
     def lookup(env_id: str) -> Fixture:
@@ -329,31 +460,22 @@ def create_app(pool: FixturePool, *, admin: bool = False) -> FastAPI:
 
     type Env = Annotated[Fixture, Depends(lookup)]
 
-    def respond(fx: Fixture, call: ToolCall) -> JSONResponse:
-        status, body = fx.call(call)
-        return JSONResponse(body, status_code=status)
+    @env.get("/tools")
+    def tools(fx: Env) -> ToolCatalog:
+        return catalog(fx.spec)
 
-    @env.get("/orders/{order_id}")
-    def get_order(fx: Env, order_id: str) -> JSONResponse:
-        return respond(fx, GetOrder(order_id=order_id))
-
-    @env.post("/approvals")
-    def request_approval(fx: Env, body: RequestApproval) -> JSONResponse:
-        return respond(fx, body)
-
-    @env.post("/refunds")
-    def issue_refund(
-        fx: Env, body: IssueRefund, idempotency_key: Annotated[str | None, Header()] = None
+    @env.post("/tools/{name}")
+    def call_tool(
+        fx: Env,
+        name: str,
+        body: Annotated[JsonObject | None, Body()] = None,
+        idempotency_key: Annotated[str | None, Header()] = None,
     ) -> JSONResponse:
-        return respond(fx, body.model_copy(update={"idempotency_key": idempotency_key or body.idempotency_key}))
-
-    @env.get("/refunds")
-    def get_refunds(fx: Env, order_id: str) -> JSONResponse:
-        return respond(fx, GetRefunds(order_id=order_id))
-
-    @env.delete("/customers/{customer_id}")
-    def delete_customer(fx: Env, customer_id: str) -> JSONResponse:
-        return respond(fx, DeleteCustomer(customer_id=customer_id))
+        args = {**(body or {})}
+        if idempotency_key:
+            args.setdefault("idempotency_key", idempotency_key)
+        status, result = fx.call(name, args)
+        return JSONResponse(result, status_code=status)
 
     app.include_router(env)
     if not admin:
@@ -363,8 +485,10 @@ def create_app(pool: FixturePool, *, admin: bool = False) -> FastAPI:
 
     @admin_routes.post("/reset")
     def admin_reset(env_id: str, body: ResetBody) -> dict[str, bool]:
+        if not (spec := (environments or {}).get(body.environment)):
+            raise HTTPException(422, f"unknown environment {body.environment!r}")
         try:
-            pool.create(env_id, body.seed, body.faults)
+            pool.create(env_id, spec, body.seed, body.faults)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         return {"ok": True}

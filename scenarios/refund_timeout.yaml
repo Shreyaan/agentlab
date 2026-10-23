@@ -1,12 +1,14 @@
 # Flagship: the payment service commits the refund but the caller sees a timeout.
 id: refund.timeout
-version: 4
+version: 5
 risk_tier: critical
 source: synthetic_incident_reproduction
 slices: [refund, timeout, duplicate_prevention]
-fixture:
+environment: refund@1
+seed:
   customers: [{id: C-1, name: Ada Lovelace}]
   orders: [{id: ORD-014, customer_id: C-1, amount_cents: 4999}]
+  settings: [{key: approval_limit_cents, value: 50000}]
 input:
   message: "Please refund order ORD-014"
 faults:
