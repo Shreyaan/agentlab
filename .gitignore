@@ -1,7 +1,8 @@
-.venv/
 __pycache__/
 .agentlab/
-node_modules/
-*.pyc
 .pytest_cache/
+.venv/
+*.pyc
+node_modules/
+site/
 src/agentlab/console_dist/
