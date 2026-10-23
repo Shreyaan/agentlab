@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, JsonValue
 
 from agentlab.client import TargetSpec
+from agentlab.environment import EnvironmentSpec
 from agentlab.fixture import Seed
 from agentlab.models import Experiment, GateStatus, TargetMode, Trial
 from agentlab.protocol import Manifest, ResumeFrom
@@ -131,3 +132,33 @@ class TargetDraft(BaseModel):
 class SavedTarget(BaseModel):
     name: str
     created: bool
+
+
+# --- Free-form environments and natural-language authoring. ---
+
+
+class EnvironmentInfo(BaseModel):
+    key: str
+    environment: EnvironmentSpec
+
+
+class EnvironmentDraft(BaseModel):
+    environment: EnvironmentSpec
+
+
+class AuthorRequest(BaseModel):
+    description: str = Field(min_length=10, max_length=8000)  # plain-English scenario
+    environment: str | None = None  # existing environment key to build on; None = draft a new environment too
+
+
+class AuthorDraft(BaseModel):
+    """A model-written draft, already validated against a real temporary environment. Never saved automatically."""
+
+    environment: EnvironmentSpec | None  # set when a new environment was drafted
+    scenario: Scenario
+    valid: bool
+    errors: list[str] = []  # remaining problems after the repair attempts
+    notes: list[str] = []  # assumptions the author model made, for the human to review
+    model: str  # authoring model id
+    attempts: int
+    cost_usd: float | None = None
