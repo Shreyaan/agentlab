@@ -1,9 +1,8 @@
-"""Tool layer and LLM settings shared by the real-LLM example agents (OpenAI SDK, LangGraph and Agents SDK)."""
+"""Tool layer and LLM settings shared by the Python example agents: tools come from the environment's catalog."""
 
 import json
 import os
 import re
-from collections.abc import Callable
 from pathlib import Path
 from typing import Self
 
@@ -11,6 +10,7 @@ import httpx
 from pydantic import JsonValue
 
 from agentlab.adapter import Recorder
+from agentlab.environment import ToolCatalog
 from agentlab.protocol import JsonObject
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
@@ -19,18 +19,29 @@ MAX_STEPS = 10
 _PROMPTS = Path(__file__).parent / "prompts"
 
 
-class RefundApi:
-    """Fixture HTTP client bound to one run. Each method makes exactly one request inside `rec.tool`."""
+def load_catalog(base_url: str) -> ToolCatalog:
+    response = httpx.get(f"{base_url.rstrip('/')}/tools", timeout=10)
+    response.raise_for_status()
+    return ToolCatalog.model_validate(response.json())
+
+
+def system_prompt(catalog: ToolCatalog) -> str:
+    return f"{load_prompt(prompt_name())}\n\nEnvironment: {catalog.description}"
+
+
+class EnvTools:
+    """The environment's tool catalog, loaded once per run. `call` makes exactly one POST inside `rec.tool`."""
 
     def __init__(self, base_url: str, rec: Recorder) -> None:
-        self._http = httpx.Client(base_url=base_url, timeout=10)
+        self._http = httpx.Client(base_url=base_url.rstrip("/"), timeout=10)
         self._rec = rec
-        self._tools: dict[str, Callable[..., JsonValue]] = {
-            "get_order": self.get_order,
-            "request_approval": self.request_approval,
-            "issue_refund": self.issue_refund,
-            "get_refunds": self.get_refunds,
-        }
+        catalog = load_catalog(base_url)
+        self.system_prompt = system_prompt(catalog)
+        self.schemas: list[JsonObject] = [
+            {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}}
+            for t in catalog.tools
+        ]
+        self._names = {t.name for t in catalog.tools}
 
     def __enter__(self) -> Self:
         return self
@@ -38,77 +49,20 @@ class RefundApi:
     def __exit__(self, *_: object) -> None:
         self._http.close()
 
-    def _send(
-        self,
-        name: str,
-        method: str,
-        path: str,
-        *,
-        json: JsonObject | None = None,
-        headers: dict[str, str] | None = None,
-        params: dict[str, str] | None = None,
-    ) -> JsonValue:
-        def send() -> JsonValue:
-            response = self._http.request(method, path, json=json, headers=headers, params=params)
-            response.raise_for_status()
-            return response.json()
+    def _post(self, name: str, arguments: JsonObject) -> JsonValue:
+        response = self._http.post(f"/tools/{name}", json=arguments)
+        if response.is_error:  # 4xx/5xx; a 504 may still have committed
+            raise RuntimeError(f"HTTP {response.status_code}: {response.text[:500]}")
+        return response.json()
 
-        return self._rec.tool(name, send)
-
-    def get_order(self, order_id: str) -> JsonValue:
-        return self._send("get_order", "GET", f"/orders/{order_id}")
-
-    def request_approval(self, order_id: str, reason: str = "customer refund request") -> JsonValue:
-        return self._send("request_approval", "POST", "/approvals", json={"order_id": order_id, "reason": reason})
-
-    def issue_refund(
-        self, order_id: str, amount_cents: int, approval_id: int, idempotency_key: str | None = None
-    ) -> JsonValue:
-        body = {"order_id": order_id, "amount_cents": amount_cents, "approval_id": approval_id}
-        headers = {"Idempotency-Key": idempotency_key} if idempotency_key else {}
-        return self._send("issue_refund", "POST", "/refunds", json=body, headers=headers)
-
-    def get_refunds(self, order_id: str) -> JsonValue:
-        return self._send("get_refunds", "GET", "/refunds", params={"order_id": order_id})
-
-    def run_tool(self, name: str, arguments: JsonObject) -> str:
+    def call(self, name: str, arguments: JsonObject) -> str:
         """Execute a model-requested tool; any failure becomes an error result the model can react to."""
-        tool = self._tools.get(name)  # the model chooses `name`: only declared tools are callable
-        if tool is None:
+        if name not in self._names:  # the model chooses `name`: only catalog tools are callable
             return json.dumps({"error": f"unknown tool {name!r}"})
         try:
-            return json.dumps(tool(**arguments))
+            return json.dumps(self._rec.tool(name, lambda: self._post(name, arguments)))
         except Exception as exc:  # noqa: BLE001 - tool failures are results the model must see, not crashes
             return json.dumps({"error": str(exc)})
-
-
-def _tool(name: str, description: str, properties: JsonObject, required: list[JsonValue]) -> JsonObject:
-    parameters = {"type": "object", "properties": properties, "required": required}
-    return {"type": "function", "function": {"name": name, "description": description, "parameters": parameters}}
-
-
-_STR: JsonObject = {"type": "string"}
-TOOL_SCHEMAS: list[JsonObject] = [
-    _tool("get_order", "Look up an order.", {"order_id": _STR}, ["order_id"]),
-    _tool(
-        "request_approval",
-        "Request approval to refund an order. Returns status granted or denied.",
-        {"order_id": _STR, "reason": _STR},
-        ["order_id"],
-    ),
-    _tool(
-        "issue_refund",
-        "Issue a refund for an order.",
-        {
-            "order_id": _STR,
-            "amount_cents": {"type": "integer"},
-            "approval_id": {"type": "integer"},
-            "idempotency_key": {**_STR, "description": "Unique per order; reuse it on retries."},
-        },
-        ["order_id", "amount_cents", "approval_id"],
-    ),
-    _tool("get_refunds", "List existing refunds for an order.", {"order_id": _STR}, ["order_id"]),
-]
 
 
 def load_prompt(name: str) -> str:

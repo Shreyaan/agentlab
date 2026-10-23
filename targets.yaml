@@ -8,8 +8,8 @@ targets:
   openai-naive-slm:   {mode: native, url: "http://127.0.0.1:7402", version: "openai-sdk/naive/lfm-2.5-24b-a2b"}
   langgraph-careful:  {mode: native, url: "http://127.0.0.1:7501", version: "langgraph/careful/claude-haiku-5.5"}
   langgraph-naive:    {mode: native, url: "http://127.0.0.1:7502", version: "langgraph/naive/mimo-v2.6-flash"}
-  agentssdk-careful:  {mode: native, url: "http://127.0.0.1:7701", version: "openai-agents-sdk/careful/qwen3.8-omni-flash"}
-  agentssdk-naive:    {mode: native, url: "http://127.0.0.1:7702", version: "openai-agents-sdk/naive/glm-5.3-flash"}
+  agentssdk-careful:  {mode: native, url: "http://127.0.0.1:7701", version: "openai-agents-sdk+mcp/careful/qwen3.8-omni-flash"}
+  agentssdk-naive:    {mode: native, url: "http://127.0.0.1:7702", version: "openai-agents-sdk+mcp/naive/glm-5.3-flash"}
   http-careful:
     mode: http
     url: "http://127.0.0.1:7601/chat"

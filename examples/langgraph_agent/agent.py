@@ -1,8 +1,8 @@
-"""Real LLM customer-ops agent on LangGraph + langchain-openai (OpenRouter), with checkpoint/resume/fork.
+"""Real LLM agent on LangGraph + langchain-openai (OpenRouter), with checkpoint/resume/fork.
 
 Env: OPENROUTER_API_KEY (required), PROMPT=naive|careful (default careful), MODEL (OpenRouter id), PORT, HOST.
 Checkpoints live in a process-wide in-memory saver keyed by thread_id = trial_id; the graph is rebuilt per
-invocation so tools bind to that invocation's fixture URL and Recorder.
+invocation so tools bind to that invocation's environment catalog and Recorder.
 """
 
 import os
@@ -20,18 +20,7 @@ from typing_extensions import TypedDict
 
 from agentlab.adapter import Recorder, serve
 from agentlab.protocol import Capabilities, InvokeRequest, Manifest
-from examples.refund_api import (
-    MAX_STEPS,
-    OPENROUTER_URL,
-    TOOL_SCHEMAS,
-    RefundApi,
-    adapter_id,
-    api_key,
-    load_prompt,
-    model_name,
-    prompt_name,
-    record_model_call,
-)
+from examples.env_tools import MAX_STEPS, OPENROUTER_URL, EnvTools, adapter_id, api_key, model_name, record_model_call
 
 
 class State(TypedDict):
@@ -39,12 +28,15 @@ class State(TypedDict):
 
 
 CHECKPOINTER = InMemorySaver()
-llm = ChatOpenAI(model=model_name(), base_url=OPENROUTER_URL, api_key=SecretStr(api_key())).bind_tools(TOOL_SCHEMAS)
+llm = ChatOpenAI(model=model_name(), base_url=OPENROUTER_URL, api_key=SecretStr(api_key()))
 
 
-def build_graph(api: RefundApi, rec: Recorder) -> CompiledStateGraph:
+def build_graph(api: EnvTools, rec: Recorder) -> CompiledStateGraph:
+    model = llm.bind_tools(api.schemas)
+    system = SystemMessage(api.system_prompt)
+
     def agent(state: State) -> dict[str, list[BaseMessage]]:
-        reply = llm.invoke([SystemMessage(load_prompt(prompt_name())), *state["messages"]])
+        reply = model.invoke([system, *state["messages"]])
         meta = reply.response_metadata
         usage = meta.get("token_usage") or {}
         cost = usage.get("cost")
@@ -61,8 +53,7 @@ def build_graph(api: RefundApi, rec: Recorder) -> CompiledStateGraph:
         last = state["messages"][-1]
         assert isinstance(last, AIMessage)
         results: list[BaseMessage] = [
-            ToolMessage(api.run_tool(call["name"], call["args"]), tool_call_id=call["id"] or "")
-            for call in last.tool_calls
+            ToolMessage(api.call(call["name"], call["args"]), tool_call_id=call["id"] or "") for call in last.tool_calls
         ]
         return {"messages": results}
 
@@ -82,7 +73,7 @@ def build_graph(api: RefundApi, rec: Recorder) -> CompiledStateGraph:
 
 
 def handle(req: InvokeRequest, rec: Recorder) -> str:
-    with RefundApi(req.environment.base_url, rec) as api:
+    with EnvTools(req.environment.base_url, rec) as api:
         return _run(build_graph(api, rec), req, rec)
 
 

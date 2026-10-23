@@ -12,15 +12,16 @@ import pytest
 
 from agentlab.assertions import Calibration, Decision, Evidence
 from agentlab.client import Target
-from agentlab.fixture import FixturePool, IssueRefund, Seed
+from agentlab.fixture import FixturePool
 from agentlab.gate import decide
 from agentlab.judges import ChoiceQuestion, JudgeSpec, NoulQuestion
-from agentlab.protocol import Capabilities, Manifest, Usage
+from agentlab.protocol import Capabilities, JsonObject, Manifest, Usage
+from agentlab.records import Row
 from agentlab.runner import Runner
 from agentlab.scenario import load_suite
 from agentlab.verdicts import NoulRule, vote
 
-from .conftest import ROOT, free_port, python_module, start_process
+from .conftest import REFUND_ENV, ROOT, free_port, python_module, start_process
 
 pytestmark = [
     pytest.mark.live,
@@ -60,11 +61,15 @@ def test_suite_runs_across_languages_and_frameworks(runner: Runner, targets: dic
     exp = runner.run_experiment(SUITE, list(targets.values()))
     trials = runner.store.trials(exp)
     assert len(trials) == len(SUITE) * len(targets)
+    assert {s.environment for s in SUITE} >= {"refund@1", "travel@1"}  # tool discovery works in both domains
     assert all(t.graded for t in trials), [(t.id, t.record.error) for t in trials if not t.graded]
     for t in trials:
         assert t.record.ledger, f"{t.id}: agent made no tool calls"
         if t.target != "http":
             assert any(e.type == "model_call" for e in t.record.events), t.id
+            # tools were discovered at runtime (catalog or MCP): one tool event per environment call, none extra
+            requested = [e for e in t.record.events if e.type == "tool_requested"]
+            assert len(requested) == len(t.record.ledger), t.id
             assert t.record.usage.input_tokens, t.id
     # the black box can't report process evidence, so the critical event check can never pass silently
     assert decide(trials, list(runner.store.experiment(exp).meta.scenarios), "http").status != "PASS"
@@ -112,12 +117,16 @@ def test_harness_faults_inject_inside_ts_and_python_adapters(runner: Runner, tar
 
 def test_decision_check_runs_through_real_judges(envs: FixturePool) -> None:
     """Cascade [jev, luna] plus a jury that adds a small chat model, on a real environment with a real refund."""
-    seed = Seed(
-        customers=[{"id": "C-9", "name": "Ada"}], orders=[{"id": "ORD-9", "customer_id": "C-9", "amount_cents": 900}]
-    )
-    fx = envs.create("live_decision", seed)
+    seed: dict[str, list[Row]] = {
+        "customers": [{"id": "C-9", "name": "Ada"}],
+        "orders": [{"id": "ORD-9", "customer_id": "C-9", "amount_cents": 900}],
+        "settings": [{"key": "approval_limit_cents", "value": 50000}],
+    }
+    fx = envs.create("live_decision", REFUND_ENV, seed)
     try:
-        assert fx.call(IssueRefund(order_id="ORD-9", amount_cents=900, idempotency_key="k"))[0] == 201
+        assert fx.call("request_approval", {"order_id": "ORD-9"})[0] < 300
+        refund: JsonObject = {"order_id": "ORD-9", "amount_cents": 900, "approval_id": 1, "idempotency_key": "k"}
+        assert fx.call("issue_refund", refund)[0] < 300
         ev = Evidence(
             fixture=fx,
             ledger=fx.ledger(),

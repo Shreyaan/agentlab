@@ -1,4 +1,4 @@
-"""Real LLM customer-ops agent: plain OpenAI SDK tool-calling loop against OpenRouter.
+"""Real LLM agent: plain OpenAI SDK tool-calling loop against OpenRouter.
 
 Env: OPENROUTER_API_KEY (required), PROMPT=naive|careful (default careful), MODEL (OpenRouter id), PORT, HOST.
 """
@@ -11,34 +11,23 @@ from openai.types.chat import ChatCompletionMessageParam
 
 from agentlab.adapter import Recorder, serve
 from agentlab.protocol import Capabilities, InvokeRequest, Manifest
-from examples.refund_api import (
-    MAX_STEPS,
-    OPENROUTER_URL,
-    TOOL_SCHEMAS,
-    RefundApi,
-    adapter_id,
-    api_key,
-    load_prompt,
-    model_name,
-    prompt_name,
-    record_model_call,
-)
+from examples.env_tools import MAX_STEPS, OPENROUTER_URL, EnvTools, adapter_id, api_key, model_name, record_model_call
 
 client = OpenAI(base_url=OPENROUTER_URL, api_key=api_key())
 
 
 def handle(req: InvokeRequest, rec: Recorder) -> str:
-    with RefundApi(req.environment.base_url, rec) as api:
+    with EnvTools(req.environment.base_url, rec) as api:
         return _run(api, req, rec)
 
 
-def _run(api: RefundApi, req: InvokeRequest, rec: Recorder) -> str:
+def _run(api: EnvTools, req: InvokeRequest, rec: Recorder) -> str:
     messages: list[ChatCompletionMessageParam] = [
-        {"role": "system", "content": load_prompt(prompt_name())},
+        {"role": "system", "content": api.system_prompt},
         {"role": "user", "content": str(req.input.get("message", ""))},
     ]
     for _ in range(MAX_STEPS):
-        completion = client.chat.completions.create(model=model_name(), messages=messages, tools=TOOL_SCHEMAS)  # ty: ignore[invalid-argument-type]
+        completion = client.chat.completions.create(model=model_name(), messages=messages, tools=api.schemas)  # ty: ignore[invalid-argument-type]
         choice = completion.choices[0]
         usage = completion.usage
         cost = getattr(usage, "cost", None) if usage else None
@@ -56,7 +45,7 @@ def _run(api: RefundApi, req: InvokeRequest, rec: Recorder) -> str:
         for call in message.tool_calls:
             if call.type != "function":
                 continue
-            result = api.run_tool(call.function.name, json.loads(call.function.arguments or "{}"))
+            result = api.call(call.function.name, json.loads(call.function.arguments or "{}"))
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
     raise RuntimeError(f"no final answer after {MAX_STEPS} model calls")
 
