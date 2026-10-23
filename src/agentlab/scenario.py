@@ -1,14 +1,17 @@
 """Versioned, harness-independent test scenarios loaded from YAML."""
 
+import re
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from agentlab.assertions import Assertion, Budget
 from agentlab.fixture import Seed
 from agentlab.protocol import JsonObject, ToolFault
+
+SCENARIO_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 
 
 class ScenarioFault(ToolFault):
@@ -18,7 +21,7 @@ class ScenarioFault(ToolFault):
 
 
 class Scenario(BaseModel):
-    id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")
+    id: str
     version: int = Field(ge=1)
     risk_tier: Literal["critical", "high", "normal"] = "normal"
     source: str = "synthetic"
@@ -28,6 +31,13 @@ class Scenario(BaseModel):
     faults: list[ScenarioFault] = []
     assertions: list[Assertion]
     budget: Budget = Budget()
+
+    @field_validator("id")
+    @classmethod
+    def _id_is_a_safe_file_name(cls, value: str) -> str:
+        if not SCENARIO_ID.fullmatch(value):  # it becomes a file name and part of every trial id
+            raise ValueError("use 1-64 lowercase letters, digits, '.', '_' or '-', starting with a letter or digit")
+        return value
 
     @property
     def key(self) -> str:
