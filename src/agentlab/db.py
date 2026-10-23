@@ -29,3 +29,9 @@ def open_pool(url: str, max_size: int = 20) -> Pool:
     )
     pool.wait(timeout=15)
     return pool
+
+
+def pool_conninfo(pool: Pool) -> str:
+    """The pool's connection string (psycopg_pool also accepts a callable that produces one)."""
+    info = pool.conninfo
+    return info if isinstance(info, str) else info()

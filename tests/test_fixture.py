@@ -114,6 +114,10 @@ def test_author_sql_cannot_escape_its_environment(envs: FixturePool, store: Stor
         for escape in (
             "SELECT COUNT(*) FROM agentlab.trials",  # stored results
             "SELECT COUNT(*) FROM env_t_sbx_b.orders",  # another trial's environment
+            # shed the role mid-statement, then run nested SQL: reproduced live as an escape before the login role
+            "SELECT set_config('role', 'none', true), "
+            "query_to_xml('SELECT count(*) FROM agentlab.trials', true, true, '')",
+            "SELECT query_to_xml('SELECT count(*) FROM env_t_sbx_b.orders', true, true, '')",
         ):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 mine.query(escape)
