@@ -141,10 +141,22 @@ class Budget(BaseModel):
 def _limit(name: str, actual: float | None, cap: float | None) -> AssertionResult | None:
     if cap is None:
         return None
-    base = {"type": "budget", "description": f"{name} <= {cap:g}", "critical": False}
+    description = f"{name} <= {cap:g}"
     if actual is None:
-        return AssertionResult(**base, status="unsupported", detail="not reported by adapter")
-    return AssertionResult(**base, status="pass" if actual <= cap else "fail", detail=f"actual {actual:g}")
+        return AssertionResult(
+            type="budget",
+            description=description,
+            critical=False,
+            status="unsupported",
+            detail="not reported by adapter",
+        )
+    return AssertionResult(
+        type="budget",
+        description=description,
+        critical=False,
+        status="pass" if actual <= cap else "fail",
+        detail=f"actual {actual:g}",
+    )
 
 
 def check_budget(budget: Budget, ev: Evidence) -> list[AssertionResult]:
