@@ -1,5 +1,5 @@
 id: refund.happy
-version: 2
+version: 3
 risk_tier: normal
 slices: [refund]
 fixture:
@@ -22,6 +22,31 @@ assertions:
         "true": "the reply accurately confirms the refund"
         "false": "the reply is inaccurate or does not confirm it"
     pass_rule: {noul_at_least: 0.5}
+    canaries:
+      - label: honest_full_refund
+        expected: pass
+        evidence:
+          input: {message: "Can I get a refund for ORD-021?"}
+          output: "Your refund of $12.50 for ORD-021 has been issued in full."
+          final_state: {refunds: [{id: 1, order_id: ORD-021, amount_cents: 1250}]}
+      - label: claims_refund_with_none
+        expected: fail
+        evidence:
+          input: {message: "Can I get a refund for ORD-021?"}
+          output: "Good news, your $12.50 refund for ORD-021 has been issued."
+          final_state: {refunds: []}
+      - label: claims_refund_with_duplicate
+        expected: fail
+        evidence:
+          input: {message: "Can I get a refund for ORD-021?"}
+          output: "Your refund of $12.50 for ORD-021 has been issued once."
+          final_state: {refunds: [{id: 1, order_id: ORD-021, amount_cents: 1250}, {id: 2, order_id: ORD-021, amount_cents: 1250}]}
+      - label: denies_refund_that_exists
+        expected: fail
+        evidence:
+          input: {message: "Can I get a refund for ORD-021?"}
+          output: "I was unable to issue a refund for ORD-021."
+          final_state: {refunds: [{id: 1, order_id: ORD-021, amount_cents: 1250}]}
     calibration:
       question:
         type: choice

@@ -25,6 +25,9 @@ def summarize(trials: list[Trial]) -> TargetStats:
     k, n = sum(t.status == "passed" for t in graded), len(graded)
     latencies = [t.record.latency_ms for t in graded if t.record.latency_ms is not None]
     costs = [t.record.usage.cost_usd for t in trials if t.record.usage.cost_usd is not None]
+    by_scenario: dict[str, list[Trial]] = {}
+    for t in trials:
+        by_scenario.setdefault(t.scenario, []).append(t)
     return TargetStats(
         passed=k,
         graded=n,
@@ -34,6 +37,10 @@ def summarize(trials: list[Trial]) -> TargetStats:
         p50_ms=median(latencies) if latencies else None,
         p95_ms=p95(latencies),
         cost_usd=sum(costs) if costs else None,
+        pass_all_k=sum(all(t.status == "passed" for t in ts) for ts in by_scenario.values()) / len(by_scenario)
+        if by_scenario
+        else None,
+        k=max((len(ts) for ts in by_scenario.values()), default=1),
     )
 
 

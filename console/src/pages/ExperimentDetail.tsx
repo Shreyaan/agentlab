@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { reportUrl, type Schema } from "../api/client";
-import { useExperiment, type Decision, type ExperimentData, type Paired, type TargetStats } from "../api/hooks";
+import { useCanaries, useExperiment, type Decision, type ExperimentData, type Paired, type TargetStats } from "../api/hooks";
 import { DecisionBadge, StatusBadge, decisionTone } from "../components/badges";
 import { CiBar, Progress } from "../components/charts";
 import {
@@ -64,7 +64,7 @@ function DecisionBanner({ decision }: { decision: Decision | null | undefined })
   );
 }
 
-function StatsCard({ name, stats, role }: { name: string; stats: TargetStats; role: string }) {
+function StatsCard({ name, stats, role, scenarioCount }: { name: string; stats: TargetStats; role: string; scenarioCount: number }) {
   const rows: [string, string][] = [
     ["p50 latency", ms(stats.p50_ms)],
     ["p95 latency", ms(stats.p95_ms)],
@@ -84,6 +84,11 @@ function StatsCard({ name, stats, role }: { name: string; stats: TargetStats; ro
         </span>
       </div>
       <CiBar rate={stats.pass_rate} ci={stats.ci95} />
+      {stats.k > 1 && stats.pass_all_k != null && (
+        <p className="mt-2 text-ink2 tabular-nums" title="Share of scenarios where every repeat passed">
+          <strong className="text-ink">pass^{stats.k} {percent(stats.pass_all_k)}</strong>: all {stats.k} repeats passed in {Math.round(stats.pass_all_k * scenarioCount)}/{scenarioCount} scenarios
+        </p>
+      )}
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-2">
@@ -301,6 +306,75 @@ function TrialsTable({
   );
 }
 
+const VERDICT_CELL = (r: Schema["CanaryResult"]) =>
+  r.verdict === "abstain" ? (
+    <Badge tone="warn">abstain</Badge>
+  ) : (
+    <Badge tone={r.correct ? "pass" : "block"} title={`Judge said ${r.verdict}, expected ${r.expected}`}>
+      {r.correct ? "\u2713" : "\u2717"} {r.verdict}
+    </Badge>
+  );
+
+/** The model's probability for its answer, when it gave one (`noul` for yes/no questions, `confidence` otherwise). */
+const probability = (answer: Schema["CanaryResult"]["answer"]): string => {
+  const p = answer.noul ?? answer.confidence;
+  return typeof p === "number" ? percent(p) : "-";
+};
+
+function CanaryResults({ experimentId }: { experimentId: string }) {
+  const query = useCanaries(experimentId);
+  return (
+    <Card>
+      <div className="p-4 pb-0">
+        <SectionTitle>Judge canaries</SectionTitle>
+      </div>
+      <QueryState query={query} isEmpty={(d) => d.length === 0} empty={<EmptyState title="No canaries ran in this experiment">Add canaries to a decision check to measure its judges.</EmptyState>}>
+        {(rows) => {
+          const byCheck = new Map<string, Schema["CanaryResult"][]>();
+          for (const r of rows) byCheck.set(`${r.scenario}\u0000${r.check}`, [...(byCheck.get(`${r.scenario}\u0000${r.check}`) ?? []), r]);
+          return (
+            <div className="space-y-4 p-4 pt-2">
+              {[...byCheck.values()].map((group) => (
+                <div key={`${group[0]?.scenario}${group[0]?.check}`}>
+                  <p className="mb-1">
+                    <Mono>{group[0]?.scenario}</Mono> <span className="text-ink2">{group[0]?.check}</span>
+                  </p>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Canary</Th>
+                        <Th>Expected</Th>
+                        <Th>Judge</Th>
+                        <Th>Verdict</Th>
+                        <Th className="text-right">Probability</Th>
+                        <Th className="text-right">Cost</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.map((r, i) => (
+                        <tr key={i}>
+                          <Td>{r.label}</Td>
+                          <Td>{r.expected}</Td>
+                          <Td>
+                            <Mono>{r.model}</Mono>
+                          </Td>
+                          <Td>{VERDICT_CELL(r)}</Td>
+                          <Td className="text-right tabular-nums">{probability(r.answer)}</Td>
+                          <Td className="text-right tabular-nums">{cost(r.cost_usd)}</Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              ))}
+            </div>
+          );
+        }}
+      </QueryState>
+    </Card>
+  );
+}
+
 function Detail({ data }: { data: ExperimentData }) {
   const { summary, experiment, trials } = data;
   const [filters, setFilters] = useState<Filters>({ target: ALL, scenario: ALL, status: ALL });
@@ -357,7 +431,7 @@ function Detail({ data }: { data: ExperimentData }) {
       {stats.length > 0 && (
         <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {stats.map(([name, s]) => (
-            <StatsCard key={name} name={name} stats={s} role={name === decision?.candidate ? "candidate" : "baseline"} />
+            <StatsCard key={name} name={name} stats={s} scenarioCount={scenarios.length} role={name === decision?.candidate ? "candidate" : "baseline"} />
           ))}
           {decision?.paired && <PairedCard paired={decision.paired} />}
         </div>
@@ -366,6 +440,7 @@ function Detail({ data }: { data: ExperimentData }) {
       <div className="space-y-4">
         <Matrix targets={targets} scenarios={scenarios} trials={trials} filters={filters} onPick={pick} />
         <TrialsTable trials={trials} targets={targets} scenarios={scenarios} filters={filters} setFilters={setFilters} />
+        <CanaryResults experimentId={summary.id} />
       </div>
     </>
   );

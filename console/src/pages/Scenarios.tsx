@@ -51,6 +51,8 @@ function describeAssertion(a: Assertion): string {
       return `agent reports ${a.event}${a.name ? ` for ${a.name}` : ""}`;
     case "decision":
       return a.question.instructions;
+    case "output_matches":
+      return "retired check (no longer evaluated)";
   }
 }
 
@@ -92,6 +94,30 @@ function DecisionDetail({ a }: { a: Decision }) {
           Calibration: {a.calibration.question.instructions} Truth from <Mono>{a.calibration.truth_sql}</Mono>.
         </p>
       )}
+      <CanaryList canaries={a.canaries} />
+    </div>
+  );
+}
+
+const EVIDENCE_PREVIEW_CHARS = 120;
+
+function CanaryList({ canaries }: { canaries: Decision["canaries"] }) {
+  if (!canaries?.length) return null;
+  return (
+    <div>
+      <p className="font-medium text-ink">Canaries ({canaries.length})</p>
+      <ul className="mt-1 space-y-1">
+        {canaries.map((c, i) => {
+          const text = JSON.stringify(c.evidence);
+          return (
+            <li key={i} className="flex flex-wrap items-baseline gap-2">
+              <Badge tone={c.expected === "pass" ? "pass" : "block"}>expected {c.expected}</Badge>
+              <span className="font-medium text-ink">{c.label}</span>
+              <Mono className="min-w-0 break-all text-ink3" >{text.length > EVIDENCE_PREVIEW_CHARS ? `${text.slice(0, EVIDENCE_PREVIEW_CHARS)}...` : text}</Mono>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

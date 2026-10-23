@@ -12,7 +12,7 @@ from psycopg.types.json import Jsonb
 from agentlab.api_models import ExperimentStatus, ExperimentSummary
 from agentlab.db import Pool
 from agentlab.models import Decision, Experiment, ExperimentMeta, Trial, TrialRecord, TrialStatus
-from agentlab.records import JudgeStats
+from agentlab.records import CanaryResult, JudgeStats
 from agentlab.redaction import redact
 from agentlab.verdicts import is_calibrated
 
@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS agentlab.trials (
     record JSONB NOT NULL DEFAULT '{}', created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS trials_by_experiment ON agentlab.trials (experiment_id);
+CREATE TABLE IF NOT EXISTS agentlab.canary_results (
+    id BIGSERIAL PRIMARY KEY, experiment_id TEXT NOT NULL REFERENCES agentlab.experiments(id) ON DELETE CASCADE,
+    scenario TEXT NOT NULL, check_name TEXT NOT NULL, label TEXT NOT NULL, model TEXT NOT NULL,
+    expected TEXT NOT NULL, verdict TEXT NOT NULL, correct BOOLEAN NOT NULL, answer JSONB NOT NULL, cost_usd FLOAT8
+);
+CREATE INDEX IF NOT EXISTS canary_results_by_experiment ON agentlab.canary_results (experiment_id);
 """
 
 SUMMARY_SELECT = """
@@ -47,12 +53,19 @@ WITH verdicts AS (
 ), calibration AS (
     SELECT c.key AS model, count(*) AS samples, count(*) FILTER (WHERE c.value = 'true'::jsonb) AS correct
     FROM verdicts, jsonb_each(j->'calibration_correct') c GROUP BY c.key
+), canaries AS (
+    SELECT model, count(*) AS canary_samples, count(*) FILTER (WHERE correct) AS canary_correct
+    FROM agentlab.canary_results GROUP BY model
 ), cost AS (
-    SELECT x->>'model' AS model, sum((x->>'cost_usd')::float8) AS cost_usd
-    FROM verdicts, jsonb_array_elements(j->'judges') x GROUP BY 1
+    SELECT model, sum(cost_usd) AS cost_usd FROM (
+        SELECT x->>'model' AS model, (x->>'cost_usd')::float8 AS cost_usd
+        FROM verdicts, jsonb_array_elements(j->'judges') x
+        UNION ALL SELECT model, cost_usd FROM agentlab.canary_results
+    ) costs GROUP BY model
 )
-SELECT model, coalesce(samples, 0) AS samples, coalesce(correct, 0) AS correct, cost_usd
-FROM calibration FULL JOIN cost USING (model) ORDER BY model
+SELECT model, coalesce(samples, 0) AS samples, coalesce(correct, 0) AS correct,
+    coalesce(canary_samples, 0) AS canary_samples, coalesce(canary_correct, 0) AS canary_correct, cost_usd
+FROM calibration FULL JOIN canaries USING (model) FULL JOIN cost USING (model) ORDER BY model
 """
 
 
@@ -123,6 +136,37 @@ class Store:
             ).fetchall()
         return [Trial.model_validate(r) for r in rows]
 
+    def add_canary_results(self, results: list[CanaryResult]) -> None:
+        with self.db.connection() as conn, conn.cursor() as cur:
+            cur.executemany(
+                "INSERT INTO agentlab.canary_results (experiment_id, scenario, check_name, label, model, expected, "
+                "verdict, correct, answer, cost_usd) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [
+                    (
+                        r.experiment_id,
+                        r.scenario,
+                        redact(r.check),
+                        r.label,
+                        r.model,
+                        r.expected,
+                        r.verdict,
+                        r.correct,
+                        Jsonb(redact(r.answer)),
+                        r.cost_usd,
+                    )
+                    for r in results
+                ],
+            )
+
+    def canary_results(self, exp_id: str) -> list[CanaryResult]:
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                "SELECT experiment_id, scenario, check_name AS check, label, model, expected, verdict, correct, "
+                "answer, cost_usd FROM agentlab.canary_results WHERE experiment_id = %s ORDER BY id",
+                (exp_id,),
+            ).fetchall()
+        return [CanaryResult.model_validate(r) for r in rows]
+
     def judge_stats(self) -> list[JudgeStats]:
         with self.db.connection() as conn:
             rows = conn.execute(JUDGE_STATS_SQL).fetchall()
@@ -132,8 +176,11 @@ class Store:
                 samples=r["samples"],
                 correct=r["correct"],
                 accuracy=r["correct"] / r["samples"] if r["samples"] else None,
+                canary_samples=r["canary_samples"],
+                canary_correct=r["canary_correct"],
+                canary_accuracy=r["canary_correct"] / r["canary_samples"] if r["canary_samples"] else None,
                 cost_usd=r["cost_usd"],
-                calibrated=is_calibrated(r["samples"], r["correct"]),
+                calibrated=is_calibrated(r["samples"], r["correct"], r["canary_samples"], r["canary_correct"]),
             )
             for r in rows
         ]

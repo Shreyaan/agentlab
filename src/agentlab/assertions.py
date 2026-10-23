@@ -7,12 +7,22 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from agentlab.fixture import Fixture
 from agentlab.judges import JUDGE_MODELS, ChoiceQuestion, JudgeError, JudgeSpec, NoulQuestion, Question, ask
 from agentlab.protocol import Capabilities, Event, JsonObject, Usage
-from agentlab.records import AssertionResult, JudgeAnswer, JudgeStats, JudgeVerdict, LedgerEntry, State, TableDiff
+from agentlab.records import (
+    AssertionResult,
+    Canary,
+    CanaryResult,
+    JudgeAnswer,
+    JudgeStats,
+    JudgeVerdict,
+    LedgerEntry,
+    State,
+    TableDiff,
+)
 from agentlab.redaction import redact
 from agentlab.verdicts import (
     ChoiceRule,
@@ -195,6 +205,16 @@ class Decision(_Check):
     judges: list[JudgeSpec] = Field(default_factory=lambda: [JudgeSpec(model=m) for m in JUDGE_MODELS], min_length=1)
     strategy: Strategy = "cascade"
     calibration: Calibration | None = None
+    canaries: list[Canary] = []
+
+    @model_validator(mode="after")
+    def _canaries_cover_both_verdicts(self) -> Self:
+        labels = [c.label for c in self.canaries]
+        if len(labels) != len(set(labels)):
+            raise ValueError("canary labels must be unique")
+        if self.canaries and {c.expected for c in self.canaries} != {"pass", "fail"}:
+            raise ValueError('canaries need at least one "pass" and one "fail" example')
+        return self
 
     @model_validator(mode="after")
     def _rule_fits_question(self) -> Self:
@@ -231,7 +251,7 @@ class Decision(_Check):
         votes: list[Vote] = []
         for spec in self.judges:
             asked.append(_ask_judge(spec, questions, state))
-            votes.append(vote(self.pass_rule, self.min_confidence, asked[-1].answer))
+            votes.append(self._vote(spec, asked[-1]))
             if self.strategy == "cascade" and votes[-1] != "abstain":
                 break
         verdict = combine(self.strategy, votes)
@@ -257,6 +277,30 @@ class Decision(_Check):
             return self.result("unsupported", f"{why}; {reason}{note}", judge)
         return self.result("fail", reason + note, judge)
 
+    def _vote(self, spec: JudgeSpec, answer: JudgeAnswer) -> Vote:
+        return vote(self.pass_rule, self.min_confidence, answer.answer, spec.min_confidence)
+
+    def canary_results(self, exp_id: str, scenario: str) -> list[CanaryResult]:
+        """Every judge answers every canary on its own: per-model verdict accuracy, never a cascade."""
+        return [self.canary_result(exp_id, scenario, c, spec) for c in self.canaries for spec in self.judges]
+
+    def canary_result(self, exp_id: str, scenario: str, canary: Canary, spec: JudgeSpec) -> CanaryResult:
+        state, _ = cap_state({k: redact(v) for k, v in canary.evidence.items()})
+        answer = _ask_judge(spec, {QUESTION: self.question}, state)
+        verdict = self._vote(spec, answer)
+        return CanaryResult(
+            experiment_id=exp_id,
+            scenario=scenario,
+            check=self.description or self.default_description,
+            label=canary.label,
+            model=spec.model,
+            expected=canary.expected,
+            verdict=verdict,
+            correct=verdict == canary.expected,
+            answer=answer.answer,
+            cost_usd=answer.cost_usd,
+        )
+
 
 def _ask_judge(spec: JudgeSpec, questions: dict[str, Question], state: dict[str, JsonValue]) -> JudgeAnswer:
     try:
@@ -271,7 +315,24 @@ def _ask_judge(spec: JudgeSpec, questions: dict[str, Question], state: dict[str,
     )
 
 
-type Assertion = Annotated[Sql | ToolOrder | ForbiddenTool | EventPresent | Decision, Field(discriminator="type")]
+class RetiredCheck(_Check):
+    """A removed check type. Experiments recorded with it must stay readable, so it still parses (its old fields
+    are kept as-is), but it never runs: always `skipped`. New scenarios may not use it (see scenario.retired)."""
+
+    model_config = ConfigDict(extra="allow")
+    type: Literal["output_matches"] = "output_matches"  # regex on the reply; replaced by `decision`
+
+    @property
+    def default_description(self) -> str:
+        return f"retired check ({self.type})"
+
+    def check(self, ev: Evidence) -> AssertionResult:
+        return self.result("skipped", "retired check type; no longer evaluated")
+
+
+type Assertion = Annotated[
+    Sql | ToolOrder | ForbiddenTool | EventPresent | Decision | RetiredCheck, Field(discriminator="type")
+]
 
 
 class Budget(BaseModel):

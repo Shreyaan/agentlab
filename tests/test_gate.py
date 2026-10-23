@@ -1,6 +1,8 @@
 from typing import Literal
 
-from agentlab.gate import decide, wilson
+import pytest
+
+from agentlab.gate import decide, summarize, wilson
 from agentlab.models import Trial, TrialError, TrialRecord, TrialStatus
 from agentlab.protocol import ErrorCode
 from agentlab.records import AssertionResult
@@ -74,3 +76,23 @@ def test_no_evidence_never_passes() -> None:
     d = decide([], [], "c")
     assert d.status == "INSUFFICIENT_EVIDENCE"
     assert d.insufficient_reasons == ["no graded trials for c"]
+
+
+def test_pass_all_k_counts_scenarios_where_every_repeat_passed() -> None:
+    def rep(scenario: str, repeat: int, status: TrialStatus) -> Trial:
+        return trial("c", status, repeat=repeat).model_copy(update={"scenario": scenario, "id": f"{scenario}{repeat}"})
+
+    trials = [
+        *(rep("a@1", r, "passed") for r in range(3)),
+        *(rep("b@1", r, "failed" if r == 1 else "passed") for r in range(3)),
+        *(rep("c@1", r, "error" if r == 2 else "passed") for r in range(3)),
+    ]
+    stats = summarize(trials)
+    assert (stats.k, stats.pass_all_k) == (3, pytest.approx(1 / 3))  # ungraded repeat is not an all-pass
+    assert stats.pass_rate == pytest.approx(7 / 8)
+
+
+def test_pass_all_k_is_none_without_scenarios() -> None:
+    stats = summarize([])
+    assert (stats.k, stats.pass_all_k) == (1, None)
+    assert summarize([trial("c", "passed")]).pass_all_k == 1.0

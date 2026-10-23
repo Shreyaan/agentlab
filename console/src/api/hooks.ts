@@ -29,6 +29,12 @@ export const useExperiment = (id: string) =>
     refetchInterval: (q) => (q.state.data?.summary.status === "running" ? LIVE_POLL_MS : false),
   });
 
+export const useCanaries = (id: string) =>
+  useQuery({
+    queryKey: ["canaries", id],
+    queryFn: async () => unwrap(await api.GET("/v1/experiments/{exp_id}/canaries", { params: { path: { exp_id: id } } })),
+  });
+
 export const useTrial = (id: string) =>
   useQuery({
     queryKey: ["trial", id],

@@ -28,12 +28,12 @@ from agentlab.api_models import (
     ScenarioValidation,
     TargetDraft,
 )
-from agentlab.assertions import Assertion, Decision, EventPresent, ForbiddenTool, Sql, ToolOrder
+from agentlab.assertions import Assertion, Decision, EventPresent, ForbiddenTool, RetiredCheck, Sql, ToolOrder
 from agentlab.client import TargetsFile, TargetSpec
 from agentlab.fixture import SEED_COLUMNS, TOOL_CALLS, Fixture, FixturePool, Seed
 from agentlab.judges import JUDGE_MODELS
 from agentlab.redaction import redact
-from agentlab.scenario import Scenario
+from agentlab.scenario import Scenario, retired
 
 _WRITE_LOCK = threading.Lock()
 type Change = Literal["new", "same", "bump"]
@@ -49,7 +49,7 @@ def builder_info() -> BuilderInfo:
     return BuilderInfo(
         tools=list(TOOL_CALLS),
         seed_columns={t: list(c) for t, c in SEED_COLUMNS.items()},
-        assertion_types=[str(cls.model_fields["type"].default) for cls in union],
+        assertion_types=[str(cls.model_fields["type"].default) for cls in union if cls is not RetiredCheck],
         judge_models=JUDGE_MODELS,
     )
 
@@ -92,7 +92,9 @@ def _sql_refs(a: Assertion) -> list[tuple[str, str]]:
 
 
 def _name_errors(s: Scenario) -> list[str]:
-    errors = [f"faults.{i}.tool: unknown tool {f.tool!r}" for i, f in enumerate(s.faults) if f.tool not in TOOL_CALLS]
+    errors = retired(s) + [
+        f"faults.{i}.tool: unknown tool {f.tool!r}" for i, f in enumerate(s.faults) if f.tool not in TOOL_CALLS
+    ]
     for i, a in enumerate(s.assertions):
         errors += [f"assertions.{i}.{f}: unknown tool {n!r}" for f, n in _tool_refs(a) if n not in TOOL_CALLS]
     return errors

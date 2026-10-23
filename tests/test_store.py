@@ -1,7 +1,9 @@
 import time
 import uuid
+from pathlib import Path
 
 import pytest
+import yaml
 
 from agentlab.models import ExperimentMeta, TrialError, TrialRecord
 from agentlab.protocol import ErrorCode, JsonObject, Usage
@@ -121,3 +123,39 @@ def test_userinfo_scan_is_linear_on_hostile_input() -> None:
     redact("://@" * 30_000 + "x" * 50_000)
     redact("://" + "@" * 100_000)
     assert time.perf_counter() - started < 0.5
+
+
+def test_history_with_retired_checks_stays_readable(store: Store) -> None:
+    from agentlab.scenario import Scenario, retired
+
+    old = {
+        "id": "legacy",
+        "version": 1,
+        "fixture": {},
+        "input": {"message": "hi"},
+        "assertions": [{"type": "output_matches", "pattern": "refund .* complete"}],
+    }
+    scenario = Scenario.model_validate(old)  # recorded experiments keep loading
+    assert retired(scenario) == ["assertions.0: output_matches is retired; use a decision check"]
+    exp = new_id()
+    store.create_experiment(exp, META.model_copy(update={"scenarios": {scenario.key: scenario}}))
+    assert store.experiment(exp).meta.scenarios["legacy@1"].assertions[0].type == "output_matches"
+    assert any(s.id == exp for s in store.experiment_summaries(500, lambda _: False))
+
+
+def test_suites_reject_retired_checks(tmp_path: Path) -> None:
+    from agentlab.scenario import load_suite
+
+    (tmp_path / "s.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "legacy",
+                "version": 1,
+                "fixture": {},
+                "input": {},
+                "assertions": [{"type": "output_matches", "pattern": "x"}],
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="retired"):
+        load_suite(tmp_path)

@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import type { Schema } from "../../api/client";
 import type { AssertionDraft } from "../scenario";
 import { Badge, CheckField, Labeled, btn, field } from "../ui";
+import { CanariesEditor } from "./canaries";
 import { NumberField, Select } from "./fields";
 import { QueryTester } from "./QueryTester";
 
@@ -65,6 +66,7 @@ export const newDecision = (judgeModel: string): Decision => {
     judges: [{ model: judgeModel, api: "decisions" }],
     strategy: "cascade",
     calibration: null,
+    canaries: [],
     critical: false,
     requires_faults: false,
     description: "",
@@ -188,12 +190,25 @@ function JudgesEditor({ d, set, suggestions }: { d: Decision; set: (p: Partial<D
       <legend className="font-medium">Judges</legend>
       <p className="text-[12px] text-ink2">
         <code>decisions</code> uses OpenRouter's Decisions API (typed probabilities). <code>chat</code> asks any OpenRouter chat model for structured JSON, so you can use any small or large model by its id.
+        The optional min confidence (0.5 to 1) overrides the check's threshold for one judge, because probabilities are not comparable between models.
       </p>
       <ul className="space-y-1.5">
         {judges.map((j, i) => (
           <li key={j.model} className="flex flex-wrap items-center gap-2">
             <Badge>{i + 1}</Badge>
             <code className="min-w-0 flex-1 break-all">{j.model}</code>
+            <input
+              type="number"
+              aria-label={`Min confidence for ${j.model}`}
+              title="Optional. Overrides the check's minimum confidence for this judge."
+              placeholder="min conf."
+              min={0.5}
+              max={1}
+              step={0.05}
+              className={`${field} w-24!`}
+              value={j.min_confidence ?? ""}
+              onChange={(e) => update(judges.map((x, k) => (k === i ? { ...x, min_confidence: e.target.value === "" ? null : Number(e.target.value) } : x)))}
+            />
             <select aria-label={`API for ${j.model}`} className={`${field} w-28!`} value={j.api} onChange={(e) => update(judges.map((x, k) => (k === i ? { ...x, api: e.target.value as Judge["api"] } : x)))}>
               <option value="decisions">decisions</option>
               <option value="chat">chat</option>
@@ -298,6 +313,7 @@ export function DecisionForm({ d, set, seed, suggestions }: { d: Decision; set: 
         ))}
       </fieldset>
       <CalibrationEditor d={d} set={set} seed={seed} />
+      <CanariesEditor canaries={d.canaries} onChange={(canaries) => set({ canaries })} />
     </div>
   );
 }

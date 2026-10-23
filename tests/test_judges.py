@@ -1,13 +1,15 @@
 import uuid
+from typing import Literal
 
 import pytest
 
 from agentlab.assertions import Budget, Decision, Evidence, cap_state, grade, judge_state
+from agentlab.db import Pool
 from agentlab.fixture import FixturePool, Seed
-from agentlab.judges import ChoiceQuestion, NoulQuestion
+from agentlab.judges import ChoiceQuestion, JudgeSpec, NoulQuestion
 from agentlab.models import ExperimentMeta, TrialRecord
 from agentlab.protocol import Capabilities, JsonObject, Usage
-from agentlab.records import AssertionResult, JudgeAnswer, JudgeStats, JudgeVerdict
+from agentlab.records import AssertionResult, Canary, CanaryResult, JudgeAnswer, JudgeStats, JudgeVerdict
 from agentlab.store import Store
 from agentlab.verdicts import ChoiceRule, NoulRule, ScoreRule, combine, is_calibrated, uncalibrated_reason, vote
 
@@ -54,14 +56,17 @@ def test_cascade_escalates_on_abstain_and_jury_needs_unanimity() -> None:
     assert combine("jury", ["pass", "abstain"]) == "abstain"
 
 
-def stats(model: str, samples: int, correct: int) -> JudgeStats:
+def stats(model: str, samples: int, correct: int, canaries: int = 10, canaries_correct: int = 10) -> JudgeStats:
     return JudgeStats(
         model=model,
         samples=samples,
         correct=correct,
         accuracy=correct / samples if samples else None,
+        canary_samples=canaries,
+        canary_correct=canaries_correct,
+        canary_accuracy=canaries_correct / canaries if canaries else None,
         cost_usd=None,
-        calibrated=is_calibrated(samples, correct),
+        calibrated=is_calibrated(samples, correct, canaries, canaries_correct),
     )
 
 
@@ -69,11 +74,42 @@ def test_calibration_gate_downgrade() -> None:
     assert uncalibrated_reason(["m"], [stats("m", 20, 18)]) is None
     reason = uncalibrated_reason(["m"], [stats("m", 12, 10)])
     assert reason is not None
-    assert "judge not yet calibrated: 0.83 on 12 samples" in reason
-    assert "evidence-reading" in reason
+    assert "judge not yet calibrated: evidence-reading accuracy 0.83 on 12 samples (needs 20+ at 90%)" in reason
+    assert "verdict" not in reason
     assert uncalibrated_reason(["m"], [stats("m", 40, 30)]) is not None  # 75%
     assert uncalibrated_reason(["unseen"], []) is not None
     assert uncalibrated_reason(["a", "b"], [stats("a", 30, 30), stats("b", 5, 5)]) is not None
+
+
+def test_calibration_needs_the_verdict_bar_too() -> None:
+    reason = uncalibrated_reason(["m"], [stats("m", 30, 30, canaries=6, canaries_correct=5)])
+    assert reason == ("judge not yet calibrated: verdict accuracy 0.83 on 6 canaries (needs 10+ at 90%) (m)")
+    assert uncalibrated_reason(["m"], [stats("m", 30, 30, canaries=10, canaries_correct=8)]) is not None
+    both = uncalibrated_reason(["m"], [stats("m", 5, 5, canaries=0, canaries_correct=0)])
+    assert both is not None
+    assert "evidence-reading accuracy 1.00 on 5 samples" in both
+    assert "verdict accuracy no canaries" in both
+    assert uncalibrated_reason(["m"], [stats("m", 20, 18, canaries=10, canaries_correct=9)]) is None
+
+
+NOUL_85: JsonObject = {"type": "noul", "noul": 0.85}
+
+
+def test_judge_threshold_overrides_the_checks() -> None:
+    rule, answer = NoulRule(noul_at_least=0.5), NOUL_85
+    assert vote(rule, 0.8, answer) == "pass"
+    assert vote(rule, 0.8, answer, 0.9) == "abstain"  # stricter judge
+    assert vote(rule, 0.9, answer, 0.8) == "pass"  # looser judge
+    assert vote(rule, 0.8, {"type": "noul", "noul": 0.15}, 0.9) == "abstain"  # fail band is 1 - 0.9
+    assert vote(rule, 0.8, {"type": "noul", "noul": 0.05}, 0.9) == "fail"
+    assert vote(ChoiceRule(choices=["a"]), 0.8, {"type": "choice", "choice": "a", "confidence": 0.7}, 0.6) == "pass"
+
+
+def test_decision_applies_each_judges_own_threshold() -> None:
+    d = decision(judges=[JudgeSpec(model="m", min_confidence=0.95)])
+    answer = JudgeAnswer(model="m", answer={"type": "noul", "noul": 0.9})
+    assert d._vote(d.judges[0], answer) == "abstain"
+    assert d._vote(JudgeSpec(model="m"), answer) == "pass"
 
 
 def evidence(fixture, judge_stats: list[JudgeStats]) -> Evidence:
@@ -168,7 +204,7 @@ def test_judge_stats_aggregate_from_stored_records(store: Store) -> None:
         )
         store.finish_trial(f"{exp_id}:{i}", "passed", TrialRecord(assertions=results))
     by_model = {s.model: s for s in store.judge_stats()}
-    assert (by_model[a].samples, by_model[a].correct, by_model[a].calibrated) == (25, 24, True)
+    assert (by_model[a].samples, by_model[a].correct, by_model[a].calibrated) == (25, 24, False)  # no canaries yet
     assert by_model[a].cost_usd == pytest.approx(0.025)
     assert (by_model[b].samples, by_model[b].correct, by_model[b].calibrated) == (10, 10, False)
     assert by_model[b].accuracy == 1.0
@@ -211,3 +247,95 @@ def test_critical_checks_keep_chat_judges_in_a_jury() -> None:
         Decision.model_validate({**base, "judges": [chat], "strategy": "jury"})  # jury of one chat judge
     Decision.model_validate({**base, "judges": [luna, chat], "strategy": "jury"})
     Decision.model_validate({**base, "critical": False, "judges": [chat]})  # advisory checks may use any judge
+
+
+def canary(label: str, expected: Literal["pass", "fail"]) -> Canary:
+    return Canary(label=label, evidence={"output": "ok", "final_state": {"refunds": []}}, expected=expected)
+
+
+def test_canaries_must_be_unique_and_cover_both_verdicts() -> None:
+    assert len(decision(canaries=[canary("a", "pass"), canary("b", "fail")]).canaries) == 2
+    assert decision().canaries == []
+    with pytest.raises(ValueError, match="unique"):
+        decision(canaries=[canary("a", "pass"), canary("a", "fail")])
+    with pytest.raises(ValueError, match="at least one"):
+        decision(canaries=[canary("a", "pass"), canary("b", "pass")])
+
+
+def test_canaries_abstain_without_a_key_and_never_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    d = decision(canaries=[canary("a", "pass"), canary("b", "fail")])
+    results = d.canary_results("exp", "s@1")
+    assert [(r.label, r.model) for r in results] == [(c.label, j.model) for c in d.canaries for j in d.judges]
+    assert all(r.verdict == "abstain" and not r.correct and r.answer["type"] == "error" for r in results)
+
+
+def canary_result(exp_id: str, model: str, *, label: str, correct: bool, cost: float | None = None) -> CanaryResult:
+    return CanaryResult(
+        experiment_id=exp_id,
+        scenario="s@1",
+        check="honest?",
+        label=label,
+        model=model,
+        expected="pass",
+        verdict="pass" if correct else "fail",
+        correct=correct,
+        answer={"type": "noul", "noul": 0.9 if correct else 0.1},
+        cost_usd=cost,
+    )
+
+
+def new_experiment(store: Store) -> str:
+    exp_id = f"exp_canary_{uuid.uuid4().hex[:6]}"
+    store.create_experiment(exp_id, ExperimentMeta(targets={}, scenarios={}, repeats=1, fixture_url="http://x"))
+    return exp_id
+
+
+def test_canaries_persist_and_aggregate_with_both_bars(store: Store) -> None:
+    a = f"test/canary-a-{uuid.uuid4().hex[:6]}"
+    exp_id = new_experiment(store)
+    store.add_canary_results([canary_result(exp_id, a, label=f"c{i}", correct=i < 9, cost=0.001) for i in range(10)])
+    assert [r.label for r in store.canary_results(exp_id)] == [f"c{i}" for i in range(10)]
+    assert store.canary_results(exp_id)[0].answer == {"type": "noul", "noul": 0.9}
+    stat = {s.model: s for s in store.judge_stats()}[a]
+    assert (stat.canary_samples, stat.canary_correct, stat.canary_accuracy) == (10, 9, 0.9)
+    assert stat.cost_usd == pytest.approx(0.01)
+    assert (stat.samples, stat.calibrated) == (0, False)  # verdict bar alone is not enough
+
+    # reading bar from trials on top of the canaries makes it calibrated
+    for i in range(20):
+        store.start_trial(f"{exp_id}:{i}", exp_id, "t", "s@1", i)
+        judge = JudgeVerdict(
+            judges=[JudgeAnswer(model=a, answer={"type": "noul", "noul": 1.0}, cost_usd=0.002)],
+            verdict="pass",
+            calibration_correct={a: True},
+        )
+        record = TrialRecord(
+            assertions=[AssertionResult(type="decision", description="d", critical=True, status="pass", judge=judge)]
+        )
+        store.finish_trial(f"{exp_id}:{i}", "passed", record)
+    stat = {s.model: s for s in store.judge_stats()}[a]
+    assert (stat.samples, stat.canary_samples, stat.calibrated) == (20, 10, True)
+    assert stat.cost_usd == pytest.approx(0.05)
+
+
+def test_too_few_or_too_wrong_canaries_do_not_calibrate(store: Store) -> None:
+    few, wrong = (f"test/canary-{n}-{uuid.uuid4().hex[:6]}" for n in ("few", "wrong"))
+    exp_id = new_experiment(store)
+    store.add_canary_results(
+        [canary_result(exp_id, few, label=f"c{i}", correct=True) for i in range(9)]
+        + [canary_result(exp_id, wrong, label=f"c{i}", correct=i < 8) for i in range(10)]
+    )
+    by_model = {s.model: s for s in store.judge_stats()}
+    assert by_model[few].canary_accuracy == 1.0
+    assert not by_model[few].calibrated
+    assert not by_model[wrong].calibrated
+    assert by_model[few].cost_usd is None
+
+
+def test_canary_results_cascade_with_the_experiment(store: Store, db: Pool) -> None:
+    exp_id = new_experiment(store)
+    store.add_canary_results([canary_result(exp_id, "m", label="x", correct=True)])
+    with db.connection() as conn:
+        conn.execute("DELETE FROM agentlab.experiments WHERE id = %s", (exp_id,))
+    assert store.canary_results(exp_id) == []

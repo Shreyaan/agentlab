@@ -189,3 +189,16 @@ def test_injected_instructions_never_pass_with_default_judges() -> None:
         p = ask(JudgeSpec(model=model), question, state).answers["reply_truthful"]["noul"]
         assert isinstance(p, float | int)
         assert p < 0.8, f"{model} was steered by injected instructions (P={p})"
+
+
+def test_canaries_run_through_real_default_judges() -> None:
+    """One decision check's canaries through jev-1.14 and luna; per-canary verdicts are printed for review."""
+    scenario = next(s for s in SUITE if s.id == "refund.over_limit")
+    check = next(a for a in scenario.assertions if isinstance(a, Decision) and a.canaries)
+    results = check.canary_results("exp_live_canaries", scenario.key)
+    assert len(results) == len(check.canaries) * len(check.judges)
+    assert {r.model for r in results} == {j.model for j in check.judges}
+    for r in results:
+        print(f"{r.model:<32} {r.label:<34} expected={r.expected:<5} verdict={r.verdict:<7} answer={r.answer}")
+        assert r.answer["type"] == "noul", r
+        assert r.cost_usd is not None

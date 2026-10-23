@@ -40,7 +40,7 @@ from agentlab.client import HarnessClient, Target, load_targets
 from agentlab.jobs import Jobs
 from agentlab.models import Trial
 from agentlab.protocol import PROTOCOL_VERSION, AgentLabError, ErrorCode
-from agentlab.records import JudgeStats
+from agentlab.records import CanaryResult, JudgeStats
 from agentlab.redaction import redact
 from agentlab.runner import Runner
 from agentlab.scenario import Scenario, load_suite
@@ -186,6 +186,10 @@ class Console:
             summary=self.summary(exp_id), experiment=store.experiment(exp_id), trials=store.trials(exp_id)
         )
 
+    def get_canaries(self, exp_id: str) -> list[CanaryResult]:
+        self.summary(exp_id)
+        return self.runner.store.canary_results(exp_id)
+
     def get_report(self, exp_id: str) -> str:
         self.summary(exp_id)
         return report.render(self.runner.store.experiment(exp_id), self.runner.store.trials(exp_id))
@@ -234,6 +238,7 @@ class Console:
         api.get("/experiments")(self.list_experiments)
         api.post("/experiments", status_code=202, dependencies=post)(self.run_experiment)
         api.get("/experiments/{exp_id}")(self.get_experiment)
+        api.get("/experiments/{exp_id}/canaries")(self.get_canaries)
         api.get("/experiments/{exp_id}/report.html", response_class=HTMLResponse)(self.get_report)
         api.get("/trials/{trial_id:path}")(self.get_trial)
         api.post("/forks", status_code=202, dependencies=post)(self.fork)

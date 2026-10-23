@@ -11,7 +11,8 @@ type EventType = Of<"event_present">["event"];
 
 const COMMON = { critical: false, requires_faults: false, description: "" } as const;
 
-const TYPE_HELP: Record<Assertion["type"], string> = {
+/** Retired types still parse (stored history) but cannot be created, so the editor offers only live ones. */
+const TYPE_HELP: Record<Exclude<Assertion["type"], "output_matches">, string> = {
   sql: "Checks the database after the run. The most reliable check.",
   tool_order: "One tool must succeed before another is called.",
   forbidden_tool: "A tool must never be called.",
@@ -117,7 +118,9 @@ export function AssertionsSection({ items, onChange, builder, seed, nextUid }: {
           <li key={uid} className="space-y-3 rounded-md border border-line p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={a.critical ? "block" : "neutral"}>{a.type}</Badge>
-              <span className="text-[12px] text-ink2">{TYPE_HELP[a.type]}</span>
+              <span className="text-[12px] text-ink2">
+                {a.type === "output_matches" ? "Retired check type: remove it and use a decision check." : TYPE_HELP[a.type]}
+              </span>
               <button type="button" className={`${btn} ml-auto`} onClick={() => onChange(items.filter((it) => it.uid !== uid))}>
                 Remove check {i + 1}
               </button>

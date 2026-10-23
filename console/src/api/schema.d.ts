@@ -214,6 +214,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/experiments/{exp_id}/canaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Canaries */
+        get: operations["get_canaries_v1_experiments__exp_id__canaries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/experiments/{exp_id}/report.html": {
         parameters: {
             query?: never;
@@ -274,8 +291,8 @@ export interface components {
             /** Experiment Id */
             experiment_id: string;
         };
-        "Assertion-Input": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["Decision-Input"];
-        "Assertion-Output": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["agentlab__assertions__Decision"];
+        "Assertion-Input": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["Decision-Input"] | components["schemas"]["RetiredCheck"];
+        "Assertion-Output": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["agentlab__assertions__Decision"] | components["schemas"]["RetiredCheck"];
         /** AssertionResult */
         AssertionResult: {
             /** Type */
@@ -330,6 +347,49 @@ export interface components {
             question: components["schemas"]["ChoiceQuestion"] | components["schemas"]["NoulQuestion"];
             /** Truth Sql */
             truth_sql: string;
+        };
+        /**
+         * Canary
+         * @description A labelled example for a decision check: evidence exactly as a judge would see it, and the right verdict.
+         *     Canaries measure verdict accuracy, which calibration questions (evidence reading) cannot.
+         */
+        Canary: {
+            /** Label */
+            label: string;
+            evidence: components["schemas"]["JsonObject"];
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "pass" | "fail";
+        };
+        /** CanaryResult */
+        CanaryResult: {
+            /** Experiment Id */
+            experiment_id: string;
+            /** Scenario */
+            scenario: string;
+            /** Check */
+            check: string;
+            /** Label */
+            label: string;
+            /** Model */
+            model: string;
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "pass" | "fail";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "pass" | "fail" | "abstain";
+            /** Correct */
+            correct: boolean;
+            answer: components["schemas"]["JsonObject"];
+            /** Cost Usd */
+            cost_usd?: number | null;
         };
         /** Capabilities */
         Capabilities: {
@@ -446,6 +506,11 @@ export interface components {
             /** @default cascade */
             strategy: components["schemas"]["Strategy"];
             calibration?: components["schemas"]["Calibration"] | null;
+            /**
+             * Canaries
+             * @default []
+             */
+            canaries: components["schemas"]["Canary"][];
         };
         /** DryRunRequest */
         DryRunRequest: {
@@ -662,10 +727,13 @@ export interface components {
              * @enum {string}
              */
             api: "decisions" | "chat";
+            /** Min Confidence */
+            min_confidence?: number | null;
         };
         /**
          * JudgeStats
-         * @description Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy.
+         * @description Per-model track record on two bars: evidence reading (calibration questions answered alongside real
+         *     verdicts) and verdict accuracy (labelled canaries). Both must pass before a critical check may block.
          */
         JudgeStats: {
             /** Model */
@@ -676,6 +744,18 @@ export interface components {
             correct: number;
             /** Accuracy */
             accuracy: number | null;
+            /**
+             * Canary Samples
+             * @default 0
+             */
+            canary_samples: number;
+            /**
+             * Canary Correct
+             * @default 0
+             */
+            canary_correct: number;
+            /** Canary Accuracy */
+            canary_accuracy?: number | null;
             /** Cost Usd */
             cost_usd: number | null;
             /** Calibrated */
@@ -820,6 +900,35 @@ export interface components {
             trial_id: string;
             /** Checkpoint Id */
             checkpoint_id: string;
+        };
+        /**
+         * RetiredCheck
+         * @description A removed check type. Experiments recorded with it must stay readable, so it still parses (its old fields
+         *     are kept as-is), but it never runs: always `skipped`. New scenarios may not use it (see scenario.retired).
+         */
+        RetiredCheck: {
+            /**
+             * Critical
+             * @default false
+             */
+            critical: boolean;
+            /**
+             * Requires Faults
+             * @default false
+             */
+            requires_faults: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "output_matches";
+        } & {
+            [key: string]: unknown;
         };
         Row: {
             [key: string]: components["schemas"]["JsonValue"];
@@ -1115,6 +1224,13 @@ export interface components {
             p95_ms: number | null;
             /** Cost Usd */
             cost_usd: number | null;
+            /** Pass All K */
+            pass_all_k?: number | null;
+            /**
+             * K
+             * @default 1
+             */
+            k: number;
         };
         /**
          * ToolOrder
@@ -1292,6 +1408,11 @@ export interface components {
             /** @default cascade */
             strategy: components["schemas"]["Strategy"];
             calibration?: components["schemas"]["Calibration"] | null;
+            /**
+             * Canaries
+             * @default []
+             */
+            canaries: components["schemas"]["Canary"][];
         };
         /** Decision */
         agentlab__models__Decision: {
@@ -1815,6 +1936,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExperimentDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_canaries_v1_experiments__exp_id__canaries_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                exp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanaryResult"][];
                 };
             };
             /** @description Validation Error */

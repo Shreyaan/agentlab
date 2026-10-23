@@ -1,7 +1,7 @@
 """Pure verdict logic for model-judged checks: thresholds, combining judges, and the calibration gate.
 
-Calibration here is evidence-reading accuracy (the judge can see the evidence the truth SQL reads). It is a necessary
-check on a judge, not proof that its verdicts are right.
+A judge must clear two bars. Reading: calibration questions (the judge can see the evidence the truth SQL reads).
+Verdict: labelled canaries, which measure the verdicts themselves.
 """
 
 from typing import Literal
@@ -16,6 +16,8 @@ type Strategy = Literal["cascade", "jury"]
 
 CALIBRATION_MIN_SAMPLES = 20
 CALIBRATION_MIN_ACCURACY = 0.9
+CANARY_MIN_SAMPLES = 10
+CANARY_MIN_ACCURACY = 0.9
 
 
 class NoulRule(BaseModel):
@@ -65,8 +67,11 @@ def _score_vote(rule: ScoreRule, min_confidence: float, answer: JsonObject) -> V
     return "pass" if score >= rule.score_at_least else "fail"
 
 
-def vote(rule: PassRule, min_confidence: float, answer: JsonObject) -> Vote:
-    """One judge's answer against the rule. Anything malformed or unconfident abstains, never passes."""
+def vote(rule: PassRule, min_confidence: float, answer: JsonObject, judge_min_confidence: float | None = None) -> Vote:
+    """One judge's answer against the rule; the judge's own threshold overrides the check's. Anything malformed or
+    unconfident abstains, never passes."""
+    if judge_min_confidence is not None:
+        min_confidence = judge_min_confidence
     match rule:
         case NoulRule():
             return _noul_vote(rule, min_confidence, answer)
@@ -91,22 +96,50 @@ def reading_correct(answer: JsonObject, truth: str) -> bool:
     return answer.get("choice") == truth
 
 
-def is_calibrated(samples: int, correct: int) -> bool:
-    return samples >= CALIBRATION_MIN_SAMPLES and correct / samples >= CALIBRATION_MIN_ACCURACY
+def _meets(samples: int, correct: int, min_samples: int, min_accuracy: float) -> bool:
+    return samples >= min_samples and correct / samples >= min_accuracy
+
+
+def is_calibrated(samples: int, correct: int, canary_samples: int, canary_correct: int) -> bool:
+    return _meets(samples, correct, CALIBRATION_MIN_SAMPLES, CALIBRATION_MIN_ACCURACY) and _meets(
+        canary_samples, canary_correct, CANARY_MIN_SAMPLES, CANARY_MIN_ACCURACY
+    )
+
+
+def _gap(name: str, unit: str, n: int, correct: int, *, min_n: int, min_accuracy: float) -> str | None:
+    if _meets(n, correct, min_n, min_accuracy):
+        return None
+    seen = f"{correct / n:.2f} on {n} {unit}" if n else f"no {unit}"
+    return f"{name} accuracy {seen} (needs {min_n}+ at {min_accuracy:.0%})"
 
 
 def uncalibrated_reason(models: list[str], stats: list[JudgeStats]) -> str | None:
     """Why a failing critical verdict may not block a release, or None when every deciding judge is calibrated."""
     by_model = {s.model: s for s in stats}
     for model in models:
-        s = by_model.get(model)
-        if s and s.calibrated:
-            continue
-        seen = f"{s.accuracy:.2f} on {s.samples} samples" if s and s.accuracy is not None else "no calibration samples"
-        return (
-            f"judge not yet calibrated: {seen} ({model}; needs {CALIBRATION_MIN_SAMPLES}+ samples at "
-            f"{CALIBRATION_MIN_ACCURACY:.0%}; this is an evidence-reading check, not verdict accuracy)"
+        s = by_model.get(model) or JudgeStats(
+            model=model, samples=0, correct=0, accuracy=None, cost_usd=None, calibrated=False
         )
+        gaps = [
+            _gap(
+                "evidence-reading",
+                "samples",
+                s.samples,
+                s.correct,
+                min_n=CALIBRATION_MIN_SAMPLES,
+                min_accuracy=CALIBRATION_MIN_ACCURACY,
+            ),
+            _gap(
+                "verdict",
+                "canaries",
+                s.canary_samples,
+                s.canary_correct,
+                min_n=CANARY_MIN_SAMPLES,
+                min_accuracy=CANARY_MIN_ACCURACY,
+            ),
+        ]
+        if missing := [g for g in gaps if g]:
+            return f"judge not yet calibrated: {'; '.join(missing)} ({model})"
     return None
 
 

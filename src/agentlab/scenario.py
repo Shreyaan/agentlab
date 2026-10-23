@@ -7,7 +7,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
-from agentlab.assertions import Assertion, Budget
+from agentlab.assertions import Assertion, Budget, RetiredCheck
 from agentlab.fixture import Seed
 from agentlab.protocol import JsonObject, ToolFault
 
@@ -49,12 +49,23 @@ class Scenario(BaseModel):
         ]
 
 
+def retired(s: Scenario) -> list[str]:
+    """Checks a new or edited scenario may not use (history still loads them)."""
+    return [
+        f"assertions.{i}: {a.type} is retired; use a decision check"
+        for i, a in enumerate(s.assertions)
+        if isinstance(a, RetiredCheck)
+    ]
+
+
 def load_suite(path: str | Path) -> list[Scenario]:
     path = Path(path)
     files = sorted(path.glob("*.y*ml")) if path.is_dir() else [path]
     if not files:
         raise ValueError(f"no scenario files in {path}")
     scenarios = [Scenario.model_validate(yaml.safe_load(f.read_text())) for f in files]
+    if problems := [f"{s.key}: {p}" for s in scenarios for p in retired(s)]:
+        raise ValueError("; ".join(problems))
     keys = [s.key for s in scenarios]
     if len(keys) != len(set(keys)):
         raise ValueError(f"duplicate scenario id@version in {path}")

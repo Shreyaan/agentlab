@@ -7,6 +7,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from agentlab.assertions import Decision as DecisionCheck
 from agentlab.cli import main
 from agentlab.console import Console, create_console
 from agentlab.jobs import Jobs
@@ -21,6 +22,7 @@ TEST_HOSTS = ["testserver"]  # TestClient's Host header
 
 CSRF = {"X-AgentLab-Request": "1"}
 SUITE = load_suite(ROOT / "scenarios")
+SUITE_HAPPY = [s for s in SUITE if s.id == "refund.happy"]
 
 
 def make_client(runner: Runner, paths: tuple[str, str], token: str | None = None) -> TestClient:
@@ -62,7 +64,7 @@ def stored_trial_id(runner: Runner) -> str:
 def test_info_and_scenarios(client: TestClient) -> None:
     info = client.get("/v1/info").json()
     assert info["auth_required"] is False
-    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@2"]
+    assert [s["key"] for s in client.get("/v1/scenarios").json()] == ["refund.happy@3"]
 
 
 def test_targets_report_unreachable(client: TestClient) -> None:
@@ -106,9 +108,24 @@ def test_token_required(runner: Runner, paths: tuple[str, str]) -> None:
     assert client.post("/v1/experiments", json={"candidate": "down"}, headers=CSRF).status_code == 401
 
 
+def test_experiment_runs_canaries_once_and_serves_them(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)  # judges error, which must abstain, not fail the run
+    body = {"candidate": "down", "repeats": 2}
+    exp_id = client.post("/v1/experiments", json=body, headers=CSRF).json()["experiment_id"]
+    wait_complete(client, exp_id)
+    canaries = client.get(f"/v1/experiments/{exp_id}/canaries").json()
+    [scenario] = SUITE_HAPPY
+    [check] = [a for a in scenario.assertions if isinstance(a, DecisionCheck)]
+    assert len(canaries) == len(check.canaries) * len(check.judges)  # once per experiment, not per trial
+    assert {c["experiment_id"] for c in canaries} == {exp_id}
+    assert all(c["verdict"] == "abstain" and c["correct"] is False for c in canaries)
+    assert {c["label"] for c in canaries} == {c.label for c in check.canaries}
+
+
 def test_not_found(client: TestClient) -> None:
     assert client.get("/v1/experiments/nope").status_code == 404
     assert client.get("/v1/experiments/nope/report.html").status_code == 404
+    assert client.get("/v1/experiments/nope/canaries").status_code == 404
     assert client.get("/v1/trials/nope:a:b:0").status_code == 404
 
 

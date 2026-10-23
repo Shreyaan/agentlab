@@ -798,6 +798,59 @@
         }
       }
     },
+    "/v1/experiments/{exp_id}/canaries": {
+      "get": {
+        "summary": "Get Canaries",
+        "operationId": "get_canaries_v1_experiments__exp_id__canaries_get",
+        "parameters": [
+          {
+            "name": "exp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exp Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CanaryResult"
+                  },
+                  "title": "Response Get Canaries V1 Experiments  Exp Id  Canaries Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/experiments/{exp_id}/report.html": {
       "get": {
         "summary": "Get Report",
@@ -988,6 +1041,9 @@
           },
           {
             "$ref": "#/components/schemas/Decision-Input"
+          },
+          {
+            "$ref": "#/components/schemas/RetiredCheck"
           }
         ],
         "discriminator": {
@@ -996,6 +1052,7 @@
             "decision": "#/components/schemas/Decision-Input",
             "event_present": "#/components/schemas/EventPresent",
             "forbidden_tool": "#/components/schemas/ForbiddenTool",
+            "output_matches": "#/components/schemas/RetiredCheck",
             "sql": "#/components/schemas/Sql",
             "tool_order": "#/components/schemas/ToolOrder"
           }
@@ -1017,6 +1074,9 @@
           },
           {
             "$ref": "#/components/schemas/agentlab__assertions__Decision"
+          },
+          {
+            "$ref": "#/components/schemas/RetiredCheck"
           }
         ],
         "discriminator": {
@@ -1025,6 +1085,7 @@
             "decision": "#/components/schemas/agentlab__assertions__Decision",
             "event_present": "#/components/schemas/EventPresent",
             "forbidden_tool": "#/components/schemas/ForbiddenTool",
+            "output_matches": "#/components/schemas/RetiredCheck",
             "sql": "#/components/schemas/Sql",
             "tool_order": "#/components/schemas/ToolOrder"
           }
@@ -1194,6 +1255,105 @@
         ],
         "title": "Calibration",
         "description": "Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy."
+      },
+      "Canary": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Expected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "evidence",
+          "expected"
+        ],
+        "title": "Canary",
+        "description": "A labelled example for a decision check: evidence exactly as a judge would see it, and the right verdict.\nCanaries measure verdict accuracy, which calibration questions (evidence reading) cannot."
+      },
+      "CanaryResult": {
+        "properties": {
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          },
+          "scenario": {
+            "type": "string",
+            "title": "Scenario"
+          },
+          "check": {
+            "type": "string",
+            "title": "Check"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "title": "Expected"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "abstain"
+            ],
+            "title": "Verdict"
+          },
+          "correct": {
+            "type": "boolean",
+            "title": "Correct"
+          },
+          "answer": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "experiment_id",
+          "scenario",
+          "check",
+          "label",
+          "model",
+          "expected",
+          "verdict",
+          "correct",
+          "answer"
+        ],
+        "title": "CanaryResult"
       },
       "Capabilities": {
         "properties": {
@@ -1389,6 +1549,14 @@
                 "type": "null"
               }
             ]
+          },
+          "canaries": {
+            "items": {
+              "$ref": "#/components/schemas/Canary"
+            },
+            "type": "array",
+            "title": "Canaries",
+            "default": []
           }
         },
         "type": "object",
@@ -1989,6 +2157,19 @@
             ],
             "title": "Api",
             "default": "decisions"
+          },
+          "min_confidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Confidence"
           }
         },
         "type": "object",
@@ -2022,6 +2203,27 @@
             ],
             "title": "Accuracy"
           },
+          "canary_samples": {
+            "type": "integer",
+            "title": "Canary Samples",
+            "default": 0
+          },
+          "canary_correct": {
+            "type": "integer",
+            "title": "Canary Correct",
+            "default": 0
+          },
+          "canary_accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canary Accuracy"
+          },
           "cost_usd": {
             "anyOf": [
               {
@@ -2048,7 +2250,7 @@
           "calibrated"
         ],
         "title": "JudgeStats",
-        "description": "Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy."
+        "description": "Per-model track record on two bars: evidence reading (calibration questions answered alongside real\nverdicts) and verdict accuracy (labelled canaries). Both must pass before a critical check may block."
       },
       "JudgeVerdict": {
         "properties": {
@@ -2362,6 +2564,35 @@
         "title": "ResumeFrom",
         "description": "Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork."
       },
+      "RetiredCheck": {
+        "properties": {
+          "critical": {
+            "type": "boolean",
+            "title": "Critical",
+            "default": false
+          },
+          "requires_faults": {
+            "type": "boolean",
+            "title": "Requires Faults",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "const": "output_matches",
+            "title": "Type",
+            "default": "output_matches"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "RetiredCheck",
+        "description": "A removed check type. Experiments recorded with it must stay readable, so it still parses (its old fields\nare kept as-is), but it never runs: always `skipped`. New scenarios may not use it (see scenario.retired)."
+      },
       "Row": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue"
@@ -2459,7 +2690,6 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
             "title": "Id"
           },
           "version": {
@@ -2530,7 +2760,6 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
             "title": "Id"
           },
           "version": {
@@ -3081,6 +3310,22 @@
               }
             ],
             "title": "Cost Usd"
+          },
+          "pass_all_k": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass All K"
+          },
+          "k": {
+            "type": "integer",
+            "title": "K",
+            "default": 1
           }
         },
         "type": "object",
@@ -3481,6 +3726,14 @@
                 "type": "null"
               }
             ]
+          },
+          "canaries": {
+            "items": {
+              "$ref": "#/components/schemas/Canary"
+            },
+            "type": "array",
+            "title": "Canaries",
+            "default": []
           }
         },
         "type": "object",

@@ -12,7 +12,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from typing import Literal
 
-from agentlab.assertions import Evidence, grade
+from agentlab.assertions import Decision as DecisionCheck, Evidence, grade
 from agentlab.client import HarnessClient, Target
 from agentlab.fixture import SHARED_ENV, FixturePool
 from agentlab.gate import decide
@@ -136,8 +136,23 @@ class Runner:
         return exp_id, plans
 
     def execute(self, plans: list[TrialPlan]) -> None:
+        scenarios = {(p.exp_id, p.scenario.key): p.scenario for p in plans}
         with ThreadPoolExecutor(max_workers=self.cfg.concurrency) as ex:
+            canaries = ex.map(self.run_canaries, [(exp_id, s) for (exp_id, _), s in scenarios.items()])
             list(ex.map(self.run_trial, plans))  # list() re-raises any unexpected runner error
+            list(canaries)
+
+    def run_canaries(self, job: tuple[str, Scenario]) -> None:
+        """Once per experiment and scenario. A judge that errors abstains, which is simply not correct."""
+        exp_id, scenario = job
+        results = [
+            r
+            for a in scenario.assertions
+            if isinstance(a, DecisionCheck)
+            for r in a.canary_results(exp_id, scenario.key)
+        ]
+        if results:
+            self.store.add_canary_results(results)
 
     def run_experiment(
         self,

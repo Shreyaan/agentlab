@@ -65,8 +65,9 @@ def print_summary(exp_id: str, d: Decision, report_path: Path) -> None:
     print(f"\nexperiment {exp_id}")
     for name, s in d.stats.items():
         rate = "n/a" if s.pass_rate is None else f"{s.pass_rate:.0%} [{s.ci95[0]:.0%}, {s.ci95[1]:.0%}]"
+        pass_k = f"  pass^{s.k} {s.pass_all_k:.0%}" if s.k > 1 and s.pass_all_k is not None else ""
         cost = f"  cost ${s.cost_usd:.4f}" if s.cost_usd is not None else ""
-        print(f"  {name:<24} passed {s.passed}/{s.graded}  rate {rate}  errors {s.errors}{cost}")
+        print(f"  {name:<24} passed {s.passed}/{s.graded}  rate {rate}  errors {s.errors}{pass_k}{cost}")
     if d.paired:
         print(f"  paired: {d.paired.regressions} regression(s), {d.paired.fixes} fix(es) over {d.paired.pairs} pair(s)")
     print(f"\nDECISION: {d.status}")
