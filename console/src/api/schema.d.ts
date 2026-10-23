@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Info */
+        /** Console info */
         get: operations["info_v1_info_get"];
         put?: never;
         post?: never;
@@ -28,7 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Judges */
+        /** Judge track records */
         get: operations["judges_v1_judges_get"];
         put?: never;
         post?: never;
@@ -45,7 +45,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Targets */
+        /** List targets with health */
         get: operations["targets_v1_targets_get"];
         put?: never;
         post?: never;
@@ -64,7 +64,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Test Target */
+        /** Probe a target draft */
         post: operations["test_target_v1_targets_test_post"];
         delete?: never;
         options?: never;
@@ -80,10 +80,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Put Target */
+        /** Save a target */
         put: operations["put_target_v1_targets__name__put"];
         post?: never;
-        /** Delete Target */
+        /** Delete a target */
         delete: operations["delete_target_v1_targets__name__delete"];
         options?: never;
         head?: never;
@@ -97,10 +97,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Environments */
+        /** List environments */
         get: operations["list_environments_v1_environments_get"];
         put?: never;
-        /** Save Environment */
+        /** Save an environment */
         post: operations["save_environment_v1_environments_post"];
         delete?: never;
         options?: never;
@@ -115,7 +115,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Environment Builder Info */
+        /** Editor vocabulary for an environment */
         get: operations["environment_builder_info_v1_environments__key__builder_get"];
         put?: never;
         post?: never;
@@ -134,7 +134,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate Environment */
+        /** Validate an environment draft */
         post: operations["validate_environment_v1_environments_validate_post"];
         delete?: never;
         options?: never;
@@ -149,10 +149,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Scenarios */
+        /** List scenarios */
         get: operations["scenarios_v1_scenarios_get"];
         put?: never;
-        /** Save Scenario */
+        /** Save a scenario */
         post: operations["save_scenario_v1_scenarios_post"];
         delete?: never;
         options?: never;
@@ -169,7 +169,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate Scenario */
+        /** Validate a scenario draft */
         post: operations["validate_scenario_v1_scenarios_validate_post"];
         delete?: never;
         options?: never;
@@ -186,7 +186,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Test Query */
+        /** Try a SQL check against seed data */
         post: operations["test_query_v1_scenarios_test_query_post"];
         delete?: never;
         options?: never;
@@ -203,7 +203,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Dry Run */
+        /** Dry-run an unsaved scenario */
         post: operations["dry_run_v1_scenarios_dry_run_post"];
         delete?: never;
         options?: never;
@@ -218,10 +218,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Experiments */
+        /** List experiments */
         get: operations["list_experiments_v1_experiments_get"];
         put?: never;
-        /** Run Experiment */
+        /** Start an experiment */
         post: operations["run_experiment_v1_experiments_post"];
         delete?: never;
         options?: never;
@@ -236,7 +236,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Experiment */
+        /** Get an experiment with its trials */
         get: operations["get_experiment_v1_experiments__exp_id__get"];
         put?: never;
         post?: never;
@@ -253,7 +253,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Canaries */
+        /** Get an experiment's canary results */
         get: operations["get_canaries_v1_experiments__exp_id__canaries_get"];
         put?: never;
         post?: never;
@@ -270,7 +270,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Report */
+        /** Download the HTML report */
         get: operations["get_report_v1_experiments__exp_id__report_html_get"];
         put?: never;
         post?: never;
@@ -287,7 +287,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Trial */
+        /** Get a trial */
         get: operations["get_trial_v1_trials__trial_id__get"];
         put?: never;
         post?: never;
@@ -306,7 +306,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fork */
+        /** Fork a trial from a checkpoint */
         post: operations["fork_v1_forks_post"];
         delete?: never;
         options?: never;
@@ -323,7 +323,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Author */
+        /** Draft a scenario from a description */
         post: operations["author_v1_author_post"];
         delete?: never;
         options?: never;
@@ -335,31 +335,52 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** Accepted */
+        /**
+         * Accepted
+         * @description Returned when work was queued and continues in the background.
+         */
         Accepted: {
-            /** Experiment Id */
+            /**
+             * Experiment Id
+             * @description Id of the experiment that was started; poll it for progress.
+             */
             experiment_id: string;
         };
         "Assertion-Input": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["Decision-Input"] | components["schemas"]["RetiredCheck"];
         "Assertion-Output": components["schemas"]["Sql"] | components["schemas"]["ToolOrder"] | components["schemas"]["ForbiddenTool"] | components["schemas"]["EventPresent"] | components["schemas"]["agentlab__assertions__Decision"] | components["schemas"]["RetiredCheck"];
-        /** AssertionResult */
+        /**
+         * AssertionResult
+         * @description The outcome of one check on one trial.
+         */
         AssertionResult: {
-            /** Type */
+            /**
+             * Type
+             * @description Check type, e.g. `sql`, `tool_order` or `decision`; `budget` for limits.
+             */
             type: string;
-            /** Description */
+            /**
+             * Description
+             * @description Human-readable statement of what was checked.
+             */
             description: string;
-            /** Critical */
+            /**
+             * Critical
+             * @description Whether a failure blocks the release gate.
+             */
             critical: boolean;
             /**
              * Status
+             * @description `unsupported`: could not be evaluated (missing evidence, judge abstained or errored). `skipped`: not applicable to this run.
              * @enum {string}
              */
             status: "pass" | "fail" | "unsupported" | "skipped";
             /**
              * Detail
+             * @description Why it passed or failed, with the observed values.
              * @default
              */
             detail: string;
+            /** @description Judge breakdown; present for `decision` checks. */
             judge?: components["schemas"]["JudgeVerdict"] | null;
         };
         /**
@@ -367,41 +388,78 @@ export interface components {
          * @description A model-written draft, already validated against a real temporary environment. Never saved automatically.
          */
         AuthorDraft: {
+            /** @description The drafted environment; set only when a new one was drafted. */
             environment: components["schemas"]["EnvironmentSpec"] | null;
+            /** @description The drafted scenario; null only when no attempt produced a parseable one (then `valid` is false). */
             scenario: components["schemas"]["Scenario-Output"] | null;
-            /** Valid */
+            /**
+             * Valid
+             * @description Whether the draft passed validation and can be saved.
+             */
             valid: boolean;
             /**
              * Errors
+             * @description Problems remaining after the repair attempts.
              * @default []
              */
             errors: string[];
             /**
              * Notes
+             * @description Assumptions the author model made, for a human to review.
              * @default []
              */
             notes: string[];
-            /** Model */
+            /**
+             * Model
+             * @description Authoring model id.
+             */
             model: string;
-            /** Attempts */
+            /**
+             * Attempts
+             * @description Model calls made, including repair attempts.
+             */
             attempts: number;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Total model spend in US dollars, if reported.
+             */
             cost_usd?: number | null;
         };
-        /** AuthorRequest */
+        /**
+         * AuthorRequest
+         * @description Ask a model to draft a scenario (and optionally its environment) from plain English.
+         */
         AuthorRequest: {
-            /** Description */
+            /**
+             * Description
+             * @description The scenario to build, in plain English.
+             */
             description: string;
-            /** Environment */
+            /**
+             * Environment
+             * @description Existing environment key to build on; null drafts a new environment too.
+             */
             environment?: string | null;
         };
-        /** Budget */
+        /**
+         * Budget
+         * @description Optional per-trial ceilings; each set limit becomes a non-critical check.
+         */
         Budget: {
-            /** Max Tool Calls */
+            /**
+             * Max Tool Calls
+             * @description Most tool calls the agent may make (ledger entries).
+             */
             max_tool_calls?: number | null;
-            /** Max Latency Ms */
+            /**
+             * Max Latency Ms
+             * @description Longest allowed invoke time, in milliseconds.
+             */
             max_latency_ms?: number | null;
-            /** Max Cost Usd */
+            /**
+             * Max Cost Usd
+             * @description Highest allowed model spend in US dollars, as reported by the adapter.
+             */
             max_cost_usd?: number | null;
         };
         /**
@@ -409,15 +467,27 @@ export interface components {
          * @description Vocabulary for the editors' dropdowns.
          */
         BuilderInfo: {
-            /** Tools */
+            /**
+             * Tools
+             * @description The environment's tool names, for faults, `tool_order`, `forbidden_tool` and events.
+             */
             tools: string[];
-            /** Seed Columns */
+            /**
+             * Seed Columns
+             * @description The environment's tables, each with its column names.
+             */
             seed_columns: {
                 [key: string]: string[];
             };
-            /** Assertion Types */
+            /**
+             * Assertion Types
+             * @description Check types a new scenario may use.
+             */
             assertion_types: string[];
-            /** Judge Models */
+            /**
+             * Judge Models
+             * @description Suggested decision models; the first is the default judge.
+             */
             judge_models: string[];
         };
         /**
@@ -425,9 +495,15 @@ export interface components {
          * @description Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy.
          */
         Calibration: {
-            /** Question */
+            /**
+             * Question
+             * @description Question about the evidence whose true answer the environment knows.
+             */
             question: components["schemas"]["ChoiceQuestion"] | components["schemas"]["NoulQuestion"];
-            /** Truth Sql */
+            /**
+             * Truth Sql
+             * @description Read-only SELECT over the trial schema returning a single cell, compared as a string to the answer.
+             */
             truth_sql: string;
         };
         /**
@@ -436,138 +512,226 @@ export interface components {
          *     Canaries measure verdict accuracy, which calibration questions (evidence reading) cannot.
          */
         Canary: {
-            /** Label */
+            /**
+             * Label
+             * @description Unique name for this example within its check.
+             */
             label: string;
+            /** @description Evidence as a judge would see it, keyed by kind, e.g. `{"output": "...", "final_state": {...}}`. */
             evidence: components["schemas"]["JsonObject"];
             /**
              * Expected
+             * @description The verdict a correct judge must reach.
              * @enum {string}
              */
             expected: "pass" | "fail";
         };
-        /** CanaryResult */
+        /**
+         * CanaryResult
+         * @description One judge's verdict on one canary, recorded to measure verdict accuracy.
+         */
         CanaryResult: {
-            /** Experiment Id */
+            /**
+             * Experiment Id
+             * @description Experiment that ran the canary.
+             */
             experiment_id: string;
-            /** Scenario */
+            /**
+             * Scenario
+             * @description Scenario `id@version` whose check owns the canary.
+             */
             scenario: string;
-            /** Check */
+            /**
+             * Check
+             * @description Description of the decision check.
+             */
             check: string;
-            /** Label */
+            /**
+             * Label
+             * @description The canary's label.
+             */
             label: string;
-            /** Model */
+            /**
+             * Model
+             * @description Judge model that answered.
+             */
             model: string;
             /**
              * Expected
+             * @description The canary's correct verdict.
              * @enum {string}
              */
             expected: "pass" | "fail";
             /**
              * Verdict
+             * @description The verdict this judge reached.
              * @enum {string}
              */
             verdict: "pass" | "fail" | "abstain";
-            /** Correct */
+            /**
+             * Correct
+             * @description Whether `verdict` equals `expected`; an abstain is never correct.
+             */
             correct: boolean;
+            /** @description The judge's raw answer. */
             answer: components["schemas"]["JsonObject"];
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Cost of the judge call in US dollars, if reported.
+             */
             cost_usd?: number | null;
         };
-        /** Capabilities */
+        /**
+         * Capabilities
+         * @description What a harness can do beyond plain invoke; the runner skips or marks checks the harness cannot support.
+         */
         Capabilities: {
             /**
              * Invoke
+             * @description Accepts `POST /invoke`. Always true for a working harness.
              * @default true
              */
             invoke: boolean;
             /**
              * Observe
+             * @description How much of the run the harness reveals: `native_events` streams the full event list in the response, `otel_partial` exports OpenTelemetry spans only, `none` is a black box.
              * @default none
              * @enum {string}
              */
             observe: "native_events" | "otel_partial" | "none";
             /**
              * Intercept Tools
+             * @description `declared_only` means the harness applies the `tool_faults` it receives at its own tool boundary; `none` means it ignores them.
              * @default none
              * @enum {string}
              */
             intercept_tools: "declared_only" | "none";
             /**
              * Checkpoint
+             * @description Emits `checkpoint_saved` events that a run can be resumed from.
              * @default false
              */
             checkpoint: boolean;
             /**
              * Resume
+             * @description Can continue a prior trial from a checkpoint (`resume_from`).
              * @default false
              */
             resume: boolean;
             /**
              * Fork
+             * @description Can branch a prior trial's checkpoint into a new run (`resume_from`).
              * @default false
              */
             fork: boolean;
         };
-        /** ChoiceQuestion */
+        /**
+         * ChoiceQuestion
+         * @description Pick exactly one option; the judge also reports its confidence in the pick.
+         */
         ChoiceQuestion: {
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `choice`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "choice";
-            /** Instructions */
+            /**
+             * Instructions
+             * @description The question to answer about the evidence.
+             */
             instructions: string;
-            /** Criteria */
+            /**
+             * Criteria
+             * @description Option name to description of when it applies.
+             */
             criteria: {
                 [key: string]: string;
             };
         };
-        /** ChoiceRule */
+        /**
+         * ChoiceRule
+         * @description Pass rule for a choice question.
+         */
         ChoiceRule: {
-            /** Choices */
+            /**
+             * Choices
+             * @description Pass when the judge picks any of these options.
+             */
             choices: string[];
         };
-        /** Column */
+        /**
+         * Column
+         * @description One column of an environment table.
+         */
         Column: {
-            /** Name */
+            /**
+             * Name
+             * @description Column name: lowercase letters, digits and `_`, starting with a letter (max 48).
+             */
             name: string;
+            /** @description Postgres type the column is created with. */
             type: components["schemas"]["ColumnType"];
             /**
              * Primary Key
+             * @description Part of the table's primary key (several columns make a composite key).
              * @default false
              */
             primary_key: boolean;
             /**
              * Nullable
+             * @description Whether NULL values are allowed.
              * @default true
              */
             nullable: boolean;
             /**
              * Unique
+             * @description Values must be distinct across rows.
              * @default false
              */
             unique: boolean;
             /**
              * Serial
+             * @description Auto-incrementing integer key. Deterministic, so ledger replay reproduces the same ids.
              * @default false
              */
             serial: boolean;
-            /** References */
+            /**
+             * References
+             * @description Foreign key target as `"table.column"`, e.g. `"customers.id"`.
+             */
             references?: string | null;
         };
         /** @enum {string} */
         ColumnType: "text" | "integer" | "bigint" | "numeric" | "boolean" | "timestamptz" | "jsonb";
-        /** ConsoleInfo */
+        /**
+         * ConsoleInfo
+         * @description Static facts about the running console.
+         */
         ConsoleInfo: {
-            /** Version */
+            /**
+             * Version
+             * @description Installed AgentLab version.
+             */
             version: string;
-            /** Protocol Version */
+            /**
+             * Protocol Version
+             * @description Wire protocol version the runner speaks.
+             */
             protocol_version: string;
-            /** Auth Required */
+            /**
+             * Auth Required
+             * @description Whether API calls need a bearer token.
+             */
             auth_required: boolean;
-            /** Suite Path */
+            /**
+             * Suite Path
+             * @description Scenario file or directory the console reads.
+             */
             suite_path: string;
-            /** Targets Path */
+            /**
+             * Targets Path
+             * @description Targets YAML file the console reads and edits.
+             */
             targets_path: string;
         };
         /**
@@ -579,33 +743,40 @@ export interface components {
         "Decision-Input": {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `decision`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "decision";
+            /** @description What the judges are asked about the evidence. */
             question: components["schemas"]["Question"];
+            /** @description How an answer maps to pass; its kind must match the question's. */
             pass_rule: components["schemas"]["PassRule"];
             /**
              * Min Confidence
+             * @description Answers less confident than this abstain; a judge's own threshold overrides it.
              * @default 0.8
              */
             min_confidence: number;
             /**
              * Evidence
+             * @description Parts of the run shown to the judges.
              * @default [
              *       "input",
              *       "output",
@@ -613,44 +784,88 @@ export interface components {
              *     ]
              */
             evidence: components["schemas"]["EvidenceKind"][];
-            /** Judges */
+            /**
+             * Judges
+             * @description Models that answer, in order; defaults to the built-in decision models.
+             */
             judges?: components["schemas"]["JudgeSpec"][];
-            /** @default cascade */
+            /**
+             * @description `cascade`: the first confident judge decides. `jury`: only unanimous confident votes decide.
+             * @default cascade
+             */
             strategy: components["schemas"]["Strategy"];
+            /** @description Optional evidence-reading question asked alongside, to score each judge's accuracy. */
             calibration?: components["schemas"]["Calibration"] | null;
             /**
              * Canaries
+             * @description Labelled examples measuring each judge's verdict accuracy; need one pass and one fail.
              * @default []
              */
             canaries: components["schemas"]["Canary"][];
         };
-        /** DryRunRequest */
+        /**
+         * DryRunRequest
+         * @description Run one scenario once on one target without saving it.
+         */
         DryRunRequest: {
+            /** @description The scenario to run; it may be unsaved. */
             scenario: components["schemas"]["Scenario-Input"];
-            /** Target */
+            /**
+             * Target
+             * @description Target name to run it on.
+             */
             target: string;
         };
-        /** EnvironmentDraft */
+        /**
+         * EnvironmentDraft
+         * @description An environment to validate or save.
+         */
         EnvironmentDraft: {
+            /** @description The environment definition. */
             environment: components["schemas"]["EnvironmentSpec"];
         };
-        /** EnvironmentInfo */
+        /**
+         * EnvironmentInfo
+         * @description An environment spec with its lookup key.
+         */
         EnvironmentInfo: {
-            /** Key */
+            /**
+             * Key
+             * @description Environment `id@version`.
+             */
             key: string;
+            /** @description The full environment definition. */
             environment: components["schemas"]["EnvironmentSpec"];
         };
-        /** EnvironmentSpec */
+        /**
+         * EnvironmentSpec
+         * @description A versioned environment: the tables and tools of one simulated world.
+         */
         EnvironmentSpec: {
-            /** Id */
+            /**
+             * Id
+             * @description Environment id: 1-64 lowercase letters, digits, `.`, `_` or `-`.
+             */
             id: string;
-            /** Version */
+            /**
+             * Version
+             * @description Bumped whenever the spec changes; scenarios pin `id@version`.
+             */
             version: number;
-            /** Description */
+            /**
+             * Description
+             * @description The world in plain English; also given to agents as context.
+             */
             description: string;
-            /** Tables */
+            /**
+             * Tables
+             * @description Tables created for every trial; names are unique.
+             */
             tables: components["schemas"]["Table"][];
-            /** Tools */
+            /**
+             * Tools
+             * @description Tools the agent can call; names are unique.
+             */
             tools: components["schemas"]["ToolSpec"][];
         };
         /**
@@ -658,20 +873,53 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "CAPABILITY_UNSUPPORTED" | "PROTOCOL_VERSION_MISMATCH" | "UNSAFE_TARGET" | "ENVIRONMENT_NOT_RESETTABLE" | "ADAPTER_TIMEOUT" | "ADAPTER_ERROR" | "TRACE_INCOMPLETE";
-        /** Event */
+        /**
+         * ErrorResponse
+         * @description Body of every non-validation error response.
+         */
+        ErrorResponse: {
+            /**
+             * Detail
+             * @description What went wrong, in plain English; never echoes secrets or input values.
+             */
+            detail: string;
+        };
+        /**
+         * Event
+         * @description One step the harness reports about its own run (only when `observe` is `native_events`).
+         */
         Event: {
-            /** Seq */
+            /**
+             * Seq
+             * @description Position in the run, starting at 1. Ordering always uses `seq`, never `ts`.
+             */
             seq: number;
+            /** @description What happened, e.g. `tool_requested` or `model_call`. */
             type: components["schemas"]["EventType"];
-            /** Name */
+            /**
+             * Name
+             * @description Tool name, for `tool_*` events.
+             */
             name?: string | null;
-            /** Ts */
+            /**
+             * Ts
+             * @description Unix time in seconds; informational, clocks differ across runtimes.
+             */
             ts?: number | null;
-            /** Span Id */
+            /**
+             * Span Id
+             * @description Identifier of this step, for correlating with traces.
+             */
             span_id?: string | null;
-            /** Parent Id */
+            /**
+             * Parent Id
+             * @description `span_id` of the step that caused this one.
+             */
             parent_id?: string | null;
-            /** @default {} */
+            /**
+             * @description Event payload. `tool_failed`: `{"injected": bool, "committed": bool}` when a fault fired. `checkpoint_saved`: `{"checkpoint_id": str}`.
+             * @default {}
+             */
             data: components["schemas"]["JsonObject"];
         };
         /**
@@ -681,156 +929,260 @@ export interface components {
         EventPresent: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `event_present`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "event_present";
-            /** Event */
+            /**
+             * Event
+             * @description Event type that must appear, e.g. `approval_requested`.
+             */
             event: string;
-            /** Name */
+            /**
+             * Name
+             * @description Also require this tool name on the event; any name if omitted.
+             */
             name?: string | null;
         };
         /** @enum {string} */
         EventType: "run_started" | "agent_step" | "model_call" | "tool_requested" | "tool_completed" | "tool_failed" | "approval_requested" | "retry_scheduled" | "checkpoint_saved" | "run_completed" | "run_failed";
         /** @enum {string} */
         EvidenceKind: "input" | "output" | "final_state" | "state_diff" | "ledger" | "events";
-        /** Experiment */
+        /**
+         * Experiment
+         * @description A batch of trials with its plan and release decision.
+         */
         Experiment: {
-            /** Id */
+            /**
+             * Id
+             * @description Unique experiment id.
+             */
             id: string;
             /**
              * Created At
              * Format: date-time
+             * @description When the experiment was planned.
              */
             created_at: string;
+            /** @description The pinned plan. */
             meta: components["schemas"]["ExperimentMeta"];
+            /** @description Release decision; null until all trials finish. */
             decision?: components["schemas"]["agentlab__models__Decision"] | null;
         };
-        /** ExperimentDetail */
+        /**
+         * ExperimentDetail
+         * @description An experiment with all of its trials.
+         */
         ExperimentDetail: {
+            /** @description List-row view of the experiment. */
             summary: components["schemas"]["ExperimentSummary"];
+            /** @description Plan and release decision. */
             experiment: components["schemas"]["Experiment"];
-            /** Trials */
+            /**
+             * Trials
+             * @description Every trial with its evidence and check results.
+             */
             trials: components["schemas"]["Trial"][];
         };
-        /** ExperimentMeta */
+        /**
+         * ExperimentMeta
+         * @description The plan of an experiment, pinned at start so history stays reproducible.
+         */
         ExperimentMeta: {
-            /** Targets */
+            /**
+             * Targets
+             * @description Participating targets by name.
+             */
             targets: {
                 [key: string]: components["schemas"]["TargetInfo"];
             };
-            /** Scenarios */
+            /**
+             * Scenarios
+             * @description Scenarios run, by `id@version`, as they were at start.
+             */
             scenarios: {
                 [key: string]: components["schemas"]["Scenario-Output"];
             };
             /**
              * Environments
+             * @description Environment specs pinned at plan time; absent in history recorded before pinning.
              * @default {}
              */
             environments: {
                 [key: string]: components["schemas"]["EnvironmentSpec"];
             };
-            /** Repeats */
+            /**
+             * Repeats
+             * @description Times each scenario ran on each target.
+             */
             repeats: number;
-            /** Fixture Url */
+            /**
+             * Fixture Url
+             * @description Base URL of the fixture service as agents saw it.
+             */
             fixture_url: string;
+            /** @description Checkpoint this experiment forked, if it is a fork. */
             forked_from?: components["schemas"]["ResumeFrom"] | null;
-            /** Candidate */
+            /**
+             * Candidate
+             * @description Target being judged for release.
+             */
             candidate?: string | null;
-            /** Baseline */
+            /**
+             * Baseline
+             * @description Target the candidate is compared against, if any.
+             */
             baseline?: string | null;
             /**
              * Max Regression
+             * @description Pass-rate drop vs the baseline that is tolerated, from 0 to 1.
              * @default 0
              */
             max_regression: number;
             /**
              * Planned Trials
+             * @description Total trials planned at start.
              * @default 0
              */
             planned_trials: number;
         };
         /** @enum {string} */
         ExperimentStatus: "running" | "complete" | "incomplete";
-        /** ExperimentSummary */
+        /**
+         * ExperimentSummary
+         * @description One row of the experiment list.
+         */
         ExperimentSummary: {
-            /** Id */
+            /**
+             * Id
+             * @description Unique experiment id.
+             */
             id: string;
             /**
              * Created At
              * Format: date-time
+             * @description When the experiment was planned.
              */
             created_at: string;
+            /** @description Whether its trials are still running or it has a decision. */
             status: components["schemas"]["ExperimentStatus"];
-            /** Candidate */
+            /**
+             * Candidate
+             * @description Target being judged for release.
+             */
             candidate: string | null;
-            /** Baseline */
+            /**
+             * Baseline
+             * @description Target compared against, if any.
+             */
             baseline: string | null;
+            /** @description Release decision; null until the experiment completes. */
             decision: components["schemas"]["GateStatus"] | null;
-            /** Planned */
+            /**
+             * Planned
+             * @description Trials planned.
+             */
             planned: number;
-            /** Finished */
+            /**
+             * Finished
+             * @description Trials no longer running.
+             */
             finished: number;
-            /** Errors */
+            /**
+             * Errors
+             * @description Trials that could not be graded.
+             */
             errors: number;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Total agent spend in US dollars, if reported.
+             */
             cost_usd: number | null;
+            /** @description Checkpoint this experiment forked; null if not a fork. */
             forked_from: components["schemas"]["ResumeFrom"] | null;
-            /** Error */
+            /**
+             * Error
+             * @description Why the job died, if it did.
+             */
             error?: string | null;
         };
         /** @enum {string} */
         FaultAction: "timeout_after_commit" | "error_before_commit";
         FaultWhen: ("first_call" | "always") | number;
-        /** ForbiddenTool */
+        /**
+         * ForbiddenTool
+         * @description The named tool must never appear in the side-effect ledger.
+         */
         ForbiddenTool: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `forbidden_tool`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "forbidden_tool";
-            /** Name */
+            /**
+             * Name
+             * @description Tool that must never be called, whether or not the call succeeded.
+             */
             name: string;
         };
-        /** ForkRequest */
+        /**
+         * ForkRequest
+         * @description Re-run a trial from one of its checkpoints, to test a counterfactual.
+         */
         ForkRequest: {
-            /** Trial Id */
+            /**
+             * Trial Id
+             * @description Trial to fork.
+             */
             trial_id: string;
-            /** Checkpoint Id */
+            /**
+             * Checkpoint Id
+             * @description Checkpoint in that trial to resume from.
+             */
             checkpoint_id: string;
-            /** Target */
+            /**
+             * Target
+             * @description Target to resume on; defaults to the source trial's target.
+             */
             target?: string | null;
             /**
              * Faults
+             * @description `scenario` re-applies the scenario's faults; `none` runs the fork clean.
              * @default none
              * @enum {string}
              */
@@ -852,24 +1204,42 @@ export interface components {
          * @description One decision model's typed answer (Decisions API), kept verbatim for audit.
          */
         JudgeAnswer: {
-            /** Model */
+            /**
+             * Model
+             * @description Judge model id.
+             */
             model: string;
+            /** @description The answer as returned, e.g. `{"type": "noul", "noul": 0.02}` or `{"type": "choice", "choice": "...", "confidence": 0.9}`; `{"type": "error", ...}` if the call failed. */
             answer: components["schemas"]["JsonObject"];
+            /** @description The judge's answer to the calibration question, if the check has one. */
             calibration_answer?: components["schemas"]["JsonObject"] | null;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Cost of this judge call in US dollars, if reported.
+             */
             cost_usd?: number | null;
         };
-        /** JudgeSpec */
+        /**
+         * JudgeSpec
+         * @description One judge model and how to call it.
+         */
         JudgeSpec: {
-            /** Model */
+            /**
+             * Model
+             * @description OpenRouter model id, pinned to an exact version, e.g. `typesafe/jev-1.14`.
+             */
             model: string;
             /**
              * Api
+             * @description `decisions`: the OpenRouter Decisions API. `chat`: any chat model with JSON-schema output.
              * @default decisions
              * @enum {string}
              */
             api: "decisions" | "chat";
-            /** Min Confidence */
+            /**
+             * Min Confidence
+             * @description This judge's own confidence threshold, overriding the check's; probabilities are not comparable across models.
+             */
             min_confidence?: number | null;
         };
         /**
@@ -878,49 +1248,84 @@ export interface components {
          *     verdicts) and verdict accuracy (labelled canaries). Both must pass before a critical check may block.
          */
         JudgeStats: {
-            /** Model */
+            /**
+             * Model
+             * @description Judge model id.
+             */
             model: string;
-            /** Samples */
+            /**
+             * Samples
+             * @description Calibration answers seen (evidence-reading samples).
+             */
             samples: number;
-            /** Correct */
+            /**
+             * Correct
+             * @description Calibration answers that matched the ground truth.
+             */
             correct: number;
-            /** Accuracy */
+            /**
+             * Accuracy
+             * @description `correct / samples` from 0 to 1; null before any sample.
+             */
             accuracy: number | null;
             /**
              * Canary Samples
+             * @description Canary verdicts seen, excluding judge errors.
              * @default 0
              */
             canary_samples: number;
             /**
              * Canary Correct
+             * @description Canary verdicts that matched the expected label.
              * @default 0
              */
             canary_correct: number;
-            /** Canary Accuracy */
+            /**
+             * Canary Accuracy
+             * @description `canary_correct / canary_samples` from 0 to 1; null before any canary.
+             */
             canary_accuracy?: number | null;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Total spend on this model's calls in US dollars, if reported.
+             */
             cost_usd: number | null;
-            /** Calibrated */
+            /**
+             * Calibrated
+             * @description Meets both accuracy bars, so critical decision checks may block releases.
+             */
             calibrated: boolean;
         };
-        /** JudgeVerdict */
+        /**
+         * JudgeVerdict
+         * @description What the judges decided for one decision check, and why.
+         */
         JudgeVerdict: {
-            /** Judges */
+            /**
+             * Judges
+             * @description Answers from the judges that were asked, in order.
+             */
             judges: components["schemas"]["JudgeAnswer"][];
             /**
              * Verdict
+             * @description Combined outcome. `abstain` means low confidence, judges disagreed, or an error.
              * @enum {string}
              */
             verdict: "pass" | "fail" | "abstain";
             /**
              * Reason
+             * @description Each judge's vote, joined for display.
              * @default
              */
             reason: string;
-            /** Calibration Truth */
+            /**
+             * Calibration Truth
+             * @description Ground truth read from SQL for the calibration question.
+             */
             calibration_truth?: string | null;
             /**
              * Calibration Correct
+             * @description Judge model to whether its calibration answer matched the truth.
              * @default {}
              */
             calibration_correct: {
@@ -934,42 +1339,72 @@ export interface components {
          *     `committed` means its side effect persisted, even if the caller saw an error.
          */
         LedgerEntry: {
-            /** Seq */
+            /**
+             * Seq
+             * @description Order of the call within the trial's ledger.
+             */
             seq: number;
-            /** Tool */
+            /**
+             * Tool
+             * @description Tool that was called.
+             */
             tool: string;
+            /** @description Arguments the agent sent. */
             request: components["schemas"]["JsonObject"];
-            /** Status */
+            /**
+             * Status
+             * @description HTTP status the caller saw.
+             */
             status: number;
+            /** @description Response body the caller saw. */
             response: components["schemas"]["JsonValue"];
-            /** Committed */
+            /**
+             * Committed
+             * @description Whether the call's side effect persisted, even if the caller saw an error.
+             */
             committed: boolean;
-            /** Ts */
+            /**
+             * Ts
+             * @description Unix time in seconds when the call was recorded.
+             */
             ts: number;
         };
-        /** Manifest */
+        /**
+         * Manifest
+         * @description A harness's self-description, returned by `GET /manifest`.
+         */
         Manifest: {
             /**
              * Protocol Version
+             * @description Wire protocol version the harness speaks; a mismatch is refused.
              * @default 0.3
              */
             protocol_version: string;
-            /** Adapter Id */
+            /**
+             * Adapter Id
+             * @description Stable identifier of this adapter, e.g. `acme-support-bot`.
+             */
             adapter_id: string;
-            /** Language */
+            /**
+             * Language
+             * @description Language the harness is written in, e.g. `python` or `typescript`.
+             */
             language: string;
             /**
              * Framework
+             * @description Agent framework in use, e.g. `langgraph`; `custom` if none.
              * @default custom
              */
             framework: string;
             /**
              * Transport
+             * @description Wire transport; only HTTP+JSON exists.
              * @default http_json
              * @constant
              */
             transport: "http_json";
             /**
+             * @description Optional features the harness supports.
              * @default {
              *       "invoke": true,
              *       "observe": "none",
@@ -987,62 +1422,105 @@ export interface components {
          */
         NoulQuestion: {
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `noul`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "noul";
-            /** Instructions */
+            /**
+             * Instructions
+             * @description The statement to judge, phrased so that true means the agent did well.
+             */
             instructions: string;
-            /** Criteria */
+            /**
+             * Criteria
+             * @description Exactly two keys, `"true"` and `"false"`, each describing when that answer applies.
+             */
             criteria: {
                 [key: string]: string;
             };
         };
-        /** NoulRule */
+        /**
+         * NoulRule
+         * @description Pass rule for a noul question.
+         */
         NoulRule: {
-            /** Noul At Least */
+            /**
+             * Noul At Least
+             * @description Pass when the probability of true is at least this.
+             */
             noul_at_least: number;
         };
-        /** Paired */
+        /**
+         * Paired
+         * @description Same scenario and repeat compared between baseline and candidate, where both were graded.
+         */
         Paired: {
-            /** Pairs */
+            /**
+             * Pairs
+             * @description Scenario-repeat pairs graded on both targets.
+             */
             pairs: number;
-            /** Regressions */
+            /**
+             * Regressions
+             * @description Pairs that passed on the baseline but failed on the candidate.
+             */
             regressions: number;
-            /** Fixes */
+            /**
+             * Fixes
+             * @description Pairs that failed on the baseline but passed on the candidate.
+             */
             fixes: number;
         };
         /** @enum {string} */
         ParamType: "string" | "integer" | "number" | "boolean";
         PassRule: components["schemas"]["NoulRule"] | components["schemas"]["ChoiceRule"] | components["schemas"]["ScoreRule"];
-        /** QueryResult */
+        /**
+         * QueryResult
+         * @description What a test query returned.
+         */
         QueryResult: {
-            /** Ok */
+            /**
+             * Ok
+             * @description Whether the query ran.
+             */
             ok: boolean;
             /**
              * Rows
+             * @description Result rows, each a list of cell values.
              * @default []
              */
             rows: components["schemas"]["JsonValue"][][];
+            /** @description Single-cell result as a scalar, exactly as the `sql` check compares it; null otherwise. */
             value?: components["schemas"]["JsonValue"];
-            /** Error */
+            /**
+             * Error
+             * @description Why the query failed; null when `ok`.
+             */
             error?: string | null;
         };
-        /** QueryTest */
+        /**
+         * QueryTest
+         * @description A SQL query to try against a temporary seeded environment.
+         */
         QueryTest: {
             /**
              * Environment
-             * @default refund@1
+             * @description Environment `id@version` to create.
+             * @default refund@2
              */
             environment: string;
             /**
              * Seed
+             * @description Rows to insert first, keyed by table name.
              * @default {}
              */
             seed: {
                 [key: string]: components["schemas"]["Row"][];
             };
-            /** Query */
+            /**
+             * Query
+             * @description Read-only SELECT to run, as a `sql` check would.
+             */
             query: string;
         };
         Question: components["schemas"]["NoulQuestion"] | components["schemas"]["ChoiceQuestion"] | components["schemas"]["ScoreQuestion"];
@@ -1051,9 +1529,15 @@ export interface components {
          * @description Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork.
          */
         ResumeFrom: {
-            /** Trial Id */
+            /**
+             * Trial Id
+             * @description Trial whose run to continue.
+             */
             trial_id: string;
-            /** Checkpoint Id */
+            /**
+             * Checkpoint Id
+             * @description `checkpoint_id` from one of that trial's `checkpoint_saved` events.
+             */
             checkpoint_id: string;
         };
         /**
@@ -1064,21 +1548,24 @@ export interface components {
         RetiredCheck: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Old regex-on-the-reply check, replaced by `decision`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "output_matches";
@@ -1095,194 +1582,330 @@ export interface components {
          *     side effect (e.g. "insufficient seats" -> 409).
          */
         Rule: {
-            /** Sql */
+            /**
+             * Sql
+             * @description One SELECT returning a single boolean; true means the call must be refused.
+             */
             sql: string;
-            /** Status */
+            /**
+             * Status
+             * @description HTTP status returned to the agent when the rule fires.
+             */
             status: number;
-            /** Error */
+            /**
+             * Error
+             * @description Message returned to the agent when the rule fires.
+             */
             error: string;
         };
-        /** RunRequest */
+        /**
+         * RunRequest
+         * @description Start an experiment: scenarios run on a candidate target, optionally compared to a baseline.
+         */
         RunRequest: {
             /**
              * Scenarios
+             * @description Scenario keys (`id@version`) to run; empty runs the whole suite.
              * @default []
              */
             scenarios: string[];
-            /** Candidate */
+            /**
+             * Candidate
+             * @description Target name to judge for release.
+             */
             candidate: string;
-            /** Baseline */
+            /**
+             * Baseline
+             * @description Target name to compare the candidate against.
+             */
             baseline?: string | null;
             /**
              * Repeats
+             * @description Times to run each scenario on each target.
              * @default 1
              */
             repeats: number;
             /**
              * Max Regression
+             * @description Pass-rate drop vs the baseline to tolerate, from 0 to 1.
              * @default 0
              */
             max_regression: number;
         };
-        /** SavedScenario */
+        /**
+         * SavedScenario
+         * @description Result of saving a scenario or environment file.
+         */
         SavedScenario: {
-            /** Key */
+            /**
+             * Key
+             * @description `id@version` that was written.
+             */
             key: string;
-            /** Path */
+            /**
+             * Path
+             * @description File that was written.
+             */
             path: string;
-            /** Created */
+            /**
+             * Created
+             * @description True for a new file; false when an existing one got a new version.
+             */
             created: boolean;
         };
-        /** SavedTarget */
+        /**
+         * SavedTarget
+         * @description Result of saving a target.
+         */
         SavedTarget: {
-            /** Name */
+            /**
+             * Name
+             * @description Target name that was written.
+             */
             name: string;
-            /** Created */
+            /**
+             * Created
+             * @description True for a new target; false when an existing one was replaced.
+             */
             created: boolean;
         };
-        /** Scenario */
+        /**
+         * Scenario
+         * @description A versioned, harness-independent test case: input, starting data, faults and assertions.
+         */
         "Scenario-Input": {
-            /** Id */
+            /**
+             * Id
+             * @description Scenario id: 1-64 lowercase letters, digits, `.`, `_` or `-`; also the file name.
+             */
             id: string;
-            /** Version */
+            /**
+             * Version
+             * @description Bumped on every change; results are always tied to `id@version`.
+             */
             version: number;
             /**
              * Risk Tier
+             * @description How much a failure matters; a label shown in the console, it does not change grading.
              * @default normal
              * @enum {string}
              */
             risk_tier: "critical" | "high" | "normal";
             /**
              * Source
+             * @description Free-form label for where the case came from; informational only.
              * @default synthetic
              */
             source: string;
             /**
              * Slices
+             * @description Free-form tags for grouping results, e.g. `refund`, `timeout`.
              * @default []
              */
             slices: string[];
             /**
              * Environment
-             * @default refund@1
+             * @description Environment `id@version` the scenario runs in.
+             * @default refund@2
              */
             environment: string;
             /**
              * Seed
+             * @description Rows inserted before the run, keyed by table name; each row maps column to value.
              * @default {}
              */
             seed: {
                 [key: string]: components["schemas"]["Row"][];
             };
+            /** @description Payload handed to the agent as the invoke `input`. */
             input: components["schemas"]["JsonObject"];
             /**
              * Faults
+             * @description Scripted tool failures to inject during the run.
              * @default []
              */
             faults: components["schemas"]["ScenarioFault"][];
-            /** Assertions */
+            /**
+             * Assertions
+             * @description Checks that decide pass or fail.
+             */
             assertions: components["schemas"]["Assertion-Input"][];
-            /** @default {} */
+            /**
+             * @description Optional ceilings on tool calls, latency and cost.
+             * @default {}
+             */
             budget: components["schemas"]["Budget"];
         };
-        /** Scenario */
+        /**
+         * Scenario
+         * @description A versioned, harness-independent test case: input, starting data, faults and assertions.
+         */
         "Scenario-Output": {
-            /** Id */
+            /**
+             * Id
+             * @description Scenario id: 1-64 lowercase letters, digits, `.`, `_` or `-`; also the file name.
+             */
             id: string;
-            /** Version */
+            /**
+             * Version
+             * @description Bumped on every change; results are always tied to `id@version`.
+             */
             version: number;
             /**
              * Risk Tier
+             * @description How much a failure matters; a label shown in the console, it does not change grading.
              * @default normal
              * @enum {string}
              */
             risk_tier: "critical" | "high" | "normal";
             /**
              * Source
+             * @description Free-form label for where the case came from; informational only.
              * @default synthetic
              */
             source: string;
             /**
              * Slices
+             * @description Free-form tags for grouping results, e.g. `refund`, `timeout`.
              * @default []
              */
             slices: string[];
             /**
              * Environment
-             * @default refund@1
+             * @description Environment `id@version` the scenario runs in.
+             * @default refund@2
              */
             environment: string;
             /**
              * Seed
+             * @description Rows inserted before the run, keyed by table name; each row maps column to value.
              * @default {}
              */
             seed: {
                 [key: string]: components["schemas"]["Row"][];
             };
+            /** @description Payload handed to the agent as the invoke `input`. */
             input: components["schemas"]["JsonObject"];
             /**
              * Faults
+             * @description Scripted tool failures to inject during the run.
              * @default []
              */
             faults: components["schemas"]["ScenarioFault"][];
-            /** Assertions */
+            /**
+             * Assertions
+             * @description Checks that decide pass or fail.
+             */
             assertions: components["schemas"]["Assertion-Output"][];
-            /** @default {} */
+            /**
+             * @description Optional ceilings on tool calls, latency and cost.
+             * @default {}
+             */
             budget: components["schemas"]["Budget"];
         };
-        /** ScenarioDraft */
+        /**
+         * ScenarioDraft
+         * @description A scenario to validate or save.
+         */
         ScenarioDraft: {
+            /** @description The scenario definition. */
             scenario: components["schemas"]["Scenario-Input"];
         };
-        /** ScenarioFault */
+        /**
+         * ScenarioFault
+         * @description A tool fault plus the layer that applies it.
+         */
         ScenarioFault: {
-            /** Tool */
+            /**
+             * Tool
+             * @description Name of the tool to break.
+             */
             tool: string;
-            /** @default first_call */
+            /**
+             * @description Which calls fail: `first_call`, `always`, or an integer N for the Nth call (1-based).
+             * @default first_call
+             */
             when: components["schemas"]["FaultWhen"];
+            /** @description `timeout_after_commit`: the side effect happens but the caller sees a failure. `error_before_commit`: the call fails with no side effect. */
             action: components["schemas"]["FaultAction"];
             /**
              * Boundary
+             * @description `fixture`: injected by the environment service, works for every harness. `harness`: sent in `tool_faults` and applied by the adapter (needs `intercept_tools="declared_only"`).
              * @default fixture
              * @enum {string}
              */
             boundary: "fixture" | "harness";
         };
-        /** ScenarioInfo */
+        /**
+         * ScenarioInfo
+         * @description A suite scenario with its lookup key.
+         */
         ScenarioInfo: {
-            /** Key */
+            /**
+             * Key
+             * @description Scenario `id@version`.
+             */
             key: string;
+            /** @description The full scenario definition. */
             scenario: components["schemas"]["Scenario-Output"];
         };
-        /** ScenarioValidation */
+        /**
+         * ScenarioValidation
+         * @description Outcome of validating a scenario or environment draft.
+         */
         ScenarioValidation: {
-            /** Valid */
+            /**
+             * Valid
+             * @description Whether the draft can be saved.
+             */
             valid: boolean;
             /**
              * Errors
+             * @description Problems as `"path: message"`, without echoing input values.
              * @default []
              */
             errors: string[];
-            /** Yaml */
+            /**
+             * Yaml
+             * @description Normalized YAML that would be written; set when valid.
+             */
             yaml?: string | null;
-            /** Key */
+            /**
+             * Key
+             * @description `id@version` saving would produce (version auto-bumps on change); set when valid.
+             */
             key?: string | null;
         };
-        /** ScoreQuestion */
+        /**
+         * ScoreQuestion
+         * @description Give an integer score on a rubric; the judge also reports its confidence.
+         */
         ScoreQuestion: {
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `score`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "score";
-            /** Instructions */
+            /**
+             * Instructions
+             * @description The question to answer about the evidence.
+             */
             instructions: string;
-            /** Criteria */
+            /**
+             * Criteria
+             * @description Rubric: the description of score 0 first, then 1, up to n-1.
+             */
             criteria: string[];
         };
-        /** ScoreRule */
+        /**
+         * ScoreRule
+         * @description Pass rule for a score question.
+         */
         ScoreRule: {
-            /** Score At Least */
+            /**
+             * Score At Least
+             * @description Pass when the judge's score is at least this.
+             */
             score_at_least: number;
         };
         /**
@@ -1292,26 +1915,33 @@ export interface components {
         Sql: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `sql`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "sql";
-            /** Query */
+            /**
+             * Query
+             * @description One read-only SELECT over the trial's tables, run after the agent finishes.
+             */
             query: string;
+            /** @description Expected result: a scalar when the query returns a single cell, else a list of row lists. */
             equals: components["schemas"]["JsonValue"];
         };
         State: {
@@ -1319,95 +1949,187 @@ export interface components {
         };
         /** @enum {string} */
         Strategy: "cascade" | "jury";
-        /** Table */
+        /**
+         * Table
+         * @description A table created in the trial's private Postgres schema.
+         */
         Table: {
-            /** Name */
+            /**
+             * Name
+             * @description Table name: lowercase letters, digits and `_`; `ledger` and `idempotency` are reserved.
+             */
             name: string;
-            /** Columns */
+            /**
+             * Columns
+             * @description Columns, in order; at least one.
+             */
             columns: components["schemas"]["Column"][];
         };
-        /** TableDiff */
+        /**
+         * TableDiff
+         * @description Rows that differ in one table between the start and end of a trial.
+         */
         TableDiff: {
             /**
              * Added
+             * @description Rows present at the end but not at the start.
              * @default []
              */
             added: components["schemas"]["Row"][];
             /**
              * Removed
+             * @description Rows present at the start but not at the end.
              * @default []
              */
             removed: components["schemas"]["Row"][];
         };
-        /** TargetDraft */
+        /**
+         * TargetDraft
+         * @description A target to test or save.
+         */
         TargetDraft: {
-            /** Name */
+            /**
+             * Name
+             * @description Target name, up to 64 letters, digits, `.`, `_` or `-`.
+             */
             name: string;
+            /** @description How to reach the harness. */
             spec: components["schemas"]["TargetSpec"];
         };
-        /** TargetHealth */
+        /**
+         * TargetHealth
+         * @description A configured target and whether its harness answered a manifest probe.
+         */
         TargetHealth: {
-            /** Name */
+            /**
+             * Name
+             * @description Target name from the targets file.
+             */
             name: string;
+            /** @description How the harness is reached: `native`, `http` or `otel`. */
             mode: components["schemas"]["TargetMode"];
-            /** Url */
+            /**
+             * Url
+             * @description Harness base URL with credentials redacted; null if none.
+             */
             url: string | null;
-            /** Version */
+            /**
+             * Version
+             * @description Version label of the system under test.
+             */
             version: string;
-            /** Reachable */
+            /**
+             * Reachable
+             * @description Whether the manifest probe succeeded.
+             */
             reachable: boolean;
+            /** @description Live manifest when reachable (native), else the declared one (http/otel); null if none. */
             manifest: components["schemas"]["Manifest"] | null;
-            /** Error */
+            /**
+             * Error
+             * @description Why the probe failed, redacted; null when reachable.
+             */
             error?: string | null;
         };
-        /** TargetInfo */
+        /**
+         * TargetInfo
+         * @description A target as it was when the experiment was planned.
+         */
         TargetInfo: {
+            /** @description How the harness is reached: `native`, `http` or `otel`. */
             mode: components["schemas"]["TargetMode"];
-            /** Url */
+            /**
+             * Url
+             * @description Harness base URL; null for targets without one.
+             */
             url: string | null;
-            /** Version */
+            /**
+             * Version
+             * @description Version label of the system under test.
+             */
             version: string;
+            /** @description The harness manifest, live or as declared; null if none. */
             manifest: components["schemas"]["Manifest"] | null;
         };
         /** @enum {string} */
         TargetMode: "native" | "http" | "otel";
-        /** TargetSpec */
+        /**
+         * TargetSpec
+         * @description How to reach a harness, as written under `targets:` in the targets file.
+         */
         TargetSpec: {
+            /** @description `native`: harness implements the AgentLab protocol. `http`: any endpoint that takes the scenario input as a JSON POST. `otel`: observe-only, cannot be invoked. */
             mode: components["schemas"]["TargetMode"];
-            /** Url */
+            /**
+             * Url
+             * @description Harness base URL (native) or endpoint to POST to (http); its host must be in `allowed_hosts`.
+             */
             url?: string | null;
             /**
              * Version
+             * @description Version label of the system under test, shown in results.
              * @default unversioned
              */
             version: string;
+            /** @description Capabilities declared by the user for http/otel targets, which expose no manifest. */
             manifest?: components["schemas"]["Manifest"] | null;
         };
-        /** TargetStats */
+        /**
+         * TargetStats
+         * @description Aggregate results for one target.
+         */
         TargetStats: {
-            /** Passed */
+            /**
+             * Passed
+             * @description Graded trials that passed.
+             */
             passed: number;
-            /** Graded */
+            /**
+             * Graded
+             * @description Trials that were graded (passed or failed).
+             */
             graded: number;
-            /** Errors */
+            /**
+             * Errors
+             * @description Trials that could not be graded; excluded from rates.
+             */
             errors: number;
-            /** Pass Rate */
+            /**
+             * Pass Rate
+             * @description `passed / graded` from 0 to 1; null when nothing was graded.
+             */
             pass_rate: number | null;
-            /** Ci95 */
+            /**
+             * Ci95
+             * @description 95% Wilson confidence interval of the pass rate, as (low, high).
+             */
             ci95: [
                 number,
                 number
             ];
-            /** P50 Ms */
+            /**
+             * P50 Ms
+             * @description Median latency of graded trials, in milliseconds.
+             */
             p50_ms: number | null;
-            /** P95 Ms */
+            /**
+             * P95 Ms
+             * @description 95th-percentile latency of graded trials, in milliseconds.
+             */
             p95_ms: number | null;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Total agent spend in US dollars; null if no trial reported cost.
+             */
             cost_usd: number | null;
-            /** Pass All K */
+            /**
+             * Pass All K
+             * @description pass^k: share of scenarios whose every repeat passed (k = repeats); exposes flakiness a pass rate hides.
+             */
             pass_all_k?: number | null;
             /**
              * K
+             * @description Most repeats any scenario had; the k in `pass_all_k`.
              * @default 1
              */
             k: number;
@@ -1419,45 +2141,66 @@ export interface components {
         ToolOrder: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `tool_order`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "tool_order";
-            /** Before */
+            /**
+             * Before
+             * @description Tool that must not be called until `requires` has succeeded.
+             */
             before: string;
-            /** Requires */
+            /**
+             * Requires
+             * @description Tool that must have a successful (non-error) call earlier in the ledger.
+             */
             requires: string;
         };
-        /** ToolParam */
+        /**
+         * ToolParam
+         * @description One typed argument of a tool.
+         */
         ToolParam: {
-            /** Name */
+            /**
+             * Name
+             * @description Parameter name; bound into the tool's SQL as `%(name)s`.
+             */
             name: string;
+            /** @description JSON type the agent must supply. */
             type: components["schemas"]["ParamType"];
             /**
              * Description
+             * @description Shown to the agent in the tool catalog.
              * @default
              */
             description: string;
             /**
              * Required
+             * @description Calls without this argument are rejected (422).
              * @default true
              */
             required: boolean;
-            /** Enum */
+            /**
+             * Enum
+             * @description Allowed values, compared as strings; omit for any value.
+             */
             enum?: string[] | null;
         };
         /**
@@ -1466,58 +2209,93 @@ export interface components {
          *     RETURNING to send rows back). Runs as the trial's writer role: it can change this environment's tables only.
          */
         ToolSpec: {
-            /** Name */
+            /**
+             * Name
+             * @description Tool name the agent calls; lowercase letters, digits and `_`.
+             */
             name: string;
-            /** Description */
+            /**
+             * Description
+             * @description What the tool does, shown to the agent in the tool catalog.
+             */
             description: string;
             /**
              * Params
+             * @description Typed arguments the tool accepts.
              * @default []
              */
             params: components["schemas"]["ToolParam"][];
             /**
              * Rules
+             * @description Preconditions checked in order before the SQL runs.
              * @default []
              */
             rules: components["schemas"]["Rule"][];
-            /** Sql */
+            /**
+             * Sql
+             * @description The single SQL statement to run; add RETURNING to send rows back.
+             */
             sql: string;
             /**
              * Returns
+             * @description Response shape: `row` is the first row (404 when none), `rows` is a list, `none` is `{}`.
              * @default row
              * @enum {string}
              */
             returns: "row" | "rows" | "none";
             /**
              * Success Status
+             * @description HTTP status returned on success.
              * @default 200
              */
             success_status: number;
             /**
              * Idempotent
+             * @description Adds an `idempotency_key` argument; a repeated key replays the first response without re-running.
              * @default false
              */
             idempotent: boolean;
             /**
              * Mutates
+             * @description False for read-only tools; they are still recorded in the ledger but never committed.
              * @default true
              */
             mutates: boolean;
         };
-        /** Trial */
+        /**
+         * Trial
+         * @description One run of one scenario on one target.
+         */
         Trial: {
-            /** Id */
+            /**
+             * Id
+             * @description Unique trial id.
+             */
             id: string;
-            /** Experiment Id */
+            /**
+             * Experiment Id
+             * @description Experiment this trial belongs to.
+             */
             experiment_id: string;
-            /** Target */
+            /**
+             * Target
+             * @description Name of the target that ran it.
+             */
             target: string;
-            /** Scenario */
+            /**
+             * Scenario
+             * @description Scenario `id@version`.
+             */
             scenario: string;
-            /** Repeat */
+            /**
+             * Repeat
+             * @description Zero-based repeat index within the experiment.
+             */
             repeat: number;
+            /** @description `running`, then `passed` or `failed` once graded, or `error` if it could not be graded. */
             status: components["schemas"]["TrialStatus"];
             /**
+             * @description Captured evidence and check results.
              * @default {
              *       "events": [],
              *       "ledger": [],
@@ -1530,35 +2308,61 @@ export interface components {
              */
             record: components["schemas"]["TrialRecord"];
         };
-        /** TrialError */
+        /**
+         * TrialError
+         * @description Why a trial could not be graded: an infrastructure failure, never an agent failure.
+         */
         TrialError: {
+            /** @description Machine-readable failure category. */
             code: components["schemas"]["ErrorCode"];
-            /** Message */
+            /**
+             * Message
+             * @description What went wrong, with secrets redacted.
+             */
             message: string;
         };
-        /** TrialRecord */
+        /**
+         * TrialRecord
+         * @description Everything captured while running and grading one trial.
+         */
         TrialRecord: {
-            /** Run Id */
+            /**
+             * Run Id
+             * @description Harness-side run id; null if the harness never replied.
+             */
             run_id?: string | null;
-            /** Agent Status */
+            /**
+             * Agent Status
+             * @description Whether the agent finished its run, as the harness reported it.
+             */
             agent_status?: ("completed" | "failed") | null;
+            /** @description The agent's final answer. */
             output?: components["schemas"]["JsonValue"];
             /**
              * Events
+             * @description Steps the harness reported, if it streams events.
              * @default []
              */
             events: components["schemas"]["Event"][];
             /**
              * Ledger
+             * @description Every tool call the environment received, in order.
              * @default []
              */
             ledger: components["schemas"]["LedgerEntry"][];
-            /** @default {} */
+            /**
+             * @description Table contents before the agent ran.
+             * @default {}
+             */
             initial_state: components["schemas"]["State"];
-            /** @default {} */
+            /**
+             * @description Table contents after the agent ran.
+             * @default {}
+             */
             final_state: components["schemas"]["State"];
             /**
              * State Diff
+             * @description Per-table rows added or removed by the run; unchanged tables are omitted.
              * @default {}
              */
             state_diff: {
@@ -1566,27 +2370,51 @@ export interface components {
             };
             /**
              * Assertions
+             * @description Results of every check, budget limits last.
              * @default []
              */
             assertions: components["schemas"]["AssertionResult"][];
-            /** Latency Ms */
+            /**
+             * Latency Ms
+             * @description Wall-clock time of the invoke call, in milliseconds.
+             */
             latency_ms?: number | null;
-            /** @default {} */
+            /**
+             * @description Resources the harness reported using.
+             * @default {}
+             */
             usage: components["schemas"]["Usage"];
+            /** @description Set when the trial errored instead of being graded. */
             error?: components["schemas"]["TrialError"] | null;
+            /** @description Checkpoint this trial continued from, for forks. */
             resumed_from?: components["schemas"]["ResumeFrom"] | null;
         };
         /** @enum {string} */
         TrialStatus: "running" | "passed" | "failed" | "error";
-        /** Usage */
+        /**
+         * Usage
+         * @description Resource use the harness reports for a run; omitted values are unknown, not zero.
+         */
         Usage: {
-            /** Steps */
+            /**
+             * Steps
+             * @description Agent steps taken.
+             */
             steps?: number | null;
-            /** Input Tokens */
+            /**
+             * Input Tokens
+             * @description Prompt tokens consumed across all model calls.
+             */
             input_tokens?: number | null;
-            /** Output Tokens */
+            /**
+             * Output Tokens
+             * @description Completion tokens produced across all model calls.
+             */
             output_tokens?: number | null;
-            /** Cost Usd */
+            /**
+             * Cost Usd
+             * @description Total model spend in US dollars.
+             */
             cost_usd?: number | null;
         };
         /** ValidationError */
@@ -1603,6 +2431,19 @@ export interface components {
             ctx?: Record<string, never>;
         };
         /**
+         * ValidationFailure
+         * @description Body of a 422 response: a message, or FastAPI's list of field problems when the body failed to parse.
+         */
+        ValidationFailure: {
+            /**
+             * Detail
+             * @description The reason, or one entry per invalid field.
+             */
+            detail: string | {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+        };
+        /**
          * Decision
          * @description A model-judged check: typed question about the evidence, thresholded into pass / fail / abstain (unsupported).
          *
@@ -1611,33 +2452,40 @@ export interface components {
         agentlab__assertions__Decision: {
             /**
              * Critical
+             * @description A failure of this check blocks the release gate; an unsupported one withholds a pass.
              * @default false
              */
             critical: boolean;
             /**
              * Requires Faults
+             * @description Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.
              * @default false
              */
             requires_faults: boolean;
             /**
              * Description
+             * @description Label shown in results; a generated one is used when empty.
              * @default
              */
             description: string;
             /**
-             * @description discriminator enum property added by openapi-typescript
+             * @description Discriminator; always `decision`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "decision";
+            /** @description What the judges are asked about the evidence. */
             question: components["schemas"]["Question"];
+            /** @description How an answer maps to pass; its kind must match the question's. */
             pass_rule: components["schemas"]["PassRule"];
             /**
              * Min Confidence
+             * @description Answers less confident than this abstain; a judge's own threshold overrides it.
              * @default 0.8
              */
             min_confidence: number;
             /**
              * Evidence
+             * @description Parts of the run shown to the judges.
              * @default [
              *       "input",
              *       "output",
@@ -1645,34 +2493,65 @@ export interface components {
              *     ]
              */
             evidence: components["schemas"]["EvidenceKind"][];
-            /** Judges */
+            /**
+             * Judges
+             * @description Models that answer, in order; defaults to the built-in decision models.
+             */
             judges?: components["schemas"]["JudgeSpec"][];
-            /** @default cascade */
+            /**
+             * @description `cascade`: the first confident judge decides. `jury`: only unanimous confident votes decide.
+             * @default cascade
+             */
             strategy: components["schemas"]["Strategy"];
+            /** @description Optional evidence-reading question asked alongside, to score each judge's accuracy. */
             calibration?: components["schemas"]["Calibration"] | null;
             /**
              * Canaries
+             * @description Labelled examples measuring each judge's verdict accuracy; need one pass and one fail.
              * @default []
              */
             canaries: components["schemas"]["Canary"][];
         };
-        /** Decision */
+        /**
+         * Decision
+         * @description The release decision for a candidate.
+         */
         agentlab__models__Decision: {
+            /** @description `PASS`, `BLOCK` (a critical check failed or the pass rate regressed), or `INSUFFICIENT_EVIDENCE` (errors or unsupported critical checks). */
             status: components["schemas"]["GateStatus"];
-            /** Candidate */
+            /**
+             * Candidate
+             * @description Target being judged.
+             */
             candidate: string;
-            /** Baseline */
+            /**
+             * Baseline
+             * @description Target compared against, if any.
+             */
             baseline: string | null;
-            /** Block Reasons */
+            /**
+             * Block Reasons
+             * @description Why the release is blocked; empty unless `BLOCK`.
+             */
             block_reasons: string[];
-            /** Insufficient Reasons */
+            /**
+             * Insufficient Reasons
+             * @description What evidence is missing; empty unless `INSUFFICIENT_EVIDENCE`.
+             */
             insufficient_reasons: string[];
-            /** Coverage Gaps */
+            /**
+             * Coverage Gaps
+             * @description Non-critical checks the harness could not support.
+             */
             coverage_gaps: string[];
-            /** Stats */
+            /**
+             * Stats
+             * @description Aggregates per target name (candidate and baseline).
+             */
             stats: {
                 [key: string]: components["schemas"]["TargetStats"];
             };
+            /** @description Candidate-vs-baseline comparison; null without a baseline. */
             paired: components["schemas"]["Paired"] | null;
         };
     };
@@ -1702,6 +2581,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConsoleInfo"];
+                };
+            };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1735,6 +2623,15 @@ export interface operations {
                     "application/json": components["schemas"]["JudgeStats"][];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1766,6 +2663,15 @@ export interface operations {
                     "application/json": components["schemas"]["TargetHealth"][];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1773,6 +2679,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1802,13 +2717,31 @@ export interface operations {
                     "application/json": components["schemas"]["TargetHealth"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid target body. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
                 };
             };
         };
@@ -1840,13 +2773,40 @@ export interface operations {
                     "application/json": components["schemas"]["SavedTarget"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid body, name differs from the path, or the URL host is not in allowed_hosts. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1872,6 +2832,33 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown target. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1879,6 +2866,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1903,6 +2899,15 @@ export interface operations {
                     "application/json": components["schemas"]["EnvironmentInfo"][];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1910,6 +2915,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1939,13 +2953,40 @@ export interface operations {
                     "application/json": components["schemas"]["SavedScenario"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The environments path is not a directory. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid or unrunnable environment. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
                 };
             };
         };
@@ -1972,6 +3013,24 @@ export interface operations {
                     "application/json": components["schemas"]["BuilderInfo"];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown environment. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1979,6 +3038,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2006,6 +3074,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScenarioValidation"];
+                };
+            };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2039,6 +3125,15 @@ export interface operations {
                     "application/json": components["schemas"]["ScenarioInfo"][];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2046,6 +3141,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2075,13 +3179,49 @@ export interface operations {
                     "application/json": components["schemas"]["SavedScenario"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The suite path is not a directory. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid scenario. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2111,6 +3251,24 @@ export interface operations {
                     "application/json": components["schemas"]["ScenarioValidation"];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2118,6 +3276,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2147,13 +3314,40 @@ export interface operations {
                     "application/json": components["schemas"]["QueryResult"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request body. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2183,13 +3377,40 @@ export interface operations {
                     "application/json": components["schemas"]["Accepted"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown target, or the scenario cannot be planned. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2216,13 +3437,22 @@ export interface operations {
                     "application/json": components["schemas"]["ExperimentSummary"][];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `limit` out of range (1-500). */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
                 };
             };
         };
@@ -2252,13 +3482,40 @@ export interface operations {
                     "application/json": components["schemas"]["Accepted"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown scenario or target, or the run cannot be planned. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2283,6 +3540,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExperimentDetail"];
+                };
+            };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown experiment. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2318,6 +3593,24 @@ export interface operations {
                     "application/json": components["schemas"]["CanaryResult"][];
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown experiment. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2351,6 +3644,24 @@ export interface operations {
                     "text/html": string;
                 };
             };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown experiment. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -2382,6 +3693,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Trial"];
+                };
+            };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown trial. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2420,13 +3749,76 @@ export interface operations {
                     "application/json": components["schemas"]["Accepted"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The fork could not be planned (e.g. unknown checkpoint). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown trial. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The target does not support resuming or forking. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown target. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description Upstream adapter or model failure. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A config file (targets, scenarios or environments) could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2456,13 +3848,49 @@ export interface operations {
                     "application/json": components["schemas"]["AuthorDraft"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Missing or invalid bearer token (only when a token is configured). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing `X-AgentLab-Request: 1` header on a write. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown environment. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid request body. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ValidationFailure"];
+                };
+            };
+            /** @description The environments directory could not be loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

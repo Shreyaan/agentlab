@@ -14,11 +14,14 @@
       "type": "string"
     }
   },
+  "description": "Error body a harness returns on a non-2xx response.",
   "properties": {
     "code": {
-      "$ref": "#/$defs/ErrorCode"
+      "$ref": "#/$defs/ErrorCode",
+      "description": "Machine-readable failure category."
     },
     "message": {
+      "description": "Human-readable explanation; must not contain secrets.",
       "title": "Message",
       "type": "string"
     }

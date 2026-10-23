@@ -57,9 +57,16 @@ class Evidence:
 
 
 class _Check(BaseModel, ABC):
-    critical: bool = False
-    requires_faults: bool = False  # only meaningful when the scenario's faults are active (skipped in clean forks)
-    description: str = ""
+    critical: bool = Field(
+        default=False,
+        description="A failure of this check blocks the release gate; an unsupported one withholds a pass.",
+    )
+    requires_faults: bool = Field(
+        default=False,
+        description="Only meaningful when the scenario's faults are active; "
+        "skipped in runs without faults, e.g. clean forks.",
+    )
+    description: str = Field(default="", description="Label shown in results; a generated one is used when empty.")
 
     @property
     @abstractmethod
@@ -83,9 +90,11 @@ class _Check(BaseModel, ABC):
 class Sql(_Check):
     """Read-only SQL over the environment's final state; a single-cell result is compared as a scalar."""
 
-    type: Literal["sql"] = "sql"
-    query: str
-    equals: JsonValue
+    type: Literal["sql"] = Field(default="sql", description="Discriminator; always `sql`.")
+    query: str = Field(description="One read-only SELECT over the trial's tables, run after the agent finishes.")
+    equals: JsonValue = Field(
+        description="Expected result: a scalar when the query returns a single cell, else a list of row lists."
+    )
 
     @property
     def default_description(self) -> str:
@@ -100,9 +109,9 @@ class Sql(_Check):
 class ToolOrder(_Check):
     """`requires` must succeed (2xx) in the side-effect ledger before the first `before` call."""
 
-    type: Literal["tool_order"] = "tool_order"
-    before: str
-    requires: str
+    type: Literal["tool_order"] = Field(default="tool_order", description="Discriminator; always `tool_order`.")
+    before: str = Field(description="Tool that must not be called until `requires` has succeeded.")
+    requires: str = Field(description="Tool that must have a successful (non-error) call earlier in the ledger.")
 
     @property
     def default_description(self) -> str:
@@ -118,8 +127,12 @@ class ToolOrder(_Check):
 
 
 class ForbiddenTool(_Check):
-    type: Literal["forbidden_tool"] = "forbidden_tool"
-    name: str
+    """The named tool must never appear in the side-effect ledger."""
+
+    type: Literal["forbidden_tool"] = Field(
+        default="forbidden_tool", description="Discriminator; always `forbidden_tool`."
+    )
+    name: str = Field(description="Tool that must never be called, whether or not the call succeeded.")
 
     @property
     def default_description(self) -> str:
@@ -133,9 +146,11 @@ class ForbiddenTool(_Check):
 class EventPresent(_Check):
     """Process evidence from inside the harness; unsupported unless the adapter streams native events."""
 
-    type: Literal["event_present"] = "event_present"
-    event: str
-    name: str | None = None
+    type: Literal["event_present"] = Field(
+        default="event_present", description="Discriminator; always `event_present`."
+    )
+    event: str = Field(description="Event type that must appear, e.g. `approval_requested`.")
+    name: str | None = Field(default=None, description="Also require this tool name on the event; any name if omitted.")
 
     @property
     def default_description(self) -> str:
@@ -157,8 +172,13 @@ type EvidenceKind = Literal["input", "output", "final_state", "state_diff", "led
 class Calibration(BaseModel):
     """Asked in the same judge call; the truth comes from the environment, so it scores evidence-reading accuracy."""
 
-    question: ChoiceQuestion | NoulQuestion = Field(discriminator="type")
-    truth_sql: str  # read-only, scoped to the trial schema, single cell, compared as a string
+    question: ChoiceQuestion | NoulQuestion = Field(
+        discriminator="type", description="Question about the evidence whose true answer the environment knows."
+    )
+    truth_sql: str = Field(
+        description="Read-only SELECT over the trial schema returning a single cell, "
+        "compared as a string to the answer."
+    )
 
 
 def _size(value: JsonValue) -> int:
@@ -197,15 +217,33 @@ class Decision(_Check):
     A critical fail only blocks when the judges that decided it are calibrated (see verdicts.uncalibrated_reason).
     """
 
-    type: Literal["decision"] = "decision"
-    question: Question
-    pass_rule: PassRule
-    min_confidence: float = Field(default=0.8, ge=0, le=1)
-    evidence: list[EvidenceKind] = Field(default=["input", "output", "final_state"], min_length=1)
-    judges: list[JudgeSpec] = Field(default_factory=lambda: [JudgeSpec(model=m) for m in JUDGE_MODELS], min_length=1)
-    strategy: Strategy = "cascade"
-    calibration: Calibration | None = None
-    canaries: list[Canary] = []
+    type: Literal["decision"] = Field(default="decision", description="Discriminator; always `decision`.")
+    question: Question = Field(description="What the judges are asked about the evidence.")
+    pass_rule: PassRule = Field(description="How an answer maps to pass; its kind must match the question's.")
+    min_confidence: float = Field(
+        default=0.8,
+        ge=0,
+        le=1,
+        description="Answers less confident than this abstain; a judge's own threshold overrides it.",
+    )
+    evidence: list[EvidenceKind] = Field(
+        default=["input", "output", "final_state"], min_length=1, description="Parts of the run shown to the judges."
+    )
+    judges: list[JudgeSpec] = Field(
+        default_factory=lambda: [JudgeSpec(model=m) for m in JUDGE_MODELS],
+        min_length=1,
+        description="Models that answer, in order; defaults to the built-in decision models.",
+    )
+    strategy: Strategy = Field(
+        default="cascade",
+        description="`cascade`: the first confident judge decides. `jury`: only unanimous confident votes decide.",
+    )
+    calibration: Calibration | None = Field(
+        default=None, description="Optional evidence-reading question asked alongside, to score each judge's accuracy."
+    )
+    canaries: list[Canary] = Field(
+        default=[], description="Labelled examples measuring each judge's verdict accuracy; need one pass and one fail."
+    )
 
     @model_validator(mode="after")
     def _canaries_cover_both_verdicts(self) -> Self:
@@ -320,7 +358,9 @@ class RetiredCheck(_Check):
     are kept as-is), but it never runs: always `skipped`. New scenarios may not use it (see scenario.retired)."""
 
     model_config = ConfigDict(extra="allow")
-    type: Literal["output_matches"] = "output_matches"  # regex on the reply; replaced by `decision`
+    type: Literal["output_matches"] = Field(
+        default="output_matches", description="Old regex-on-the-reply check, replaced by `decision`."
+    )
 
     @property
     def default_description(self) -> str:
@@ -336,9 +376,13 @@ type Assertion = Annotated[
 
 
 class Budget(BaseModel):
-    max_tool_calls: int | None = None
-    max_latency_ms: int | None = None
-    max_cost_usd: float | None = None
+    """Optional per-trial ceilings; each set limit becomes a non-critical check."""
+
+    max_tool_calls: int | None = Field(default=None, description="Most tool calls the agent may make (ledger entries).")
+    max_latency_ms: int | None = Field(default=None, description="Longest allowed invoke time, in milliseconds.")
+    max_cost_usd: float | None = Field(
+        default=None, description="Highest allowed model spend in US dollars, as reported by the adapter."
+    )
 
 
 def _limit(name: str, actual: float | None, cap: float | None) -> AssertionResult | None:

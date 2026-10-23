@@ -15,23 +15,36 @@ SCENARIO_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 
 
 class ScenarioFault(ToolFault):
-    # fixture: injected by the environment service (works for every harness).
-    # harness: sent in `tool_faults`, applied by the adapter (needs intercept_tools="declared_only").
-    boundary: Literal["fixture", "harness"] = "fixture"
+    """A tool fault plus the layer that applies it."""
+
+    boundary: Literal["fixture", "harness"] = Field(
+        default="fixture",
+        description="`fixture`: injected by the environment service, works for every harness. `harness`: sent in "
+        '`tool_faults` and applied by the adapter (needs `intercept_tools="declared_only"`).',
+    )
 
 
 class Scenario(BaseModel):
-    id: str
-    version: int = Field(ge=1)
-    risk_tier: Literal["critical", "high", "normal"] = "normal"
-    source: str = "synthetic"
-    slices: list[str] = []
-    environment: str = "refund@2"  # id@version in the environments registry
-    seed: dict[str, list[Row]] = {}
-    input: JsonObject
-    faults: list[ScenarioFault] = []
-    assertions: list[Assertion]
-    budget: Budget = Budget()
+    """A versioned, harness-independent test case: input, starting data, faults and assertions."""
+
+    id: str = Field(description="Scenario id: 1-64 lowercase letters, digits, `.`, `_` or `-`; also the file name.")
+    version: int = Field(ge=1, description="Bumped on every change; results are always tied to `id@version`.")
+    risk_tier: Literal["critical", "high", "normal"] = Field(
+        default="normal",
+        description="How much a failure matters; a label shown in the console, it does not change grading.",
+    )
+    source: str = Field(
+        default="synthetic", description="Free-form label for where the case came from; informational only."
+    )
+    slices: list[str] = Field(default=[], description="Free-form tags for grouping results, e.g. `refund`, `timeout`.")
+    environment: str = Field(default="refund@2", description="Environment `id@version` the scenario runs in.")
+    seed: dict[str, list[Row]] = Field(
+        default={}, description="Rows inserted before the run, keyed by table name; each row maps column to value."
+    )
+    input: JsonObject = Field(description="Payload handed to the agent as the invoke `input`.")
+    faults: list[ScenarioFault] = Field(default=[], description="Scripted tool failures to inject during the run.")
+    assertions: list[Assertion] = Field(description="Checks that decide pass or fail.")
+    budget: Budget = Field(default=Budget(), description="Optional ceilings on tool calls, latency and cost.")
 
     @model_validator(mode="before")
     @classmethod

@@ -24,13 +24,16 @@
     },
     "JsonValue": {}
   },
+  "description": "One step the harness reports about its own run (only when `observe` is `native_events`).",
   "properties": {
     "seq": {
+      "description": "Position in the run, starting at 1. Ordering always uses `seq`, never `ts`.",
       "title": "Seq",
       "type": "integer"
     },
     "type": {
-      "$ref": "#/$defs/EventType"
+      "$ref": "#/$defs/EventType",
+      "description": "What happened, e.g. `tool_requested` or `model_call`."
     },
     "name": {
       "anyOf": [
@@ -42,6 +45,7 @@
         }
       ],
       "default": null,
+      "description": "Tool name, for `tool_*` events.",
       "title": "Name"
     },
     "ts": {
@@ -54,6 +58,7 @@
         }
       ],
       "default": null,
+      "description": "Unix time in seconds; informational, clocks differ across runtimes.",
       "title": "Ts"
     },
     "span_id": {
@@ -66,6 +71,7 @@
         }
       ],
       "default": null,
+      "description": "Identifier of this step, for correlating with traces.",
       "title": "Span Id"
     },
     "parent_id": {
@@ -78,11 +84,13 @@
         }
       ],
       "default": null,
+      "description": "`span_id` of the step that caused this one.",
       "title": "Parent Id"
     },
     "data": {
       "$ref": "#/$defs/JsonObject",
-      "default": {}
+      "default": {},
+      "description": "Event payload. `tool_failed`: `{\"injected\": bool, \"committed\": bool}` when a fault fired. `checkpoint_saved`: `{\"checkpoint_id\": str}`."
     }
   },
   "required": [

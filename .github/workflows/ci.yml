@@ -10,6 +10,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run ty check
+      - run: uv run python scripts/gen_reference.py --check
       - run: uv run pytest  # Testcontainers starts Postgres via the runner's Docker
   typescript:
     runs-on: ubuntu-latest

@@ -1,12 +1,15 @@
 {
   "$defs": {
     "Environment": {
+      "description": "The fixture environment a trial runs against.",
       "properties": {
         "id": {
+          "description": "Environment `id@version` key, e.g. `refund@2`.",
           "title": "Id",
           "type": "string"
         },
         "base_url": {
+          "description": "Fixture service URL the agent must use for every tool call.",
           "title": "Base Url",
           "type": "string"
         }
@@ -50,10 +53,12 @@
       "description": "Continue a prior run from one of its checkpoints. Only for adapters declaring resume/fork.",
       "properties": {
         "trial_id": {
+          "description": "Trial whose run to continue.",
           "title": "Trial Id",
           "type": "string"
         },
         "checkpoint_id": {
+          "description": "`checkpoint_id` from one of that trial's `checkpoint_saved` events.",
           "title": "Checkpoint Id",
           "type": "string"
         }
@@ -69,15 +74,18 @@
       "description": "A scripted tool failure. Applied by the fixture service, or by the harness when sent in `tool_faults`.",
       "properties": {
         "tool": {
+          "description": "Name of the tool to break.",
           "title": "Tool",
           "type": "string"
         },
         "when": {
           "$ref": "#/$defs/FaultWhen",
-          "default": "first_call"
+          "default": "first_call",
+          "description": "Which calls fail: `first_call`, `always`, or an integer N for the Nth call (1-based)."
         },
         "action": {
-          "$ref": "#/$defs/FaultAction"
+          "$ref": "#/$defs/FaultAction",
+          "description": "`timeout_after_commit`: the side effect happens but the caller sees a failure. `error_before_commit`: the call fails with no side effect."
         }
       },
       "required": [
@@ -88,36 +96,45 @@
       "type": "object"
     }
   },
+  "description": "Body of `POST /invoke`: one trial for the harness to run.",
   "properties": {
     "protocol_version": {
       "default": "0.3",
+      "description": "Wire protocol version of the sender.",
       "title": "Protocol Version",
       "type": "string"
     },
     "trial_id": {
+      "description": "Unique id of this trial (one scenario, one repeat, one target).",
       "title": "Trial Id",
       "type": "string"
     },
     "scenario_version": {
+      "description": "Scenario `id@version` being run.",
       "title": "Scenario Version",
       "type": "string"
     },
     "system_version": {
+      "description": "Version label of the system under test, from the target config.",
       "title": "System Version",
       "type": "string"
     },
     "environment": {
-      "$ref": "#/$defs/Environment"
+      "$ref": "#/$defs/Environment",
+      "description": "Where the agent's tools live."
     },
     "idempotency_key": {
+      "description": "Stable key for this invocation (`<trial_id>:invoke`), so a harness can de-duplicate a retried request.",
       "title": "Idempotency Key",
       "type": "string"
     },
     "input": {
-      "$ref": "#/$defs/JsonObject"
+      "$ref": "#/$defs/JsonObject",
+      "description": "The scenario's `input`, handed to the agent as-is."
     },
     "deadline_ms": {
       "default": 60000,
+      "description": "Time budget for the whole invocation, in milliseconds.",
       "title": "Deadline Ms",
       "type": "integer"
     },
@@ -131,10 +148,12 @@
         }
       ],
       "default": null,
+      "description": "W3C `traceparent` header value, so the harness can join the runner's trace.",
       "title": "Traceparent"
     },
     "tool_faults": {
       "default": [],
+      "description": "Faults the harness must apply at its own tool boundary; sent only to `intercept_tools=\"declared_only\"`.",
       "items": {
         "$ref": "#/$defs/ToolFault"
       },
@@ -150,7 +169,8 @@
           "type": "null"
         }
       ],
-      "default": null
+      "default": null,
+      "description": "Checkpoint to continue from, for resume/fork runs."
     }
   },
   "required": [

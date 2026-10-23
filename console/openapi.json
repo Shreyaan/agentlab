@@ -7,7 +7,7 @@
   "paths": {
     "/v1/info": {
       "get": {
-        "summary": "Info",
+        "summary": "Console info",
         "operationId": "info_v1_info_get",
         "parameters": [
           {
@@ -32,6 +32,16 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -47,7 +57,7 @@
     },
     "/v1/judges": {
       "get": {
-        "summary": "Judges",
+        "summary": "Judge track records",
         "operationId": "judges_v1_judges_get",
         "parameters": [
           {
@@ -76,6 +86,16 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -91,7 +111,7 @@
     },
     "/v1/targets": {
       "get": {
-        "summary": "Targets",
+        "summary": "List targets with health",
         "operationId": "targets_v1_targets_get",
         "parameters": [
           {
@@ -120,6 +140,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -135,7 +175,7 @@
     },
     "/v1/targets/test": {
       "post": {
-        "summary": "Test Target",
+        "summary": "Probe a target draft",
         "operationId": "test_target_v1_targets_test_post",
         "parameters": [
           {
@@ -180,12 +220,32 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid target body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
                 }
               }
             }
@@ -195,7 +255,7 @@
     },
     "/v1/targets/{name}": {
       "put": {
-        "summary": "Put Target",
+        "summary": "Save a target",
         "operationId": "put_target_v1_targets__name__put",
         "parameters": [
           {
@@ -249,12 +309,42 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body, name differs from the path, or the URL host is not in allowed_hosts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -262,7 +352,7 @@
         }
       },
       "delete": {
-        "summary": "Delete Target",
+        "summary": "Delete a target",
         "operationId": "delete_target_v1_targets__name__delete",
         "parameters": [
           {
@@ -299,6 +389,46 @@
           "204": {
             "description": "Successful Response"
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -314,7 +444,7 @@
     },
     "/v1/environments": {
       "get": {
-        "summary": "List Environments",
+        "summary": "List environments",
         "operationId": "list_environments_v1_environments_get",
         "parameters": [
           {
@@ -343,6 +473,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -356,7 +506,7 @@
         }
       },
       "post": {
-        "summary": "Save Environment",
+        "summary": "Save an environment",
         "operationId": "save_environment_v1_environments_post",
         "parameters": [
           {
@@ -401,12 +551,42 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The environments path is not a directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid or unrunnable environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
                 }
               }
             }
@@ -416,7 +596,7 @@
     },
     "/v1/environments/{key}/builder": {
       "get": {
-        "summary": "Environment Builder Info",
+        "summary": "Editor vocabulary for an environment",
         "operationId": "environment_builder_info_v1_environments__key__builder_get",
         "parameters": [
           {
@@ -450,6 +630,36 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -465,7 +675,7 @@
     },
     "/v1/environments/validate": {
       "post": {
-        "summary": "Validate Environment",
+        "summary": "Validate an environment draft",
         "operationId": "validate_environment_v1_environments_validate_post",
         "parameters": [
           {
@@ -500,6 +710,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -525,7 +755,7 @@
     },
     "/v1/scenarios": {
       "get": {
-        "summary": "Scenarios",
+        "summary": "List scenarios",
         "operationId": "scenarios_v1_scenarios_get",
         "parameters": [
           {
@@ -554,6 +784,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -567,7 +817,7 @@
         }
       },
       "post": {
-        "summary": "Save Scenario",
+        "summary": "Save a scenario",
         "operationId": "save_scenario_v1_scenarios_post",
         "parameters": [
           {
@@ -612,12 +862,52 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The suite path is not a directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid scenario.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -627,7 +917,7 @@
     },
     "/v1/scenarios/validate": {
       "post": {
-        "summary": "Validate Scenario",
+        "summary": "Validate a scenario draft",
         "operationId": "validate_scenario_v1_scenarios_validate_post",
         "parameters": [
           {
@@ -662,6 +952,36 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -687,7 +1007,7 @@
     },
     "/v1/scenarios/test-query": {
       "post": {
-        "summary": "Test Query",
+        "summary": "Try a SQL check against seed data",
         "operationId": "test_query_v1_scenarios_test_query_post",
         "parameters": [
           {
@@ -732,12 +1052,42 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -747,7 +1097,7 @@
     },
     "/v1/scenarios/dry-run": {
       "post": {
-        "summary": "Dry Run",
+        "summary": "Dry-run an unsaved scenario",
         "operationId": "dry_run_v1_scenarios_dry_run_post",
         "parameters": [
           {
@@ -792,12 +1142,42 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown target, or the scenario cannot be planned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -807,7 +1187,7 @@
     },
     "/v1/experiments": {
       "get": {
-        "summary": "List Experiments",
+        "summary": "List experiments",
         "operationId": "list_experiments_v1_experiments_get",
         "parameters": [
           {
@@ -848,12 +1228,22 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`limit` out of range (1-500).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
                 }
               }
             }
@@ -861,7 +1251,7 @@
         }
       },
       "post": {
-        "summary": "Run Experiment",
+        "summary": "Start an experiment",
         "operationId": "run_experiment_v1_experiments_post",
         "parameters": [
           {
@@ -906,12 +1296,42 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown scenario or target, or the run cannot be planned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -921,7 +1341,7 @@
     },
     "/v1/experiments/{exp_id}": {
       "get": {
-        "summary": "Get Experiment",
+        "summary": "Get an experiment with its trials",
         "operationId": "get_experiment_v1_experiments__exp_id__get",
         "parameters": [
           {
@@ -955,6 +1375,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown experiment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -970,7 +1410,7 @@
     },
     "/v1/experiments/{exp_id}/canaries": {
       "get": {
-        "summary": "Get Canaries",
+        "summary": "Get an experiment's canary results",
         "operationId": "get_canaries_v1_experiments__exp_id__canaries_get",
         "parameters": [
           {
@@ -1008,6 +1448,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown experiment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1023,7 +1483,7 @@
     },
     "/v1/experiments/{exp_id}/report.html": {
       "get": {
-        "summary": "Get Report",
+        "summary": "Download the HTML report",
         "operationId": "get_report_v1_experiments__exp_id__report_html_get",
         "parameters": [
           {
@@ -1057,6 +1517,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown experiment.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1072,7 +1552,7 @@
     },
     "/v1/trials/{trial_id}": {
       "get": {
-        "summary": "Get Trial",
+        "summary": "Get a trial",
         "operationId": "get_trial_v1_trials__trial_id__get",
         "parameters": [
           {
@@ -1106,6 +1586,26 @@
               }
             }
           },
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown trial.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1121,7 +1621,7 @@
     },
     "/v1/forks": {
       "post": {
-        "summary": "Fork",
+        "summary": "Fork a trial from a checkpoint",
         "operationId": "fork_v1_forks_post",
         "parameters": [
           {
@@ -1166,12 +1666,82 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The fork could not be planned (e.g. unknown checkpoint).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown trial.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The target does not support resuming or forking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream adapter or model failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A config file (targets, scenarios or environments) could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1181,7 +1751,7 @@
     },
     "/v1/author": {
       "post": {
-        "summary": "Author",
+        "summary": "Draft a scenario from a description",
         "operationId": "author_v1_author_post",
         "parameters": [
           {
@@ -1226,12 +1796,52 @@
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing or invalid bearer token (only when a token is configured).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing `X-AgentLab-Request: 1` header on a write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationFailure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The environments directory could not be loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1246,14 +1856,16 @@
         "properties": {
           "experiment_id": {
             "type": "string",
-            "title": "Experiment Id"
+            "title": "Experiment Id",
+            "description": "Id of the experiment that was started; poll it for progress."
           }
         },
         "type": "object",
         "required": [
           "experiment_id"
         ],
-        "title": "Accepted"
+        "title": "Accepted",
+        "description": "Returned when work was queued and continues in the background."
       },
       "Assertion-Input": {
         "oneOf": [
@@ -1325,15 +1937,18 @@
         "properties": {
           "type": {
             "type": "string",
-            "title": "Type"
+            "title": "Type",
+            "description": "Check type, e.g. `sql`, `tool_order` or `decision`; `budget` for limits."
           },
           "description": {
             "type": "string",
-            "title": "Description"
+            "title": "Description",
+            "description": "Human-readable statement of what was checked."
           },
           "critical": {
             "type": "boolean",
-            "title": "Critical"
+            "title": "Critical",
+            "description": "Whether a failure blocks the release gate."
           },
           "status": {
             "type": "string",
@@ -1343,11 +1958,13 @@
               "unsupported",
               "skipped"
             ],
-            "title": "Status"
+            "title": "Status",
+            "description": "`unsupported`: could not be evaluated (missing evidence, judge abstained or errored). `skipped`: not applicable to this run."
           },
           "detail": {
             "type": "string",
             "title": "Detail",
+            "description": "Why it passed or failed, with the observed values.",
             "default": ""
           },
           "judge": {
@@ -1358,7 +1975,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Judge breakdown; present for `decision` checks."
           }
         },
         "type": "object",
@@ -1368,7 +1986,8 @@
           "critical",
           "status"
         ],
-        "title": "AssertionResult"
+        "title": "AssertionResult",
+        "description": "The outcome of one check on one trial."
       },
       "AuthorDraft": {
         "properties": {
@@ -1380,7 +1999,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The drafted environment; set only when a new one was drafted."
           },
           "scenario": {
             "anyOf": [
@@ -1390,11 +2010,13 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The drafted scenario; null only when no attempt produced a parseable one (then `valid` is false)."
           },
           "valid": {
             "type": "boolean",
-            "title": "Valid"
+            "title": "Valid",
+            "description": "Whether the draft passed validation and can be saved."
           },
           "errors": {
             "items": {
@@ -1402,6 +2024,7 @@
             },
             "type": "array",
             "title": "Errors",
+            "description": "Problems remaining after the repair attempts.",
             "default": []
           },
           "notes": {
@@ -1410,15 +2033,18 @@
             },
             "type": "array",
             "title": "Notes",
+            "description": "Assumptions the author model made, for a human to review.",
             "default": []
           },
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "description": "Authoring model id."
           },
           "attempts": {
             "type": "integer",
-            "title": "Attempts"
+            "title": "Attempts",
+            "description": "Model calls made, including repair attempts."
           },
           "cost_usd": {
             "anyOf": [
@@ -1429,7 +2055,8 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Total model spend in US dollars, if reported."
           }
         },
         "type": "object",
@@ -1449,7 +2076,8 @@
             "type": "string",
             "maxLength": 8000,
             "minLength": 10,
-            "title": "Description"
+            "title": "Description",
+            "description": "The scenario to build, in plain English."
           },
           "environment": {
             "anyOf": [
@@ -1460,14 +2088,16 @@
                 "type": "null"
               }
             ],
-            "title": "Environment"
+            "title": "Environment",
+            "description": "Existing environment key to build on; null drafts a new environment too."
           }
         },
         "type": "object",
         "required": [
           "description"
         ],
-        "title": "AuthorRequest"
+        "title": "AuthorRequest",
+        "description": "Ask a model to draft a scenario (and optionally its environment) from plain English."
       },
       "Budget": {
         "properties": {
@@ -1480,7 +2110,8 @@
                 "type": "null"
               }
             ],
-            "title": "Max Tool Calls"
+            "title": "Max Tool Calls",
+            "description": "Most tool calls the agent may make (ledger entries)."
           },
           "max_latency_ms": {
             "anyOf": [
@@ -1491,7 +2122,8 @@
                 "type": "null"
               }
             ],
-            "title": "Max Latency Ms"
+            "title": "Max Latency Ms",
+            "description": "Longest allowed invoke time, in milliseconds."
           },
           "max_cost_usd": {
             "anyOf": [
@@ -1502,11 +2134,13 @@
                 "type": "null"
               }
             ],
-            "title": "Max Cost Usd"
+            "title": "Max Cost Usd",
+            "description": "Highest allowed model spend in US dollars, as reported by the adapter."
           }
         },
         "type": "object",
-        "title": "Budget"
+        "title": "Budget",
+        "description": "Optional per-trial ceilings; each set limit becomes a non-critical check."
       },
       "BuilderInfo": {
         "properties": {
@@ -1515,7 +2149,8 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Tools"
+            "title": "Tools",
+            "description": "The environment's tool names, for faults, `tool_order`, `forbidden_tool` and events."
           },
           "seed_columns": {
             "additionalProperties": {
@@ -1525,21 +2160,24 @@
               "type": "array"
             },
             "type": "object",
-            "title": "Seed Columns"
+            "title": "Seed Columns",
+            "description": "The environment's tables, each with its column names."
           },
           "assertion_types": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Assertion Types"
+            "title": "Assertion Types",
+            "description": "Check types a new scenario may use."
           },
           "judge_models": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Judge Models"
+            "title": "Judge Models",
+            "description": "Suggested decision models; the first is the default judge."
           }
         },
         "type": "object",
@@ -1564,6 +2202,7 @@
               }
             ],
             "title": "Question",
+            "description": "Question about the evidence whose true answer the environment knows.",
             "discriminator": {
               "propertyName": "type",
               "mapping": {
@@ -1574,7 +2213,8 @@
           },
           "truth_sql": {
             "type": "string",
-            "title": "Truth Sql"
+            "title": "Truth Sql",
+            "description": "Read-only SELECT over the trial schema returning a single cell, compared as a string to the answer."
           }
         },
         "type": "object",
@@ -1589,10 +2229,12 @@
         "properties": {
           "label": {
             "type": "string",
-            "title": "Label"
+            "title": "Label",
+            "description": "Unique name for this example within its check."
           },
           "evidence": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "Evidence as a judge would see it, keyed by kind, e.g. `{\"output\": \"...\", \"final_state\": {...}}`."
           },
           "expected": {
             "type": "string",
@@ -1600,7 +2242,8 @@
               "pass",
               "fail"
             ],
-            "title": "Expected"
+            "title": "Expected",
+            "description": "The verdict a correct judge must reach."
           }
         },
         "type": "object",
@@ -1616,23 +2259,28 @@
         "properties": {
           "experiment_id": {
             "type": "string",
-            "title": "Experiment Id"
+            "title": "Experiment Id",
+            "description": "Experiment that ran the canary."
           },
           "scenario": {
             "type": "string",
-            "title": "Scenario"
+            "title": "Scenario",
+            "description": "Scenario `id@version` whose check owns the canary."
           },
           "check": {
             "type": "string",
-            "title": "Check"
+            "title": "Check",
+            "description": "Description of the decision check."
           },
           "label": {
             "type": "string",
-            "title": "Label"
+            "title": "Label",
+            "description": "The canary's label."
           },
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "description": "Judge model that answered."
           },
           "expected": {
             "type": "string",
@@ -1640,7 +2288,8 @@
               "pass",
               "fail"
             ],
-            "title": "Expected"
+            "title": "Expected",
+            "description": "The canary's correct verdict."
           },
           "verdict": {
             "type": "string",
@@ -1649,14 +2298,17 @@
               "fail",
               "abstain"
             ],
-            "title": "Verdict"
+            "title": "Verdict",
+            "description": "The verdict this judge reached."
           },
           "correct": {
             "type": "boolean",
-            "title": "Correct"
+            "title": "Correct",
+            "description": "Whether `verdict` equals `expected`; an abstain is never correct."
           },
           "answer": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "The judge's raw answer."
           },
           "cost_usd": {
             "anyOf": [
@@ -1667,7 +2319,8 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Cost of the judge call in US dollars, if reported."
           }
         },
         "type": "object",
@@ -1682,13 +2335,15 @@
           "correct",
           "answer"
         ],
-        "title": "CanaryResult"
+        "title": "CanaryResult",
+        "description": "One judge's verdict on one canary, recorded to measure verdict accuracy."
       },
       "Capabilities": {
         "properties": {
           "invoke": {
             "type": "boolean",
             "title": "Invoke",
+            "description": "Accepts `POST /invoke`. Always true for a working harness.",
             "default": true
           },
           "observe": {
@@ -1699,6 +2354,7 @@
               "none"
             ],
             "title": "Observe",
+            "description": "How much of the run the harness reveals: `native_events` streams the full event list in the response, `otel_partial` exports OpenTelemetry spans only, `none` is a black box.",
             "default": "none"
           },
           "intercept_tools": {
@@ -1708,26 +2364,31 @@
               "none"
             ],
             "title": "Intercept Tools",
+            "description": "`declared_only` means the harness applies the `tool_faults` it receives at its own tool boundary; `none` means it ignores them.",
             "default": "none"
           },
           "checkpoint": {
             "type": "boolean",
             "title": "Checkpoint",
+            "description": "Emits `checkpoint_saved` events that a run can be resumed from.",
             "default": false
           },
           "resume": {
             "type": "boolean",
             "title": "Resume",
+            "description": "Can continue a prior trial from a checkpoint (`resume_from`).",
             "default": false
           },
           "fork": {
             "type": "boolean",
             "title": "Fork",
+            "description": "Can branch a prior trial's checkpoint into a new run (`resume_from`).",
             "default": false
           }
         },
         "type": "object",
-        "title": "Capabilities"
+        "title": "Capabilities",
+        "description": "What a harness can do beyond plain invoke; the runner skips or marks checks the harness cannot support."
       },
       "ChoiceQuestion": {
         "properties": {
@@ -1735,11 +2396,13 @@
             "type": "string",
             "const": "choice",
             "title": "Type",
+            "description": "Discriminator; always `choice`.",
             "default": "choice"
           },
           "instructions": {
             "type": "string",
-            "title": "Instructions"
+            "title": "Instructions",
+            "description": "The question to answer about the evidence."
           },
           "criteria": {
             "additionalProperties": {
@@ -1747,7 +2410,8 @@
             },
             "type": "object",
             "minProperties": 2,
-            "title": "Criteria"
+            "title": "Criteria",
+            "description": "Option name to description of when it applies."
           }
         },
         "type": "object",
@@ -1755,7 +2419,8 @@
           "instructions",
           "criteria"
         ],
-        "title": "ChoiceQuestion"
+        "title": "ChoiceQuestion",
+        "description": "Pick exactly one option; the judge also reports its confidence in the pick."
       },
       "ChoiceRule": {
         "properties": {
@@ -1765,7 +2430,8 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Choices"
+            "title": "Choices",
+            "description": "Pass when the judge picks any of these options."
           }
         },
         "additionalProperties": false,
@@ -1773,35 +2439,42 @@
         "required": [
           "choices"
         ],
-        "title": "ChoiceRule"
+        "title": "ChoiceRule",
+        "description": "Pass rule for a choice question."
       },
       "Column": {
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Column name: lowercase letters, digits and `_`, starting with a letter (max 48)."
           },
           "type": {
-            "$ref": "#/components/schemas/ColumnType"
+            "$ref": "#/components/schemas/ColumnType",
+            "description": "Postgres type the column is created with."
           },
           "primary_key": {
             "type": "boolean",
             "title": "Primary Key",
+            "description": "Part of the table's primary key (several columns make a composite key).",
             "default": false
           },
           "nullable": {
             "type": "boolean",
             "title": "Nullable",
+            "description": "Whether NULL values are allowed.",
             "default": true
           },
           "unique": {
             "type": "boolean",
             "title": "Unique",
+            "description": "Values must be distinct across rows.",
             "default": false
           },
           "serial": {
             "type": "boolean",
             "title": "Serial",
+            "description": "Auto-incrementing integer key. Deterministic, so ledger replay reproduces the same ids.",
             "default": false
           },
           "references": {
@@ -1813,7 +2486,8 @@
                 "type": "null"
               }
             ],
-            "title": "References"
+            "title": "References",
+            "description": "Foreign key target as `\"table.column\"`, e.g. `\"customers.id\"`."
           }
         },
         "type": "object",
@@ -1821,7 +2495,8 @@
           "name",
           "type"
         ],
-        "title": "Column"
+        "title": "Column",
+        "description": "One column of an environment table."
       },
       "ColumnType": {
         "type": "string",
@@ -1839,23 +2514,28 @@
         "properties": {
           "version": {
             "type": "string",
-            "title": "Version"
+            "title": "Version",
+            "description": "Installed AgentLab version."
           },
           "protocol_version": {
             "type": "string",
-            "title": "Protocol Version"
+            "title": "Protocol Version",
+            "description": "Wire protocol version the runner speaks."
           },
           "auth_required": {
             "type": "boolean",
-            "title": "Auth Required"
+            "title": "Auth Required",
+            "description": "Whether API calls need a bearer token."
           },
           "suite_path": {
             "type": "string",
-            "title": "Suite Path"
+            "title": "Suite Path",
+            "description": "Scenario file or directory the console reads."
           },
           "targets_path": {
             "type": "string",
-            "title": "Targets Path"
+            "title": "Targets Path",
+            "description": "Targets YAML file the console reads and edits."
           }
         },
         "type": "object",
@@ -1866,42 +2546,50 @@
           "suite_path",
           "targets_path"
         ],
-        "title": "ConsoleInfo"
+        "title": "ConsoleInfo",
+        "description": "Static facts about the running console."
       },
       "Decision-Input": {
         "properties": {
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "decision",
             "title": "Type",
+            "description": "Discriminator; always `decision`.",
             "default": "decision"
           },
           "question": {
-            "$ref": "#/components/schemas/Question"
+            "$ref": "#/components/schemas/Question",
+            "description": "What the judges are asked about the evidence."
           },
           "pass_rule": {
-            "$ref": "#/components/schemas/PassRule"
+            "$ref": "#/components/schemas/PassRule",
+            "description": "How an answer maps to pass; its kind must match the question's."
           },
           "min_confidence": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Min Confidence",
+            "description": "Answers less confident than this abstain; a judge's own threshold overrides it.",
             "default": 0.8
           },
           "evidence": {
@@ -1911,6 +2599,7 @@
             "type": "array",
             "minItems": 1,
             "title": "Evidence",
+            "description": "Parts of the run shown to the judges.",
             "default": [
               "input",
               "output",
@@ -1923,10 +2612,12 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Judges"
+            "title": "Judges",
+            "description": "Models that answer, in order; defaults to the built-in decision models."
           },
           "strategy": {
             "$ref": "#/components/schemas/Strategy",
+            "description": "`cascade`: the first confident judge decides. `jury`: only unanimous confident votes decide.",
             "default": "cascade"
           },
           "calibration": {
@@ -1937,7 +2628,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Optional evidence-reading question asked alongside, to score each judge's accuracy."
           },
           "canaries": {
             "items": {
@@ -1945,6 +2637,7 @@
             },
             "type": "array",
             "title": "Canaries",
+            "description": "Labelled examples measuring each judge's verdict accuracy; need one pass and one fail.",
             "default": []
           }
         },
@@ -1959,11 +2652,13 @@
       "DryRunRequest": {
         "properties": {
           "scenario": {
-            "$ref": "#/components/schemas/Scenario-Input"
+            "$ref": "#/components/schemas/Scenario-Input",
+            "description": "The scenario to run; it may be unsaved."
           },
           "target": {
             "type": "string",
-            "title": "Target"
+            "title": "Target",
+            "description": "Target name to run it on."
           }
         },
         "type": "object",
@@ -1971,28 +2666,33 @@
           "scenario",
           "target"
         ],
-        "title": "DryRunRequest"
+        "title": "DryRunRequest",
+        "description": "Run one scenario once on one target without saving it."
       },
       "EnvironmentDraft": {
         "properties": {
           "environment": {
-            "$ref": "#/components/schemas/EnvironmentSpec"
+            "$ref": "#/components/schemas/EnvironmentSpec",
+            "description": "The environment definition."
           }
         },
         "type": "object",
         "required": [
           "environment"
         ],
-        "title": "EnvironmentDraft"
+        "title": "EnvironmentDraft",
+        "description": "An environment to validate or save."
       },
       "EnvironmentInfo": {
         "properties": {
           "key": {
             "type": "string",
-            "title": "Key"
+            "title": "Key",
+            "description": "Environment `id@version`."
           },
           "environment": {
-            "$ref": "#/components/schemas/EnvironmentSpec"
+            "$ref": "#/components/schemas/EnvironmentSpec",
+            "description": "The full environment definition."
           }
         },
         "type": "object",
@@ -2000,22 +2700,26 @@
           "key",
           "environment"
         ],
-        "title": "EnvironmentInfo"
+        "title": "EnvironmentInfo",
+        "description": "An environment spec with its lookup key."
       },
       "EnvironmentSpec": {
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Environment id: 1-64 lowercase letters, digits, `.`, `_` or `-`."
           },
           "version": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Version"
+            "title": "Version",
+            "description": "Bumped whenever the spec changes; scenarios pin `id@version`."
           },
           "description": {
             "type": "string",
-            "title": "Description"
+            "title": "Description",
+            "description": "The world in plain English; also given to agents as context."
           },
           "tables": {
             "items": {
@@ -2023,7 +2727,8 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Tables"
+            "title": "Tables",
+            "description": "Tables created for every trial; names are unique."
           },
           "tools": {
             "items": {
@@ -2031,7 +2736,8 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Tools"
+            "title": "Tools",
+            "description": "Tools the agent can call; names are unique."
           }
         },
         "type": "object",
@@ -2042,7 +2748,8 @@
           "tables",
           "tools"
         ],
-        "title": "EnvironmentSpec"
+        "title": "EnvironmentSpec",
+        "description": "A versioned environment: the tables and tools of one simulated world."
       },
       "ErrorCode": {
         "type": "string",
@@ -2057,14 +2764,31 @@
         ],
         "title": "ErrorCode"
       },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "What went wrong, in plain English; never echoes secrets or input values."
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "description": "Body of every non-validation error response."
+      },
       "Event": {
         "properties": {
           "seq": {
             "type": "integer",
-            "title": "Seq"
+            "title": "Seq",
+            "description": "Position in the run, starting at 1. Ordering always uses `seq`, never `ts`."
           },
           "type": {
-            "$ref": "#/components/schemas/EventType"
+            "$ref": "#/components/schemas/EventType",
+            "description": "What happened, e.g. `tool_requested` or `model_call`."
           },
           "name": {
             "anyOf": [
@@ -2075,7 +2799,8 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Name",
+            "description": "Tool name, for `tool_*` events."
           },
           "ts": {
             "anyOf": [
@@ -2086,7 +2811,8 @@
                 "type": "null"
               }
             ],
-            "title": "Ts"
+            "title": "Ts",
+            "description": "Unix time in seconds; informational, clocks differ across runtimes."
           },
           "span_id": {
             "anyOf": [
@@ -2097,7 +2823,8 @@
                 "type": "null"
               }
             ],
-            "title": "Span Id"
+            "title": "Span Id",
+            "description": "Identifier of this step, for correlating with traces."
           },
           "parent_id": {
             "anyOf": [
@@ -2108,10 +2835,12 @@
                 "type": "null"
               }
             ],
-            "title": "Parent Id"
+            "title": "Parent Id",
+            "description": "`span_id` of the step that caused this one."
           },
           "data": {
             "$ref": "#/components/schemas/JsonObject",
+            "description": "Event payload. `tool_failed`: `{\"injected\": bool, \"committed\": bool}` when a fault fired. `checkpoint_saved`: `{\"checkpoint_id\": str}`.",
             "default": {}
           }
         },
@@ -2120,34 +2849,40 @@
           "seq",
           "type"
         ],
-        "title": "Event"
+        "title": "Event",
+        "description": "One step the harness reports about its own run (only when `observe` is `native_events`)."
       },
       "EventPresent": {
         "properties": {
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "event_present",
             "title": "Type",
+            "description": "Discriminator; always `event_present`.",
             "default": "event_present"
           },
           "event": {
             "type": "string",
-            "title": "Event"
+            "title": "Event",
+            "description": "Event type that must appear, e.g. `approval_requested`."
           },
           "name": {
             "anyOf": [
@@ -2158,7 +2893,8 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Name",
+            "description": "Also require this tool name on the event; any name if omitted."
           }
         },
         "type": "object",
@@ -2199,15 +2935,18 @@
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Unique experiment id."
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "description": "When the experiment was planned."
           },
           "meta": {
-            "$ref": "#/components/schemas/ExperimentMeta"
+            "$ref": "#/components/schemas/ExperimentMeta",
+            "description": "The pinned plan."
           },
           "decision": {
             "anyOf": [
@@ -2217,7 +2956,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Release decision; null until all trials finish."
           }
         },
         "type": "object",
@@ -2226,22 +2966,26 @@
           "created_at",
           "meta"
         ],
-        "title": "Experiment"
+        "title": "Experiment",
+        "description": "A batch of trials with its plan and release decision."
       },
       "ExperimentDetail": {
         "properties": {
           "summary": {
-            "$ref": "#/components/schemas/ExperimentSummary"
+            "$ref": "#/components/schemas/ExperimentSummary",
+            "description": "List-row view of the experiment."
           },
           "experiment": {
-            "$ref": "#/components/schemas/Experiment"
+            "$ref": "#/components/schemas/Experiment",
+            "description": "Plan and release decision."
           },
           "trials": {
             "items": {
               "$ref": "#/components/schemas/Trial"
             },
             "type": "array",
-            "title": "Trials"
+            "title": "Trials",
+            "description": "Every trial with its evidence and check results."
           }
         },
         "type": "object",
@@ -2250,7 +2994,8 @@
           "experiment",
           "trials"
         ],
-        "title": "ExperimentDetail"
+        "title": "ExperimentDetail",
+        "description": "An experiment with all of its trials."
       },
       "ExperimentMeta": {
         "properties": {
@@ -2259,14 +3004,16 @@
               "$ref": "#/components/schemas/TargetInfo"
             },
             "type": "object",
-            "title": "Targets"
+            "title": "Targets",
+            "description": "Participating targets by name."
           },
           "scenarios": {
             "additionalProperties": {
               "$ref": "#/components/schemas/Scenario-Output"
             },
             "type": "object",
-            "title": "Scenarios"
+            "title": "Scenarios",
+            "description": "Scenarios run, by `id@version`, as they were at start."
           },
           "environments": {
             "additionalProperties": {
@@ -2274,15 +3021,18 @@
             },
             "type": "object",
             "title": "Environments",
+            "description": "Environment specs pinned at plan time; absent in history recorded before pinning.",
             "default": {}
           },
           "repeats": {
             "type": "integer",
-            "title": "Repeats"
+            "title": "Repeats",
+            "description": "Times each scenario ran on each target."
           },
           "fixture_url": {
             "type": "string",
-            "title": "Fixture Url"
+            "title": "Fixture Url",
+            "description": "Base URL of the fixture service as agents saw it."
           },
           "forked_from": {
             "anyOf": [
@@ -2292,7 +3042,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Checkpoint this experiment forked, if it is a fork."
           },
           "candidate": {
             "anyOf": [
@@ -2303,7 +3054,8 @@
                 "type": "null"
               }
             ],
-            "title": "Candidate"
+            "title": "Candidate",
+            "description": "Target being judged for release."
           },
           "baseline": {
             "anyOf": [
@@ -2314,16 +3066,19 @@
                 "type": "null"
               }
             ],
-            "title": "Baseline"
+            "title": "Baseline",
+            "description": "Target the candidate is compared against, if any."
           },
           "max_regression": {
             "type": "number",
             "title": "Max Regression",
+            "description": "Pass-rate drop vs the baseline that is tolerated, from 0 to 1.",
             "default": 0.0
           },
           "planned_trials": {
             "type": "integer",
             "title": "Planned Trials",
+            "description": "Total trials planned at start.",
             "default": 0
           }
         },
@@ -2334,7 +3089,8 @@
           "repeats",
           "fixture_url"
         ],
-        "title": "ExperimentMeta"
+        "title": "ExperimentMeta",
+        "description": "The plan of an experiment, pinned at start so history stays reproducible."
       },
       "ExperimentStatus": {
         "type": "string",
@@ -2348,15 +3104,18 @@
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Unique experiment id."
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "title": "Created At"
+            "title": "Created At",
+            "description": "When the experiment was planned."
           },
           "status": {
-            "$ref": "#/components/schemas/ExperimentStatus"
+            "$ref": "#/components/schemas/ExperimentStatus",
+            "description": "Whether its trials are still running or it has a decision."
           },
           "candidate": {
             "anyOf": [
@@ -2367,7 +3126,8 @@
                 "type": "null"
               }
             ],
-            "title": "Candidate"
+            "title": "Candidate",
+            "description": "Target being judged for release."
           },
           "baseline": {
             "anyOf": [
@@ -2378,7 +3138,8 @@
                 "type": "null"
               }
             ],
-            "title": "Baseline"
+            "title": "Baseline",
+            "description": "Target compared against, if any."
           },
           "decision": {
             "anyOf": [
@@ -2388,19 +3149,23 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Release decision; null until the experiment completes."
           },
           "planned": {
             "type": "integer",
-            "title": "Planned"
+            "title": "Planned",
+            "description": "Trials planned."
           },
           "finished": {
             "type": "integer",
-            "title": "Finished"
+            "title": "Finished",
+            "description": "Trials no longer running."
           },
           "errors": {
             "type": "integer",
-            "title": "Errors"
+            "title": "Errors",
+            "description": "Trials that could not be graded."
           },
           "cost_usd": {
             "anyOf": [
@@ -2411,7 +3176,8 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Total agent spend in US dollars, if reported."
           },
           "forked_from": {
             "anyOf": [
@@ -2421,7 +3187,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Checkpoint this experiment forked; null if not a fork."
           },
           "error": {
             "anyOf": [
@@ -2432,7 +3199,8 @@
                 "type": "null"
               }
             ],
-            "title": "Error"
+            "title": "Error",
+            "description": "Why the job died, if it did."
           }
         },
         "type": "object",
@@ -2449,7 +3217,8 @@
           "cost_usd",
           "forked_from"
         ],
-        "title": "ExperimentSummary"
+        "title": "ExperimentSummary",
+        "description": "One row of the experiment list."
       },
       "FaultAction": {
         "type": "string",
@@ -2477,44 +3246,52 @@
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "forbidden_tool",
             "title": "Type",
+            "description": "Discriminator; always `forbidden_tool`.",
             "default": "forbidden_tool"
           },
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Tool that must never be called, whether or not the call succeeded."
           }
         },
         "type": "object",
         "required": [
           "name"
         ],
-        "title": "ForbiddenTool"
+        "title": "ForbiddenTool",
+        "description": "The named tool must never appear in the side-effect ledger."
       },
       "ForkRequest": {
         "properties": {
           "trial_id": {
             "type": "string",
-            "title": "Trial Id"
+            "title": "Trial Id",
+            "description": "Trial to fork."
           },
           "checkpoint_id": {
             "type": "string",
-            "title": "Checkpoint Id"
+            "title": "Checkpoint Id",
+            "description": "Checkpoint in that trial to resume from."
           },
           "target": {
             "anyOf": [
@@ -2525,7 +3302,8 @@
                 "type": "null"
               }
             ],
-            "title": "Target"
+            "title": "Target",
+            "description": "Target to resume on; defaults to the source trial's target."
           },
           "faults": {
             "type": "string",
@@ -2534,6 +3312,7 @@
               "scenario"
             ],
             "title": "Faults",
+            "description": "`scenario` re-applies the scenario's faults; `none` runs the fork clean.",
             "default": "none"
           }
         },
@@ -2542,7 +3321,8 @@
           "trial_id",
           "checkpoint_id"
         ],
-        "title": "ForkRequest"
+        "title": "ForkRequest",
+        "description": "Re-run a trial from one of its checkpoints, to test a counterfactual."
       },
       "GateStatus": {
         "type": "string",
@@ -2576,10 +3356,12 @@
         "properties": {
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "description": "Judge model id."
           },
           "answer": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "The answer as returned, e.g. `{\"type\": \"noul\", \"noul\": 0.02}` or `{\"type\": \"choice\", \"choice\": \"...\", \"confidence\": 0.9}`; `{\"type\": \"error\", ...}` if the call failed."
           },
           "calibration_answer": {
             "anyOf": [
@@ -2589,7 +3371,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The judge's answer to the calibration question, if the check has one."
           },
           "cost_usd": {
             "anyOf": [
@@ -2600,7 +3383,8 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Cost of this judge call in US dollars, if reported."
           }
         },
         "type": "object",
@@ -2615,7 +3399,8 @@
         "properties": {
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "description": "OpenRouter model id, pinned to an exact version, e.g. `typesafe/jev-1.14`."
           },
           "api": {
             "type": "string",
@@ -2624,6 +3409,7 @@
               "chat"
             ],
             "title": "Api",
+            "description": "`decisions`: the OpenRouter Decisions API. `chat`: any chat model with JSON-schema output.",
             "default": "decisions"
           },
           "min_confidence": {
@@ -2637,28 +3423,33 @@
                 "type": "null"
               }
             ],
-            "title": "Min Confidence"
+            "title": "Min Confidence",
+            "description": "This judge's own confidence threshold, overriding the check's; probabilities are not comparable across models."
           }
         },
         "type": "object",
         "required": [
           "model"
         ],
-        "title": "JudgeSpec"
+        "title": "JudgeSpec",
+        "description": "One judge model and how to call it."
       },
       "JudgeStats": {
         "properties": {
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "description": "Judge model id."
           },
           "samples": {
             "type": "integer",
-            "title": "Samples"
+            "title": "Samples",
+            "description": "Calibration answers seen (evidence-reading samples)."
           },
           "correct": {
             "type": "integer",
-            "title": "Correct"
+            "title": "Correct",
+            "description": "Calibration answers that matched the ground truth."
           },
           "accuracy": {
             "anyOf": [
@@ -2669,16 +3460,19 @@
                 "type": "null"
               }
             ],
-            "title": "Accuracy"
+            "title": "Accuracy",
+            "description": "`correct / samples` from 0 to 1; null before any sample."
           },
           "canary_samples": {
             "type": "integer",
             "title": "Canary Samples",
+            "description": "Canary verdicts seen, excluding judge errors.",
             "default": 0
           },
           "canary_correct": {
             "type": "integer",
             "title": "Canary Correct",
+            "description": "Canary verdicts that matched the expected label.",
             "default": 0
           },
           "canary_accuracy": {
@@ -2690,7 +3484,8 @@
                 "type": "null"
               }
             ],
-            "title": "Canary Accuracy"
+            "title": "Canary Accuracy",
+            "description": "`canary_correct / canary_samples` from 0 to 1; null before any canary."
           },
           "cost_usd": {
             "anyOf": [
@@ -2701,11 +3496,13 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Total spend on this model's calls in US dollars, if reported."
           },
           "calibrated": {
             "type": "boolean",
-            "title": "Calibrated"
+            "title": "Calibrated",
+            "description": "Meets both accuracy bars, so critical decision checks may block releases."
           }
         },
         "type": "object",
@@ -2727,7 +3524,8 @@
               "$ref": "#/components/schemas/JudgeAnswer"
             },
             "type": "array",
-            "title": "Judges"
+            "title": "Judges",
+            "description": "Answers from the judges that were asked, in order."
           },
           "verdict": {
             "type": "string",
@@ -2736,11 +3534,13 @@
               "fail",
               "abstain"
             ],
-            "title": "Verdict"
+            "title": "Verdict",
+            "description": "Combined outcome. `abstain` means low confidence, judges disagreed, or an error."
           },
           "reason": {
             "type": "string",
             "title": "Reason",
+            "description": "Each judge's vote, joined for display.",
             "default": ""
           },
           "calibration_truth": {
@@ -2752,7 +3552,8 @@
                 "type": "null"
               }
             ],
-            "title": "Calibration Truth"
+            "title": "Calibration Truth",
+            "description": "Ground truth read from SQL for the calibration question."
           },
           "calibration_correct": {
             "additionalProperties": {
@@ -2760,6 +3561,7 @@
             },
             "type": "object",
             "title": "Calibration Correct",
+            "description": "Judge model to whether its calibration answer matched the truth.",
             "default": {}
           }
         },
@@ -2768,35 +3570,43 @@
           "judges",
           "verdict"
         ],
-        "title": "JudgeVerdict"
+        "title": "JudgeVerdict",
+        "description": "What the judges decided for one decision check, and why."
       },
       "LedgerEntry": {
         "properties": {
           "seq": {
             "type": "integer",
-            "title": "Seq"
+            "title": "Seq",
+            "description": "Order of the call within the trial's ledger."
           },
           "tool": {
             "type": "string",
-            "title": "Tool"
+            "title": "Tool",
+            "description": "Tool that was called."
           },
           "request": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "Arguments the agent sent."
           },
           "status": {
             "type": "integer",
-            "title": "Status"
+            "title": "Status",
+            "description": "HTTP status the caller saw."
           },
           "response": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Response body the caller saw."
           },
           "committed": {
             "type": "boolean",
-            "title": "Committed"
+            "title": "Committed",
+            "description": "Whether the call's side effect persisted, even if the caller saw an error."
           },
           "ts": {
             "type": "number",
-            "title": "Ts"
+            "title": "Ts",
+            "description": "Unix time in seconds when the call was recorded."
           }
         },
         "type": "object",
@@ -2817,29 +3627,35 @@
           "protocol_version": {
             "type": "string",
             "title": "Protocol Version",
+            "description": "Wire protocol version the harness speaks; a mismatch is refused.",
             "default": "0.3"
           },
           "adapter_id": {
             "type": "string",
-            "title": "Adapter Id"
+            "title": "Adapter Id",
+            "description": "Stable identifier of this adapter, e.g. `acme-support-bot`."
           },
           "language": {
             "type": "string",
-            "title": "Language"
+            "title": "Language",
+            "description": "Language the harness is written in, e.g. `python` or `typescript`."
           },
           "framework": {
             "type": "string",
             "title": "Framework",
+            "description": "Agent framework in use, e.g. `langgraph`; `custom` if none.",
             "default": "custom"
           },
           "transport": {
             "type": "string",
             "const": "http_json",
             "title": "Transport",
+            "description": "Wire transport; only HTTP+JSON exists.",
             "default": "http_json"
           },
           "capabilities": {
             "$ref": "#/components/schemas/Capabilities",
+            "description": "Optional features the harness supports.",
             "default": {
               "invoke": true,
               "observe": "none",
@@ -2855,7 +3671,8 @@
           "adapter_id",
           "language"
         ],
-        "title": "Manifest"
+        "title": "Manifest",
+        "description": "A harness's self-description, returned by `GET /manifest`."
       },
       "NoulQuestion": {
         "properties": {
@@ -2863,18 +3680,21 @@
             "type": "string",
             "const": "noul",
             "title": "Type",
+            "description": "Discriminator; always `noul`.",
             "default": "noul"
           },
           "instructions": {
             "type": "string",
-            "title": "Instructions"
+            "title": "Instructions",
+            "description": "The statement to judge, phrased so that true means the agent did well."
           },
           "criteria": {
             "additionalProperties": {
               "type": "string"
             },
             "type": "object",
-            "title": "Criteria"
+            "title": "Criteria",
+            "description": "Exactly two keys, `\"true\"` and `\"false\"`, each describing when that answer applies."
           }
         },
         "type": "object",
@@ -2891,7 +3711,8 @@
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Noul At Least"
+            "title": "Noul At Least",
+            "description": "Pass when the probability of true is at least this."
           }
         },
         "additionalProperties": false,
@@ -2899,21 +3720,25 @@
         "required": [
           "noul_at_least"
         ],
-        "title": "NoulRule"
+        "title": "NoulRule",
+        "description": "Pass rule for a noul question."
       },
       "Paired": {
         "properties": {
           "pairs": {
             "type": "integer",
-            "title": "Pairs"
+            "title": "Pairs",
+            "description": "Scenario-repeat pairs graded on both targets."
           },
           "regressions": {
             "type": "integer",
-            "title": "Regressions"
+            "title": "Regressions",
+            "description": "Pairs that passed on the baseline but failed on the candidate."
           },
           "fixes": {
             "type": "integer",
-            "title": "Fixes"
+            "title": "Fixes",
+            "description": "Pairs that failed on the baseline but passed on the candidate."
           }
         },
         "type": "object",
@@ -2922,7 +3747,8 @@
           "regressions",
           "fixes"
         ],
-        "title": "Paired"
+        "title": "Paired",
+        "description": "Same scenario and repeat compared between baseline and candidate, where both were graded."
       },
       "ParamType": {
         "type": "string",
@@ -2950,7 +3776,8 @@
         "properties": {
           "ok": {
             "type": "boolean",
-            "title": "Ok"
+            "title": "Ok",
+            "description": "Whether the query ran."
           },
           "rows": {
             "items": {
@@ -2961,10 +3788,12 @@
             },
             "type": "array",
             "title": "Rows",
+            "description": "Result rows, each a list of cell values.",
             "default": []
           },
           "value": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Single-cell result as a scalar, exactly as the `sql` check compares it; null otherwise."
           },
           "error": {
             "anyOf": [
@@ -2975,21 +3804,24 @@
                 "type": "null"
               }
             ],
-            "title": "Error"
+            "title": "Error",
+            "description": "Why the query failed; null when `ok`."
           }
         },
         "type": "object",
         "required": [
           "ok"
         ],
-        "title": "QueryResult"
+        "title": "QueryResult",
+        "description": "What a test query returned."
       },
       "QueryTest": {
         "properties": {
           "environment": {
             "type": "string",
             "title": "Environment",
-            "default": "refund@1"
+            "description": "Environment `id@version` to create.",
+            "default": "refund@2"
           },
           "seed": {
             "additionalProperties": {
@@ -3000,18 +3832,21 @@
             },
             "type": "object",
             "title": "Seed",
+            "description": "Rows to insert first, keyed by table name.",
             "default": {}
           },
           "query": {
             "type": "string",
-            "title": "Query"
+            "title": "Query",
+            "description": "Read-only SELECT to run, as a `sql` check would."
           }
         },
         "type": "object",
         "required": [
           "query"
         ],
-        "title": "QueryTest"
+        "title": "QueryTest",
+        "description": "A SQL query to try against a temporary seeded environment."
       },
       "Question": {
         "oneOf": [
@@ -3038,11 +3873,13 @@
         "properties": {
           "trial_id": {
             "type": "string",
-            "title": "Trial Id"
+            "title": "Trial Id",
+            "description": "Trial whose run to continue."
           },
           "checkpoint_id": {
             "type": "string",
-            "title": "Checkpoint Id"
+            "title": "Checkpoint Id",
+            "description": "`checkpoint_id` from one of that trial's `checkpoint_saved` events."
           }
         },
         "type": "object",
@@ -3058,22 +3895,26 @@
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "output_matches",
             "title": "Type",
+            "description": "Old regex-on-the-reply check, replaced by `decision`.",
             "default": "output_matches"
           }
         },
@@ -3092,17 +3933,20 @@
         "properties": {
           "sql": {
             "type": "string",
-            "title": "Sql"
+            "title": "Sql",
+            "description": "One SELECT returning a single boolean; true means the call must be refused."
           },
           "status": {
             "type": "integer",
             "maximum": 499.0,
             "minimum": 400.0,
-            "title": "Status"
+            "title": "Status",
+            "description": "HTTP status returned to the agent when the rule fires."
           },
           "error": {
             "type": "string",
-            "title": "Error"
+            "title": "Error",
+            "description": "Message returned to the agent when the rule fires."
           }
         },
         "type": "object",
@@ -3122,11 +3966,13 @@
             },
             "type": "array",
             "title": "Scenarios",
+            "description": "Scenario keys (`id@version`) to run; empty runs the whole suite.",
             "default": []
           },
           "candidate": {
             "type": "string",
-            "title": "Candidate"
+            "title": "Candidate",
+            "description": "Target name to judge for release."
           },
           "baseline": {
             "anyOf": [
@@ -3137,13 +3983,15 @@
                 "type": "null"
               }
             ],
-            "title": "Baseline"
+            "title": "Baseline",
+            "description": "Target name to compare the candidate against."
           },
           "repeats": {
             "type": "integer",
             "maximum": 20.0,
             "minimum": 1.0,
             "title": "Repeats",
+            "description": "Times to run each scenario on each target.",
             "default": 1
           },
           "max_regression": {
@@ -3151,6 +3999,7 @@
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Max Regression",
+            "description": "Pass-rate drop vs the baseline to tolerate, from 0 to 1.",
             "default": 0.0
           }
         },
@@ -3158,21 +4007,25 @@
         "required": [
           "candidate"
         ],
-        "title": "RunRequest"
+        "title": "RunRequest",
+        "description": "Start an experiment: scenarios run on a candidate target, optionally compared to a baseline."
       },
       "SavedScenario": {
         "properties": {
           "key": {
             "type": "string",
-            "title": "Key"
+            "title": "Key",
+            "description": "`id@version` that was written."
           },
           "path": {
             "type": "string",
-            "title": "Path"
+            "title": "Path",
+            "description": "File that was written."
           },
           "created": {
             "type": "boolean",
-            "title": "Created"
+            "title": "Created",
+            "description": "True for a new file; false when an existing one got a new version."
           }
         },
         "type": "object",
@@ -3181,17 +4034,20 @@
           "path",
           "created"
         ],
-        "title": "SavedScenario"
+        "title": "SavedScenario",
+        "description": "Result of saving a scenario or environment file."
       },
       "SavedTarget": {
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Target name that was written."
           },
           "created": {
             "type": "boolean",
-            "title": "Created"
+            "title": "Created",
+            "description": "True for a new target; false when an existing one was replaced."
           }
         },
         "type": "object",
@@ -3199,18 +4055,21 @@
           "name",
           "created"
         ],
-        "title": "SavedTarget"
+        "title": "SavedTarget",
+        "description": "Result of saving a target."
       },
       "Scenario-Input": {
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Scenario id: 1-64 lowercase letters, digits, `.`, `_` or `-`; also the file name."
           },
           "version": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Version"
+            "title": "Version",
+            "description": "Bumped on every change; results are always tied to `id@version`."
           },
           "risk_tier": {
             "type": "string",
@@ -3220,11 +4079,13 @@
               "normal"
             ],
             "title": "Risk Tier",
+            "description": "How much a failure matters; a label shown in the console, it does not change grading.",
             "default": "normal"
           },
           "source": {
             "type": "string",
             "title": "Source",
+            "description": "Free-form label for where the case came from; informational only.",
             "default": "synthetic"
           },
           "slices": {
@@ -3233,12 +4094,14 @@
             },
             "type": "array",
             "title": "Slices",
+            "description": "Free-form tags for grouping results, e.g. `refund`, `timeout`.",
             "default": []
           },
           "environment": {
             "type": "string",
             "title": "Environment",
-            "default": "refund@1"
+            "description": "Environment `id@version` the scenario runs in.",
+            "default": "refund@2"
           },
           "seed": {
             "additionalProperties": {
@@ -3249,10 +4112,12 @@
             },
             "type": "object",
             "title": "Seed",
+            "description": "Rows inserted before the run, keyed by table name; each row maps column to value.",
             "default": {}
           },
           "input": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "Payload handed to the agent as the invoke `input`."
           },
           "faults": {
             "items": {
@@ -3260,6 +4125,7 @@
             },
             "type": "array",
             "title": "Faults",
+            "description": "Scripted tool failures to inject during the run.",
             "default": []
           },
           "assertions": {
@@ -3267,10 +4133,12 @@
               "$ref": "#/components/schemas/Assertion-Input"
             },
             "type": "array",
-            "title": "Assertions"
+            "title": "Assertions",
+            "description": "Checks that decide pass or fail."
           },
           "budget": {
             "$ref": "#/components/schemas/Budget",
+            "description": "Optional ceilings on tool calls, latency and cost.",
             "default": {}
           }
         },
@@ -3281,18 +4149,21 @@
           "input",
           "assertions"
         ],
-        "title": "Scenario"
+        "title": "Scenario",
+        "description": "A versioned, harness-independent test case: input, starting data, faults and assertions."
       },
       "Scenario-Output": {
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Scenario id: 1-64 lowercase letters, digits, `.`, `_` or `-`; also the file name."
           },
           "version": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Version"
+            "title": "Version",
+            "description": "Bumped on every change; results are always tied to `id@version`."
           },
           "risk_tier": {
             "type": "string",
@@ -3302,11 +4173,13 @@
               "normal"
             ],
             "title": "Risk Tier",
+            "description": "How much a failure matters; a label shown in the console, it does not change grading.",
             "default": "normal"
           },
           "source": {
             "type": "string",
             "title": "Source",
+            "description": "Free-form label for where the case came from; informational only.",
             "default": "synthetic"
           },
           "slices": {
@@ -3315,12 +4188,14 @@
             },
             "type": "array",
             "title": "Slices",
+            "description": "Free-form tags for grouping results, e.g. `refund`, `timeout`.",
             "default": []
           },
           "environment": {
             "type": "string",
             "title": "Environment",
-            "default": "refund@1"
+            "description": "Environment `id@version` the scenario runs in.",
+            "default": "refund@2"
           },
           "seed": {
             "additionalProperties": {
@@ -3331,10 +4206,12 @@
             },
             "type": "object",
             "title": "Seed",
+            "description": "Rows inserted before the run, keyed by table name; each row maps column to value.",
             "default": {}
           },
           "input": {
-            "$ref": "#/components/schemas/JsonObject"
+            "$ref": "#/components/schemas/JsonObject",
+            "description": "Payload handed to the agent as the invoke `input`."
           },
           "faults": {
             "items": {
@@ -3342,6 +4219,7 @@
             },
             "type": "array",
             "title": "Faults",
+            "description": "Scripted tool failures to inject during the run.",
             "default": []
           },
           "assertions": {
@@ -3349,10 +4227,12 @@
               "$ref": "#/components/schemas/Assertion-Output"
             },
             "type": "array",
-            "title": "Assertions"
+            "title": "Assertions",
+            "description": "Checks that decide pass or fail."
           },
           "budget": {
             "$ref": "#/components/schemas/Budget",
+            "description": "Optional ceilings on tool calls, latency and cost.",
             "default": {}
           }
         },
@@ -3363,32 +4243,38 @@
           "input",
           "assertions"
         ],
-        "title": "Scenario"
+        "title": "Scenario",
+        "description": "A versioned, harness-independent test case: input, starting data, faults and assertions."
       },
       "ScenarioDraft": {
         "properties": {
           "scenario": {
-            "$ref": "#/components/schemas/Scenario-Input"
+            "$ref": "#/components/schemas/Scenario-Input",
+            "description": "The scenario definition."
           }
         },
         "type": "object",
         "required": [
           "scenario"
         ],
-        "title": "ScenarioDraft"
+        "title": "ScenarioDraft",
+        "description": "A scenario to validate or save."
       },
       "ScenarioFault": {
         "properties": {
           "tool": {
             "type": "string",
-            "title": "Tool"
+            "title": "Tool",
+            "description": "Name of the tool to break."
           },
           "when": {
             "$ref": "#/components/schemas/FaultWhen",
+            "description": "Which calls fail: `first_call`, `always`, or an integer N for the Nth call (1-based).",
             "default": "first_call"
           },
           "action": {
-            "$ref": "#/components/schemas/FaultAction"
+            "$ref": "#/components/schemas/FaultAction",
+            "description": "`timeout_after_commit`: the side effect happens but the caller sees a failure. `error_before_commit`: the call fails with no side effect."
           },
           "boundary": {
             "type": "string",
@@ -3397,6 +4283,7 @@
               "harness"
             ],
             "title": "Boundary",
+            "description": "`fixture`: injected by the environment service, works for every harness. `harness`: sent in `tool_faults` and applied by the adapter (needs `intercept_tools=\"declared_only\"`).",
             "default": "fixture"
           }
         },
@@ -3405,16 +4292,19 @@
           "tool",
           "action"
         ],
-        "title": "ScenarioFault"
+        "title": "ScenarioFault",
+        "description": "A tool fault plus the layer that applies it."
       },
       "ScenarioInfo": {
         "properties": {
           "key": {
             "type": "string",
-            "title": "Key"
+            "title": "Key",
+            "description": "Scenario `id@version`."
           },
           "scenario": {
-            "$ref": "#/components/schemas/Scenario-Output"
+            "$ref": "#/components/schemas/Scenario-Output",
+            "description": "The full scenario definition."
           }
         },
         "type": "object",
@@ -3422,13 +4312,15 @@
           "key",
           "scenario"
         ],
-        "title": "ScenarioInfo"
+        "title": "ScenarioInfo",
+        "description": "A suite scenario with its lookup key."
       },
       "ScenarioValidation": {
         "properties": {
           "valid": {
             "type": "boolean",
-            "title": "Valid"
+            "title": "Valid",
+            "description": "Whether the draft can be saved."
           },
           "errors": {
             "items": {
@@ -3436,6 +4328,7 @@
             },
             "type": "array",
             "title": "Errors",
+            "description": "Problems as `\"path: message\"`, without echoing input values.",
             "default": []
           },
           "yaml": {
@@ -3447,7 +4340,8 @@
                 "type": "null"
               }
             ],
-            "title": "Yaml"
+            "title": "Yaml",
+            "description": "Normalized YAML that would be written; set when valid."
           },
           "key": {
             "anyOf": [
@@ -3458,14 +4352,16 @@
                 "type": "null"
               }
             ],
-            "title": "Key"
+            "title": "Key",
+            "description": "`id@version` saving would produce (version auto-bumps on change); set when valid."
           }
         },
         "type": "object",
         "required": [
           "valid"
         ],
-        "title": "ScenarioValidation"
+        "title": "ScenarioValidation",
+        "description": "Outcome of validating a scenario or environment draft."
       },
       "ScoreQuestion": {
         "properties": {
@@ -3473,11 +4369,13 @@
             "type": "string",
             "const": "score",
             "title": "Type",
+            "description": "Discriminator; always `score`.",
             "default": "score"
           },
           "instructions": {
             "type": "string",
-            "title": "Instructions"
+            "title": "Instructions",
+            "description": "The question to answer about the evidence."
           },
           "criteria": {
             "items": {
@@ -3485,7 +4383,8 @@
             },
             "type": "array",
             "minItems": 2,
-            "title": "Criteria"
+            "title": "Criteria",
+            "description": "Rubric: the description of score 0 first, then 1, up to n-1."
           }
         },
         "type": "object",
@@ -3493,13 +4392,15 @@
           "instructions",
           "criteria"
         ],
-        "title": "ScoreQuestion"
+        "title": "ScoreQuestion",
+        "description": "Give an integer score on a rubric; the judge also reports its confidence."
       },
       "ScoreRule": {
         "properties": {
           "score_at_least": {
             "type": "number",
-            "title": "Score At Least"
+            "title": "Score At Least",
+            "description": "Pass when the judge's score is at least this."
           }
         },
         "additionalProperties": false,
@@ -3507,37 +4408,44 @@
         "required": [
           "score_at_least"
         ],
-        "title": "ScoreRule"
+        "title": "ScoreRule",
+        "description": "Pass rule for a score question."
       },
       "Sql": {
         "properties": {
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "sql",
             "title": "Type",
+            "description": "Discriminator; always `sql`.",
             "default": "sql"
           },
           "query": {
             "type": "string",
-            "title": "Query"
+            "title": "Query",
+            "description": "One read-only SELECT over the trial's tables, run after the agent finishes."
           },
           "equals": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "Expected result: a scalar when the query returns a single cell, else a list of row lists."
           }
         },
         "type": "object",
@@ -3568,7 +4476,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Table name: lowercase letters, digits and `_`; `ledger` and `idempotency` are reserved."
           },
           "columns": {
             "items": {
@@ -3576,7 +4485,8 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Columns"
+            "title": "Columns",
+            "description": "Columns, in order; at least one."
           }
         },
         "type": "object",
@@ -3584,7 +4494,8 @@
           "name",
           "columns"
         ],
-        "title": "Table"
+        "title": "Table",
+        "description": "A table created in the trial's private Postgres schema."
       },
       "TableDiff": {
         "properties": {
@@ -3594,6 +4505,7 @@
             },
             "type": "array",
             "title": "Added",
+            "description": "Rows present at the end but not at the start.",
             "default": []
           },
           "removed": {
@@ -3602,21 +4514,25 @@
             },
             "type": "array",
             "title": "Removed",
+            "description": "Rows present at the start but not at the end.",
             "default": []
           }
         },
         "type": "object",
-        "title": "TableDiff"
+        "title": "TableDiff",
+        "description": "Rows that differ in one table between the start and end of a trial."
       },
       "TargetDraft": {
         "properties": {
           "name": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
-            "title": "Name"
+            "title": "Name",
+            "description": "Target name, up to 64 letters, digits, `.`, `_` or `-`."
           },
           "spec": {
-            "$ref": "#/components/schemas/TargetSpec"
+            "$ref": "#/components/schemas/TargetSpec",
+            "description": "How to reach the harness."
           }
         },
         "type": "object",
@@ -3624,16 +4540,19 @@
           "name",
           "spec"
         ],
-        "title": "TargetDraft"
+        "title": "TargetDraft",
+        "description": "A target to test or save."
       },
       "TargetHealth": {
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Target name from the targets file."
           },
           "mode": {
-            "$ref": "#/components/schemas/TargetMode"
+            "$ref": "#/components/schemas/TargetMode",
+            "description": "How the harness is reached: `native`, `http` or `otel`."
           },
           "url": {
             "anyOf": [
@@ -3644,15 +4563,18 @@
                 "type": "null"
               }
             ],
-            "title": "Url"
+            "title": "Url",
+            "description": "Harness base URL with credentials redacted; null if none."
           },
           "version": {
             "type": "string",
-            "title": "Version"
+            "title": "Version",
+            "description": "Version label of the system under test."
           },
           "reachable": {
             "type": "boolean",
-            "title": "Reachable"
+            "title": "Reachable",
+            "description": "Whether the manifest probe succeeded."
           },
           "manifest": {
             "anyOf": [
@@ -3662,7 +4584,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Live manifest when reachable (native), else the declared one (http/otel); null if none."
           },
           "error": {
             "anyOf": [
@@ -3673,7 +4596,8 @@
                 "type": "null"
               }
             ],
-            "title": "Error"
+            "title": "Error",
+            "description": "Why the probe failed, redacted; null when reachable."
           }
         },
         "type": "object",
@@ -3685,12 +4609,14 @@
           "reachable",
           "manifest"
         ],
-        "title": "TargetHealth"
+        "title": "TargetHealth",
+        "description": "A configured target and whether its harness answered a manifest probe."
       },
       "TargetInfo": {
         "properties": {
           "mode": {
-            "$ref": "#/components/schemas/TargetMode"
+            "$ref": "#/components/schemas/TargetMode",
+            "description": "How the harness is reached: `native`, `http` or `otel`."
           },
           "url": {
             "anyOf": [
@@ -3701,11 +4627,13 @@
                 "type": "null"
               }
             ],
-            "title": "Url"
+            "title": "Url",
+            "description": "Harness base URL; null for targets without one."
           },
           "version": {
             "type": "string",
-            "title": "Version"
+            "title": "Version",
+            "description": "Version label of the system under test."
           },
           "manifest": {
             "anyOf": [
@@ -3715,7 +4643,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The harness manifest, live or as declared; null if none."
           }
         },
         "type": "object",
@@ -3725,7 +4654,8 @@
           "version",
           "manifest"
         ],
-        "title": "TargetInfo"
+        "title": "TargetInfo",
+        "description": "A target as it was when the experiment was planned."
       },
       "TargetMode": {
         "type": "string",
@@ -3738,7 +4668,8 @@
       "TargetSpec": {
         "properties": {
           "mode": {
-            "$ref": "#/components/schemas/TargetMode"
+            "$ref": "#/components/schemas/TargetMode",
+            "description": "`native`: harness implements the AgentLab protocol. `http`: any endpoint that takes the scenario input as a JSON POST. `otel`: observe-only, cannot be invoked."
           },
           "url": {
             "anyOf": [
@@ -3749,11 +4680,13 @@
                 "type": "null"
               }
             ],
-            "title": "Url"
+            "title": "Url",
+            "description": "Harness base URL (native) or endpoint to POST to (http); its host must be in `allowed_hosts`."
           },
           "version": {
             "type": "string",
             "title": "Version",
+            "description": "Version label of the system under test, shown in results.",
             "default": "unversioned"
           },
           "manifest": {
@@ -3764,28 +4697,33 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Capabilities declared by the user for http/otel targets, which expose no manifest."
           }
         },
         "type": "object",
         "required": [
           "mode"
         ],
-        "title": "TargetSpec"
+        "title": "TargetSpec",
+        "description": "How to reach a harness, as written under `targets:` in the targets file."
       },
       "TargetStats": {
         "properties": {
           "passed": {
             "type": "integer",
-            "title": "Passed"
+            "title": "Passed",
+            "description": "Graded trials that passed."
           },
           "graded": {
             "type": "integer",
-            "title": "Graded"
+            "title": "Graded",
+            "description": "Trials that were graded (passed or failed)."
           },
           "errors": {
             "type": "integer",
-            "title": "Errors"
+            "title": "Errors",
+            "description": "Trials that could not be graded; excluded from rates."
           },
           "pass_rate": {
             "anyOf": [
@@ -3796,7 +4734,8 @@
                 "type": "null"
               }
             ],
-            "title": "Pass Rate"
+            "title": "Pass Rate",
+            "description": "`passed / graded` from 0 to 1; null when nothing was graded."
           },
           "ci95": {
             "prefixItems": [
@@ -3810,7 +4749,8 @@
             "type": "array",
             "maxItems": 2,
             "minItems": 2,
-            "title": "Ci95"
+            "title": "Ci95",
+            "description": "95% Wilson confidence interval of the pass rate, as (low, high)."
           },
           "p50_ms": {
             "anyOf": [
@@ -3821,7 +4761,8 @@
                 "type": "null"
               }
             ],
-            "title": "P50 Ms"
+            "title": "P50 Ms",
+            "description": "Median latency of graded trials, in milliseconds."
           },
           "p95_ms": {
             "anyOf": [
@@ -3832,7 +4773,8 @@
                 "type": "null"
               }
             ],
-            "title": "P95 Ms"
+            "title": "P95 Ms",
+            "description": "95th-percentile latency of graded trials, in milliseconds."
           },
           "cost_usd": {
             "anyOf": [
@@ -3843,7 +4785,8 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Total agent spend in US dollars; null if no trial reported cost."
           },
           "pass_all_k": {
             "anyOf": [
@@ -3854,11 +4797,13 @@
                 "type": "null"
               }
             ],
-            "title": "Pass All K"
+            "title": "Pass All K",
+            "description": "pass^k: share of scenarios whose every repeat passed (k = repeats); exposes flakiness a pass rate hides."
           },
           "k": {
             "type": "integer",
             "title": "K",
+            "description": "Most repeats any scenario had; the k in `pass_all_k`.",
             "default": 1
           }
         },
@@ -3873,38 +4818,45 @@
           "p95_ms",
           "cost_usd"
         ],
-        "title": "TargetStats"
+        "title": "TargetStats",
+        "description": "Aggregate results for one target."
       },
       "ToolOrder": {
         "properties": {
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "tool_order",
             "title": "Type",
+            "description": "Discriminator; always `tool_order`.",
             "default": "tool_order"
           },
           "before": {
             "type": "string",
-            "title": "Before"
+            "title": "Before",
+            "description": "Tool that must not be called until `requires` has succeeded."
           },
           "requires": {
             "type": "string",
-            "title": "Requires"
+            "title": "Requires",
+            "description": "Tool that must have a successful (non-error) call earlier in the ledger."
           }
         },
         "type": "object",
@@ -3919,19 +4871,23 @@
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Parameter name; bound into the tool's SQL as `%(name)s`."
           },
           "type": {
-            "$ref": "#/components/schemas/ParamType"
+            "$ref": "#/components/schemas/ParamType",
+            "description": "JSON type the agent must supply."
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Shown to the agent in the tool catalog.",
             "default": ""
           },
           "required": {
             "type": "boolean",
             "title": "Required",
+            "description": "Calls without this argument are rejected (422).",
             "default": true
           },
           "enum": {
@@ -3946,7 +4902,8 @@
                 "type": "null"
               }
             ],
-            "title": "Enum"
+            "title": "Enum",
+            "description": "Allowed values, compared as strings; omit for any value."
           }
         },
         "type": "object",
@@ -3954,17 +4911,20 @@
           "name",
           "type"
         ],
-        "title": "ToolParam"
+        "title": "ToolParam",
+        "description": "One typed argument of a tool."
       },
       "ToolSpec": {
         "properties": {
           "name": {
             "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "description": "Tool name the agent calls; lowercase letters, digits and `_`."
           },
           "description": {
             "type": "string",
-            "title": "Description"
+            "title": "Description",
+            "description": "What the tool does, shown to the agent in the tool catalog."
           },
           "params": {
             "items": {
@@ -3972,6 +4932,7 @@
             },
             "type": "array",
             "title": "Params",
+            "description": "Typed arguments the tool accepts.",
             "default": []
           },
           "rules": {
@@ -3980,11 +4941,13 @@
             },
             "type": "array",
             "title": "Rules",
+            "description": "Preconditions checked in order before the SQL runs.",
             "default": []
           },
           "sql": {
             "type": "string",
-            "title": "Sql"
+            "title": "Sql",
+            "description": "The single SQL statement to run; add RETURNING to send rows back."
           },
           "returns": {
             "type": "string",
@@ -3994,6 +4957,7 @@
               "none"
             ],
             "title": "Returns",
+            "description": "Response shape: `row` is the first row (404 when none), `rows` is a list, `none` is `{}`.",
             "default": "row"
           },
           "success_status": {
@@ -4001,16 +4965,19 @@
             "maximum": 299.0,
             "minimum": 200.0,
             "title": "Success Status",
+            "description": "HTTP status returned on success.",
             "default": 200
           },
           "idempotent": {
             "type": "boolean",
             "title": "Idempotent",
+            "description": "Adds an `idempotency_key` argument; a repeated key replays the first response without re-running.",
             "default": false
           },
           "mutates": {
             "type": "boolean",
             "title": "Mutates",
+            "description": "False for read-only tools; they are still recorded in the ledger but never committed.",
             "default": true
           }
         },
@@ -4027,29 +4994,36 @@
         "properties": {
           "id": {
             "type": "string",
-            "title": "Id"
+            "title": "Id",
+            "description": "Unique trial id."
           },
           "experiment_id": {
             "type": "string",
-            "title": "Experiment Id"
+            "title": "Experiment Id",
+            "description": "Experiment this trial belongs to."
           },
           "target": {
             "type": "string",
-            "title": "Target"
+            "title": "Target",
+            "description": "Name of the target that ran it."
           },
           "scenario": {
             "type": "string",
-            "title": "Scenario"
+            "title": "Scenario",
+            "description": "Scenario `id@version`."
           },
           "repeat": {
             "type": "integer",
-            "title": "Repeat"
+            "title": "Repeat",
+            "description": "Zero-based repeat index within the experiment."
           },
           "status": {
-            "$ref": "#/components/schemas/TrialStatus"
+            "$ref": "#/components/schemas/TrialStatus",
+            "description": "`running`, then `passed` or `failed` once graded, or `error` if it could not be graded."
           },
           "record": {
             "$ref": "#/components/schemas/TrialRecord",
+            "description": "Captured evidence and check results.",
             "default": {
               "events": [],
               "ledger": [],
@@ -4070,16 +5044,19 @@
           "repeat",
           "status"
         ],
-        "title": "Trial"
+        "title": "Trial",
+        "description": "One run of one scenario on one target."
       },
       "TrialError": {
         "properties": {
           "code": {
-            "$ref": "#/components/schemas/ErrorCode"
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Machine-readable failure category."
           },
           "message": {
             "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "description": "What went wrong, with secrets redacted."
           }
         },
         "type": "object",
@@ -4087,7 +5064,8 @@
           "code",
           "message"
         ],
-        "title": "TrialError"
+        "title": "TrialError",
+        "description": "Why a trial could not be graded: an infrastructure failure, never an agent failure."
       },
       "TrialRecord": {
         "properties": {
@@ -4100,7 +5078,8 @@
                 "type": "null"
               }
             ],
-            "title": "Run Id"
+            "title": "Run Id",
+            "description": "Harness-side run id; null if the harness never replied."
           },
           "agent_status": {
             "anyOf": [
@@ -4115,10 +5094,12 @@
                 "type": "null"
               }
             ],
-            "title": "Agent Status"
+            "title": "Agent Status",
+            "description": "Whether the agent finished its run, as the harness reported it."
           },
           "output": {
-            "$ref": "#/components/schemas/JsonValue"
+            "$ref": "#/components/schemas/JsonValue",
+            "description": "The agent's final answer."
           },
           "events": {
             "items": {
@@ -4126,6 +5107,7 @@
             },
             "type": "array",
             "title": "Events",
+            "description": "Steps the harness reported, if it streams events.",
             "default": []
           },
           "ledger": {
@@ -4134,14 +5116,17 @@
             },
             "type": "array",
             "title": "Ledger",
+            "description": "Every tool call the environment received, in order.",
             "default": []
           },
           "initial_state": {
             "$ref": "#/components/schemas/State",
+            "description": "Table contents before the agent ran.",
             "default": {}
           },
           "final_state": {
             "$ref": "#/components/schemas/State",
+            "description": "Table contents after the agent ran.",
             "default": {}
           },
           "state_diff": {
@@ -4150,6 +5135,7 @@
             },
             "type": "object",
             "title": "State Diff",
+            "description": "Per-table rows added or removed by the run; unchanged tables are omitted.",
             "default": {}
           },
           "assertions": {
@@ -4158,6 +5144,7 @@
             },
             "type": "array",
             "title": "Assertions",
+            "description": "Results of every check, budget limits last.",
             "default": []
           },
           "latency_ms": {
@@ -4169,10 +5156,12 @@
                 "type": "null"
               }
             ],
-            "title": "Latency Ms"
+            "title": "Latency Ms",
+            "description": "Wall-clock time of the invoke call, in milliseconds."
           },
           "usage": {
             "$ref": "#/components/schemas/Usage",
+            "description": "Resources the harness reported using.",
             "default": {}
           },
           "error": {
@@ -4183,7 +5172,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Set when the trial errored instead of being graded."
           },
           "resumed_from": {
             "anyOf": [
@@ -4193,11 +5183,13 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Checkpoint this trial continued from, for forks."
           }
         },
         "type": "object",
-        "title": "TrialRecord"
+        "title": "TrialRecord",
+        "description": "Everything captured while running and grading one trial."
       },
       "TrialStatus": {
         "type": "string",
@@ -4219,7 +5211,8 @@
                 "type": "null"
               }
             ],
-            "title": "Steps"
+            "title": "Steps",
+            "description": "Agent steps taken."
           },
           "input_tokens": {
             "anyOf": [
@@ -4230,7 +5223,8 @@
                 "type": "null"
               }
             ],
-            "title": "Input Tokens"
+            "title": "Input Tokens",
+            "description": "Prompt tokens consumed across all model calls."
           },
           "output_tokens": {
             "anyOf": [
@@ -4241,7 +5235,8 @@
                 "type": "null"
               }
             ],
-            "title": "Output Tokens"
+            "title": "Output Tokens",
+            "description": "Completion tokens produced across all model calls."
           },
           "cost_usd": {
             "anyOf": [
@@ -4252,11 +5247,13 @@
                 "type": "null"
               }
             ],
-            "title": "Cost Usd"
+            "title": "Cost Usd",
+            "description": "Total model spend in US dollars."
           }
         },
         "type": "object",
-        "title": "Usage"
+        "title": "Usage",
+        "description": "Resource use the harness reports for a run; omitted values are unknown, not zero."
       },
       "ValidationError": {
         "properties": {
@@ -4298,40 +5295,75 @@
         ],
         "title": "ValidationError"
       },
+      "ValidationFailure": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Detail",
+            "description": "The reason, or one entry per invalid field."
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ValidationFailure",
+        "description": "Body of a 422 response: a message, or FastAPI's list of field problems when the body failed to parse."
+      },
       "agentlab__assertions__Decision": {
         "properties": {
           "critical": {
             "type": "boolean",
             "title": "Critical",
+            "description": "A failure of this check blocks the release gate; an unsupported one withholds a pass.",
             "default": false
           },
           "requires_faults": {
             "type": "boolean",
             "title": "Requires Faults",
+            "description": "Only meaningful when the scenario's faults are active; skipped in runs without faults, e.g. clean forks.",
             "default": false
           },
           "description": {
             "type": "string",
             "title": "Description",
+            "description": "Label shown in results; a generated one is used when empty.",
             "default": ""
           },
           "type": {
             "type": "string",
             "const": "decision",
             "title": "Type",
+            "description": "Discriminator; always `decision`.",
             "default": "decision"
           },
           "question": {
-            "$ref": "#/components/schemas/Question"
+            "$ref": "#/components/schemas/Question",
+            "description": "What the judges are asked about the evidence."
           },
           "pass_rule": {
-            "$ref": "#/components/schemas/PassRule"
+            "$ref": "#/components/schemas/PassRule",
+            "description": "How an answer maps to pass; its kind must match the question's."
           },
           "min_confidence": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Min Confidence",
+            "description": "Answers less confident than this abstain; a judge's own threshold overrides it.",
             "default": 0.8
           },
           "evidence": {
@@ -4341,6 +5373,7 @@
             "type": "array",
             "minItems": 1,
             "title": "Evidence",
+            "description": "Parts of the run shown to the judges.",
             "default": [
               "input",
               "output",
@@ -4353,10 +5386,12 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Judges"
+            "title": "Judges",
+            "description": "Models that answer, in order; defaults to the built-in decision models."
           },
           "strategy": {
             "$ref": "#/components/schemas/Strategy",
+            "description": "`cascade`: the first confident judge decides. `jury`: only unanimous confident votes decide.",
             "default": "cascade"
           },
           "calibration": {
@@ -4367,7 +5402,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Optional evidence-reading question asked alongside, to score each judge's accuracy."
           },
           "canaries": {
             "items": {
@@ -4375,6 +5411,7 @@
             },
             "type": "array",
             "title": "Canaries",
+            "description": "Labelled examples measuring each judge's verdict accuracy; need one pass and one fail.",
             "default": []
           }
         },
@@ -4389,11 +5426,13 @@
       "agentlab__models__Decision": {
         "properties": {
           "status": {
-            "$ref": "#/components/schemas/GateStatus"
+            "$ref": "#/components/schemas/GateStatus",
+            "description": "`PASS`, `BLOCK` (a critical check failed or the pass rate regressed), or `INSUFFICIENT_EVIDENCE` (errors or unsupported critical checks)."
           },
           "candidate": {
             "type": "string",
-            "title": "Candidate"
+            "title": "Candidate",
+            "description": "Target being judged."
           },
           "baseline": {
             "anyOf": [
@@ -4404,35 +5443,40 @@
                 "type": "null"
               }
             ],
-            "title": "Baseline"
+            "title": "Baseline",
+            "description": "Target compared against, if any."
           },
           "block_reasons": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Block Reasons"
+            "title": "Block Reasons",
+            "description": "Why the release is blocked; empty unless `BLOCK`."
           },
           "insufficient_reasons": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Insufficient Reasons"
+            "title": "Insufficient Reasons",
+            "description": "What evidence is missing; empty unless `INSUFFICIENT_EVIDENCE`."
           },
           "coverage_gaps": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Coverage Gaps"
+            "title": "Coverage Gaps",
+            "description": "Non-critical checks the harness could not support."
           },
           "stats": {
             "additionalProperties": {
               "$ref": "#/components/schemas/TargetStats"
             },
             "type": "object",
-            "title": "Stats"
+            "title": "Stats",
+            "description": "Aggregates per target name (candidate and baseline)."
           },
           "paired": {
             "anyOf": [
@@ -4442,7 +5486,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Candidate-vs-baseline comparison; null without a baseline."
           }
         },
         "type": "object",
@@ -4456,7 +5501,8 @@
           "stats",
           "paired"
         ],
-        "title": "Decision"
+        "title": "Decision",
+        "description": "The release decision for a candidate."
       }
     }
   }

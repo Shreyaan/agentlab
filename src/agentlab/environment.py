@@ -28,20 +28,33 @@ def _identifier(value: str) -> str:
 
 
 class Column(BaseModel):
-    name: str
-    type: ColumnType
-    primary_key: bool = False
-    nullable: bool = True
-    unique: bool = False
-    serial: bool = False  # auto-increment integer key; deterministic, so ledger replay reproduces the same ids
-    references: str | None = None  # "table.column"
+    """One column of an environment table."""
+
+    name: str = Field(description="Column name: lowercase letters, digits and `_`, starting with a letter (max 48).")
+    type: ColumnType = Field(description="Postgres type the column is created with.")
+    primary_key: bool = Field(
+        default=False, description="Part of the table's primary key (several columns make a composite key)."
+    )
+    nullable: bool = Field(default=True, description="Whether NULL values are allowed.")
+    unique: bool = Field(default=False, description="Values must be distinct across rows.")
+    serial: bool = Field(
+        default=False,
+        description="Auto-incrementing integer key. Deterministic, so ledger replay reproduces the same ids.",
+    )
+    references: str | None = Field(
+        default=None, description='Foreign key target as `"table.column"`, e.g. `"customers.id"`.'
+    )
 
     _name = field_validator("name")(_identifier)
 
 
 class Table(BaseModel):
-    name: str
-    columns: list[Column] = Field(min_length=1)
+    """A table created in the trial's private Postgres schema."""
+
+    name: str = Field(
+        description="Table name: lowercase letters, digits and `_`; `ledger` and `idempotency` are reserved."
+    )
+    columns: list[Column] = Field(min_length=1, description="Columns, in order; at least one.")
 
     _name = field_validator("name")(_identifier)
 
@@ -54,11 +67,13 @@ class Table(BaseModel):
 
 
 class ToolParam(BaseModel):
-    name: str
-    type: ParamType
-    description: str = ""
-    required: bool = True
-    enum: list[str] | None = None
+    """One typed argument of a tool."""
+
+    name: str = Field(description="Parameter name; bound into the tool's SQL as `%(name)s`.")
+    type: ParamType = Field(description="JSON type the agent must supply.")
+    description: str = Field(default="", description="Shown to the agent in the tool catalog.")
+    required: bool = Field(default=True, description="Calls without this argument are rejected (422).")
+    enum: list[str] | None = Field(default=None, description="Allowed values, compared as strings; omit for any value.")
 
     _name = field_validator("name")(_identifier)
 
@@ -68,34 +83,45 @@ class Rule(BaseModel):
     tool's parameters bound as %(name)s. When it returns true the call fails with `status` and `error` and has no
     side effect (e.g. "insufficient seats" -> 409)."""
 
-    sql: str
-    status: int = Field(ge=400, le=499)
-    error: str
+    sql: str = Field(description="One SELECT returning a single boolean; true means the call must be refused.")
+    status: int = Field(ge=400, le=499, description="HTTP status returned to the agent when the rule fires.")
+    error: str = Field(description="Message returned to the agent when the rule fires.")
 
 
 class ToolSpec(BaseModel):
     """One tool: typed parameters, optional rules, then ONE SQL statement (parameters bound as %(name)s; use
     RETURNING to send rows back). Runs as the trial's writer role: it can change this environment's tables only."""
 
-    name: str
-    description: str
-    params: list[ToolParam] = []
-    rules: list[Rule] = []
-    sql: str
-    returns: Literal["row", "rows", "none"] = "row"  # "row": first row or 404 when none; "rows": list; "none": {}
-    success_status: int = Field(default=200, ge=200, le=299)
-    idempotent: bool = False  # honour an `idempotency_key` argument: a repeated key replays the first response
-    mutates: bool = True  # false for read-only tools (they still go to the ledger)
+    name: str = Field(description="Tool name the agent calls; lowercase letters, digits and `_`.")
+    description: str = Field(description="What the tool does, shown to the agent in the tool catalog.")
+    params: list[ToolParam] = Field(default=[], description="Typed arguments the tool accepts.")
+    rules: list[Rule] = Field(default=[], description="Preconditions checked in order before the SQL runs.")
+    sql: str = Field(description="The single SQL statement to run; add RETURNING to send rows back.")
+    returns: Literal["row", "rows", "none"] = Field(
+        default="row",
+        description="Response shape: `row` is the first row (404 when none), `rows` is a list, `none` is `{}`.",
+    )
+    success_status: int = Field(default=200, ge=200, le=299, description="HTTP status returned on success.")
+    idempotent: bool = Field(
+        default=False,
+        description="Adds an `idempotency_key` argument; a repeated key replays the first response without re-running.",
+    )
+    mutates: bool = Field(
+        default=True,
+        description="False for read-only tools; they are still recorded in the ledger but never committed.",
+    )
 
     _name = field_validator("name")(_identifier)
 
 
 class EnvironmentSpec(BaseModel):
-    id: str
-    version: int = Field(ge=1)
-    description: str  # also given to agents as context about the world they operate in
-    tables: list[Table] = Field(min_length=1)
-    tools: list[ToolSpec] = Field(min_length=1)
+    """A versioned environment: the tables and tools of one simulated world."""
+
+    id: str = Field(description="Environment id: 1-64 lowercase letters, digits, `.`, `_` or `-`.")
+    version: int = Field(ge=1, description="Bumped whenever the spec changes; scenarios pin `id@version`.")
+    description: str = Field(description="The world in plain English; also given to agents as context.")
+    tables: list[Table] = Field(min_length=1, description="Tables created for every trial; names are unique.")
+    tools: list[ToolSpec] = Field(min_length=1, description="Tools the agent can call; names are unique.")
 
     @field_validator("id")
     @classmethod
@@ -120,15 +146,19 @@ class EnvironmentSpec(BaseModel):
 
 
 class CatalogTool(BaseModel):
-    name: str
-    description: str
-    parameters: dict[str, JsonValue]  # JSON Schema object; idempotent tools get an optional `idempotency_key`
+    name: str = Field(description="Tool name.")
+    description: str = Field(description="What the tool does.")
+    parameters: dict[str, JsonValue] = Field(
+        description="JSON Schema object for the arguments; idempotent tools get an optional `idempotency_key`."
+    )
 
 
 class ToolCatalog(BaseModel):
-    environment: str  # id@version
-    description: str
-    tools: list[CatalogTool]
+    """The tools an agent may call in one environment; the same data over HTTP and MCP."""
+
+    environment: str = Field(description="Environment `id@version` key.")
+    description: str = Field(description="The environment's description, as context for the agent.")
+    tools: list[CatalogTool] = Field(description="Callable tools.")
 
 
 def _param_schema(p: ToolParam) -> dict[str, JsonValue]:

@@ -1,13 +1,16 @@
 {
   "$defs": {
     "Event": {
+      "description": "One step the harness reports about its own run (only when `observe` is `native_events`).",
       "properties": {
         "seq": {
+          "description": "Position in the run, starting at 1. Ordering always uses `seq`, never `ts`.",
           "title": "Seq",
           "type": "integer"
         },
         "type": {
-          "$ref": "#/$defs/EventType"
+          "$ref": "#/$defs/EventType",
+          "description": "What happened, e.g. `tool_requested` or `model_call`."
         },
         "name": {
           "anyOf": [
@@ -19,6 +22,7 @@
             }
           ],
           "default": null,
+          "description": "Tool name, for `tool_*` events.",
           "title": "Name"
         },
         "ts": {
@@ -31,6 +35,7 @@
             }
           ],
           "default": null,
+          "description": "Unix time in seconds; informational, clocks differ across runtimes.",
           "title": "Ts"
         },
         "span_id": {
@@ -43,6 +48,7 @@
             }
           ],
           "default": null,
+          "description": "Identifier of this step, for correlating with traces.",
           "title": "Span Id"
         },
         "parent_id": {
@@ -55,11 +61,13 @@
             }
           ],
           "default": null,
+          "description": "`span_id` of the step that caused this one.",
           "title": "Parent Id"
         },
         "data": {
           "$ref": "#/$defs/JsonObject",
-          "default": {}
+          "default": {},
+          "description": "Event payload. `tool_failed`: `{\"injected\": bool, \"committed\": bool}` when a fault fired. `checkpoint_saved`: `{\"checkpoint_id\": str}`."
         }
       },
       "required": [
@@ -93,6 +101,7 @@
     },
     "JsonValue": {},
     "Usage": {
+      "description": "Resource use the harness reports for a run; omitted values are unknown, not zero.",
       "properties": {
         "steps": {
           "anyOf": [
@@ -104,6 +113,7 @@
             }
           ],
           "default": null,
+          "description": "Agent steps taken.",
           "title": "Steps"
         },
         "input_tokens": {
@@ -116,6 +126,7 @@
             }
           ],
           "default": null,
+          "description": "Prompt tokens consumed across all model calls.",
           "title": "Input Tokens"
         },
         "output_tokens": {
@@ -128,6 +139,7 @@
             }
           ],
           "default": null,
+          "description": "Completion tokens produced across all model calls.",
           "title": "Output Tokens"
         },
         "cost_usd": {
@@ -140,6 +152,7 @@
             }
           ],
           "default": null,
+          "description": "Total model spend in US dollars.",
           "title": "Cost Usd"
         }
       },
@@ -147,12 +160,15 @@
       "type": "object"
     }
   },
+  "description": "Body returned by `POST /invoke`.",
   "properties": {
     "run_id": {
+      "description": "Harness-side identifier of this run.",
       "title": "Run Id",
       "type": "string"
     },
     "status": {
+      "description": "Whether the agent finished its run; this is not a grading result.",
       "enum": [
         "completed",
         "failed"
@@ -162,10 +178,12 @@
     },
     "output": {
       "$ref": "#/$defs/JsonValue",
-      "default": null
+      "default": null,
+      "description": "The agent's final answer, in any JSON shape."
     },
     "events": {
       "default": [],
+      "description": "Ordered steps the agent took, if `observe` allows.",
       "items": {
         "$ref": "#/$defs/Event"
       },
@@ -179,7 +197,8 @@
         "input_tokens": null,
         "output_tokens": null,
         "cost_usd": null
-      }
+      },
+      "description": "Resources used by the run."
     }
   },
   "required": [

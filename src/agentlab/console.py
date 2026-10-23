@@ -36,6 +36,7 @@ from agentlab.api_models import (
     ScenarioValidation,
     TargetDraft,
     TargetHealth,
+    error_responses,
 )
 from agentlab.authoring import Author, authoring_router
 from agentlab.builder import (
@@ -254,34 +255,144 @@ class Console:
         )
 
     def router(self) -> APIRouter:
-        api = APIRouter(prefix="/v1", dependencies=[Depends(self.require_token)])
+        api = APIRouter(
+            prefix="/v1", dependencies=[Depends(self.require_token)], responses=error_responses({401: None})
+        )
         post = [Depends(require_csrf_header)]  # every write, whatever its method
-        api.get("/info")(self.info)
-        api.get("/judges")(self.judges)
-        api.get("/targets")(self.targets)
-        api.post("/targets/test", dependencies=post)(self.test_target)
-        api.put("/targets/{name}", dependencies=post)(self.put_target)
-        api.delete("/targets/{name}", status_code=204, dependencies=post)(self.delete_target)
-        api.get("/environments")(self.list_environments)
-        api.get("/environments/{key}/builder")(self.environment_builder_info)
-        api.post("/environments/validate", dependencies=post, openapi_extra=_body_schema("EnvironmentDraft"))(
-            self.validate_environment
+        write = {403: None}
+        no_config = {503: None}
+        api.get("/info", summary="Console info")(self.info)
+        api.get("/judges", summary="Judge track records")(self.judges)
+        api.get("/targets", summary="List targets with health", responses=error_responses(no_config))(self.targets)
+        api.post(
+            "/targets/test",
+            summary="Probe a target draft",
+            dependencies=post,
+            responses=error_responses({**write, 422: "Invalid target body."}),
+        )(self.test_target)
+        api.put(
+            "/targets/{name}",
+            summary="Save a target",
+            dependencies=post,
+            responses=error_responses(
+                {
+                    **write,
+                    422: "Invalid body, name differs from the path, or the URL host is not in allowed_hosts.",
+                    **no_config,
+                }
+            ),
+        )(self.put_target)
+        api.delete(
+            "/targets/{name}",
+            summary="Delete a target",
+            status_code=204,
+            dependencies=post,
+            responses=error_responses({**write, 404: "Unknown target.", **no_config}),
+        )(self.delete_target)
+        api.get("/environments", summary="List environments", responses=error_responses(no_config))(
+            self.list_environments
         )
-        api.post("/environments", dependencies=post)(self.save_environment)
-        api.get("/scenarios")(self.scenarios)
-        api.post("/scenarios/validate", dependencies=post, openapi_extra=_body_schema("ScenarioDraft"))(
-            self.validate_scenario
+        api.get(
+            "/environments/{key}/builder",
+            summary="Editor vocabulary for an environment",
+            responses=error_responses({404: "Unknown environment.", **no_config}),
+        )(self.environment_builder_info)
+        api.post(
+            "/environments/validate",
+            summary="Validate an environment draft",
+            dependencies=post,
+            responses=error_responses(write),
+            openapi_extra=_body_schema("EnvironmentDraft"),
+        )(self.validate_environment)
+        api.post(
+            "/environments",
+            summary="Save an environment",
+            dependencies=post,
+            responses=error_responses(
+                {**write, 409: "The environments path is not a directory.", 422: "Invalid or unrunnable environment."}
+            ),
+        )(self.save_environment)
+        api.get("/scenarios", summary="List scenarios", responses=error_responses(no_config))(self.scenarios)
+        api.post(
+            "/scenarios/validate",
+            summary="Validate a scenario draft",
+            dependencies=post,
+            responses=error_responses({**write, **no_config}),
+            openapi_extra=_body_schema("ScenarioDraft"),
+        )(self.validate_scenario)
+        api.post(
+            "/scenarios",
+            summary="Save a scenario",
+            dependencies=post,
+            responses=error_responses(
+                {**write, 409: "The suite path is not a directory.", 422: "Invalid scenario.", **no_config}
+            ),
+        )(self.save_scenario)
+        api.post(
+            "/scenarios/test-query",
+            summary="Try a SQL check against seed data",
+            dependencies=post,
+            responses=error_responses({**write, 422: "Invalid request body.", **no_config}),
+        )(self.test_query)
+        api.post(
+            "/scenarios/dry-run",
+            summary="Dry-run an unsaved scenario",
+            status_code=202,
+            dependencies=post,
+            responses=error_responses(
+                {**write, 422: "Unknown target, or the scenario cannot be planned.", **no_config}
+            ),
+        )(self.dry_run)
+        api.get(
+            "/experiments",
+            summary="List experiments",
+            responses=error_responses({422: "`limit` out of range (1-500)."}),
+        )(self.list_experiments)
+        api.post(
+            "/experiments",
+            summary="Start an experiment",
+            status_code=202,
+            dependencies=post,
+            responses=error_responses(
+                {**write, 422: "Unknown scenario or target, or the run cannot be planned.", **no_config}
+            ),
+        )(self.run_experiment)
+        api.get(
+            "/experiments/{exp_id}",
+            summary="Get an experiment with its trials",
+            responses=error_responses({404: "Unknown experiment."}),
+        )(self.get_experiment)
+        api.get(
+            "/experiments/{exp_id}/canaries",
+            summary="Get an experiment's canary results",
+            responses=error_responses({404: "Unknown experiment."}),
+        )(self.get_canaries)
+        api.get(
+            "/experiments/{exp_id}/report.html",
+            summary="Download the HTML report",
+            response_class=HTMLResponse,
+            responses=error_responses({404: "Unknown experiment."}),
+        )(self.get_report)
+        api.get("/trials/{trial_id:path}", summary="Get a trial", responses=error_responses({404: "Unknown trial."}))(
+            self.get_trial
         )
-        api.post("/scenarios", dependencies=post)(self.save_scenario)
-        api.post("/scenarios/test-query", dependencies=post)(self.test_query)
-        api.post("/scenarios/dry-run", status_code=202, dependencies=post)(self.dry_run)
-        api.get("/experiments")(self.list_experiments)
-        api.post("/experiments", status_code=202, dependencies=post)(self.run_experiment)
-        api.get("/experiments/{exp_id}")(self.get_experiment)
-        api.get("/experiments/{exp_id}/canaries")(self.get_canaries)
-        api.get("/experiments/{exp_id}/report.html", response_class=HTMLResponse)(self.get_report)
-        api.get("/trials/{trial_id:path}")(self.get_trial)
-        api.post("/forks", status_code=202, dependencies=post)(self.fork)
+        api.post(
+            "/forks",
+            summary="Fork a trial from a checkpoint",
+            status_code=202,
+            dependencies=post,
+            responses=error_responses(
+                {
+                    **write,
+                    400: "The fork could not be planned (e.g. unknown checkpoint).",
+                    404: "Unknown trial.",
+                    409: "The target does not support resuming or forking.",
+                    422: "Unknown target.",
+                    502: None,
+                    **no_config,
+                }
+            ),
+        )(self.fork)
         return api
 
 

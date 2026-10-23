@@ -21,18 +21,24 @@ CANARY_MIN_ACCURACY = 0.9
 
 
 class NoulRule(BaseModel):
+    """Pass rule for a noul question."""
+
     model_config = ConfigDict(extra="forbid")
-    noul_at_least: float = Field(ge=0, le=1)
+    noul_at_least: float = Field(ge=0, le=1, description="Pass when the probability of true is at least this.")
 
 
 class ChoiceRule(BaseModel):
+    """Pass rule for a choice question."""
+
     model_config = ConfigDict(extra="forbid")
-    choices: list[str] = Field(min_length=1)
+    choices: list[str] = Field(min_length=1, description="Pass when the judge picks any of these options.")
 
 
 class ScoreRule(BaseModel):
+    """Pass rule for a score question."""
+
     model_config = ConfigDict(extra="forbid")
-    score_at_least: float
+    score_at_least: float = Field(description="Pass when the judge's score is at least this.")
 
 
 type PassRule = NoulRule | ChoiceRule | ScoreRule

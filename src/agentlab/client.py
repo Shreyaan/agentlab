@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 import httpx
 import yaml
-from pydantic import BaseModel, JsonValue, ValidationError
+from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from agentlab.models import TargetMode
 from agentlab.protocol import (
@@ -22,24 +22,35 @@ from agentlab.protocol import (
 DEFAULT_ALLOWED_HOSTS = ["127.0.0.1", "localhost", "::1"]
 
 
-class Target(BaseModel):
-    name: str
-    mode: TargetMode
-    url: str | None = None
-    version: str = "unversioned"
-    manifest: Manifest | None = None  # declared by the user for http/otel targets, which expose none
-
-
 class TargetSpec(BaseModel):
-    mode: TargetMode
-    url: str | None = None
-    version: str = "unversioned"
-    manifest: Manifest | None = None
+    """How to reach a harness, as written under `targets:` in the targets file."""
+
+    mode: TargetMode = Field(
+        description="`native`: harness implements the AgentLab protocol. `http`: any endpoint that takes the scenario "
+        "input as a JSON POST. `otel`: observe-only, cannot be invoked."
+    )
+    url: str | None = Field(
+        default=None,
+        description="Harness base URL (native) or endpoint to POST to (http); its host must be in `allowed_hosts`.",
+    )
+    version: str = Field(default="unversioned", description="Version label of the system under test, shown in results.")
+    manifest: Manifest | None = Field(
+        default=None, description="Capabilities declared by the user for http/otel targets, which expose no manifest."
+    )
+
+
+class Target(TargetSpec):
+    """A named target."""
+
+    name: str = Field(description="Target name used in runs and results.")
 
 
 class TargetsFile(BaseModel):
-    allowed_hosts: list[str] = DEFAULT_ALLOWED_HOSTS
-    targets: dict[str, TargetSpec]
+    allowed_hosts: list[str] = Field(
+        default=DEFAULT_ALLOWED_HOSTS,
+        description="Hosts a target URL may point at; guards against hitting real systems.",
+    )
+    targets: dict[str, TargetSpec] = Field(description="Targets by name.")
 
 
 def load_targets(path: str | Path) -> tuple[dict[str, Target], list[str]]:

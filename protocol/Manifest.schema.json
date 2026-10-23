@@ -1,14 +1,17 @@
 {
   "$defs": {
     "Capabilities": {
+      "description": "What a harness can do beyond plain invoke; the runner skips or marks checks the harness cannot support.",
       "properties": {
         "invoke": {
           "default": true,
+          "description": "Accepts `POST /invoke`. Always true for a working harness.",
           "title": "Invoke",
           "type": "boolean"
         },
         "observe": {
           "default": "none",
+          "description": "How much of the run the harness reveals: `native_events` streams the full event list in the response, `otel_partial` exports OpenTelemetry spans only, `none` is a black box.",
           "enum": [
             "native_events",
             "otel_partial",
@@ -19,6 +22,7 @@
         },
         "intercept_tools": {
           "default": "none",
+          "description": "`declared_only` means the harness applies the `tool_faults` it receives at its own tool boundary; `none` means it ignores them.",
           "enum": [
             "declared_only",
             "none"
@@ -28,16 +32,19 @@
         },
         "checkpoint": {
           "default": false,
+          "description": "Emits `checkpoint_saved` events that a run can be resumed from.",
           "title": "Checkpoint",
           "type": "boolean"
         },
         "resume": {
           "default": false,
+          "description": "Can continue a prior trial from a checkpoint (`resume_from`).",
           "title": "Resume",
           "type": "boolean"
         },
         "fork": {
           "default": false,
+          "description": "Can branch a prior trial's checkpoint into a new run (`resume_from`).",
           "title": "Fork",
           "type": "boolean"
         }
@@ -46,28 +53,34 @@
       "type": "object"
     }
   },
+  "description": "A harness's self-description, returned by `GET /manifest`.",
   "properties": {
     "protocol_version": {
       "default": "0.3",
+      "description": "Wire protocol version the harness speaks; a mismatch is refused.",
       "title": "Protocol Version",
       "type": "string"
     },
     "adapter_id": {
+      "description": "Stable identifier of this adapter, e.g. `acme-support-bot`.",
       "title": "Adapter Id",
       "type": "string"
     },
     "language": {
+      "description": "Language the harness is written in, e.g. `python` or `typescript`.",
       "title": "Language",
       "type": "string"
     },
     "framework": {
       "default": "custom",
+      "description": "Agent framework in use, e.g. `langgraph`; `custom` if none.",
       "title": "Framework",
       "type": "string"
     },
     "transport": {
       "const": "http_json",
       "default": "http_json",
+      "description": "Wire transport; only HTTP+JSON exists.",
       "title": "Transport",
       "type": "string"
     },
@@ -80,7 +93,8 @@
         "checkpoint": false,
         "resume": false,
         "fork": false
-      }
+      },
+      "description": "Optional features the harness supports."
     }
   },
   "required": [

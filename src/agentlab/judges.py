@@ -34,18 +34,30 @@ class JudgeError(Exception):
 
 
 class JudgeSpec(BaseModel):
-    model: str
-    api: Literal["decisions", "chat"] = "decisions"
-    # Probabilities are not comparable across models: a judge may carry its own threshold (overrides the check's).
-    min_confidence: float | None = Field(default=None, ge=0.5, le=1.0)
+    """One judge model and how to call it."""
+
+    model: str = Field(description="OpenRouter model id, pinned to an exact version, e.g. `typesafe/jev-1.14`.")
+    api: Literal["decisions", "chat"] = Field(
+        default="decisions",
+        description="`decisions`: the OpenRouter Decisions API. `chat`: any chat model with JSON-schema output.",
+    )
+    min_confidence: float | None = Field(
+        default=None,
+        ge=0.5,
+        le=1.0,
+        description="This judge's own confidence threshold, overriding the check's; probabilities are not "
+        "comparable across models.",
+    )
 
 
 class NoulQuestion(BaseModel):
     """Probability that the statement is true. criteria keys: "true" and "false"."""
 
-    type: Literal["noul"] = "noul"
-    instructions: str
-    criteria: dict[str, str]
+    type: Literal["noul"] = Field(default="noul", description="Discriminator; always `noul`.")
+    instructions: str = Field(description="The statement to judge, phrased so that true means the agent did well.")
+    criteria: dict[str, str] = Field(
+        description='Exactly two keys, `"true"` and `"false"`, each describing when that answer applies.'
+    )
 
     @field_validator("criteria")
     @classmethod
@@ -56,15 +68,21 @@ class NoulQuestion(BaseModel):
 
 
 class ChoiceQuestion(BaseModel):
-    type: Literal["choice"] = "choice"
-    instructions: str
-    criteria: dict[str, str] = Field(min_length=2)  # choice -> description
+    """Pick exactly one option; the judge also reports its confidence in the pick."""
+
+    type: Literal["choice"] = Field(default="choice", description="Discriminator; always `choice`.")
+    instructions: str = Field(description="The question to answer about the evidence.")
+    criteria: dict[str, str] = Field(min_length=2, description="Option name to description of when it applies.")
 
 
 class ScoreQuestion(BaseModel):
-    type: Literal["score"] = "score"
-    instructions: str
-    criteria: list[str] = Field(min_length=2)  # descriptions of scores 0..n-1
+    """Give an integer score on a rubric; the judge also reports its confidence."""
+
+    type: Literal["score"] = Field(default="score", description="Discriminator; always `score`.")
+    instructions: str = Field(description="The question to answer about the evidence.")
+    criteria: list[str] = Field(
+        min_length=2, description="Rubric: the description of score 0 first, then 1, up to n-1."
+    )
 
 
 type Question = Annotated[NoulQuestion | ChoiceQuestion | ScoreQuestion, Field(discriminator="type")]

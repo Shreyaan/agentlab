@@ -12,7 +12,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import ValidationError
 
-from agentlab.api_models import AuthorDraft, AuthorRequest
+from agentlab.api_models import AuthorDraft, AuthorRequest, error_responses
 from agentlab.environment import EnvironmentSpec
 from agentlab.scenario import Scenario
 
@@ -167,8 +167,7 @@ class Author:
     ) -> AuthorDraft:
         """Never raises: model, network and spec problems come back as `valid=False` with `errors`.
 
-        When no scenario ever parsed, `scenario` is None (AuthorDraft.scenario is not optional in the contract,
-        so such a draft is built unvalidated; the router turns it into an HTTP error)."""
+        When no scenario ever parsed, `scenario` is None and `valid` is False."""
         existing = environments.get(request.environment) if request.environment else None
         if request.environment and existing is None:
             return self._failed(0, None, [f"unknown environment {request.environment!r}"])
@@ -243,7 +242,19 @@ def authoring_router(
     """POST /v1/author. `dependencies` are FastAPI dependency callables (token, CSRF) applied to the route."""
     router = APIRouter(dependencies=[Depends(d) for d in dependencies])
 
-    @router.post("/v1/author")
+    @router.post(
+        "/v1/author",
+        summary="Draft a scenario from a description",
+        responses=error_responses(
+            {
+                401: None,
+                403: None,
+                404: "Unknown environment.",
+                422: "Invalid request body.",
+                503: "The environments directory could not be loaded.",
+            }
+        ),
+    )
     def author(request: AuthorRequest) -> AuthorDraft:  # sync: the model call blocks, FastAPI runs it in a thread
         envs = environments()
         if request.environment and request.environment not in envs:

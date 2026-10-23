@@ -19,7 +19,7 @@ export function IdentitySection({ s, set, versionNote }: { s: Scenario; set: Pat
         <Labeled label="Scenario id" help={versionNote}>
           {(id, d) => <input id={id} aria-describedby={d} className={field} required value={s.id} onChange={(e) => set({ id: e.target.value })} placeholder="refund.timeout" />}
         </Labeled>
-        <Select label="Risk tier" help="Critical scenarios weigh most in the release gate." value={s.risk_tier} options={TIERS} onChange={(risk_tier) => set({ risk_tier })} />
+        <Select label="Risk tier" help="A label for grouping and prioritising. It does not change grading: mark individual checks critical to make them block a release." value={s.risk_tier} options={TIERS} onChange={(risk_tier) => set({ risk_tier })} />
         <Labeled label="Source" help="Where this case came from, e.g. synthetic or production_incident.">
           {(id, d) => <input id={id} aria-describedby={d} className={field} value={s.source} onChange={(e) => set({ source: e.target.value })} />}
         </Labeled>
