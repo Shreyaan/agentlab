@@ -11,6 +11,8 @@ const NAV = [
   { to: "/new", label: "New run" },
   { to: "/targets", label: "Targets" },
   { to: "/scenarios", label: "Scenarios" },
+  { to: "/author", label: "Describe a scenario" },
+  { to: "/environments", label: "Environments" },
   { to: "/judges", label: "Judges" },
 ];
 

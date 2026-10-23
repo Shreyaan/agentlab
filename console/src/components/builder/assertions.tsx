@@ -5,7 +5,7 @@ import { JsonField, Select } from "./fields";
 import { QueryTester } from "./QueryTester";
 
 type Builder = Schema["BuilderInfo"];
-type Seed = Schema["Seed"];
+type Seed = Schema["QueryTest"]["seed"];
 type Of<T extends Assertion["type"]> = Extract<Assertion, { type: T }>;
 type EventType = Of<"event_present">["event"];
 
@@ -40,14 +40,14 @@ export function newAssertion(type: string, b: Builder): Assertion {
 
 type Patch<T> = (p: Partial<T>) => void;
 
-function SqlForm({ a, set, seed }: { a: Of<"sql">; set: Patch<Of<"sql">>; seed: Seed }) {
+function SqlForm({ a, set, seed, environment }: { a: Of<"sql">; set: Patch<Of<"sql">>; seed: Seed; environment: string }) {
   return (
     <div className="space-y-3">
       <Labeled label="Query" help="Read-only SQL over the final database state. A single cell is compared as a value.">
         {(id, d) => <textarea id={id} aria-describedby={d} rows={2} spellCheck={false} className={`${field} font-mono text-[12px]`} value={a.query} onChange={(e) => set({ query: e.target.value })} />}
       </Labeled>
       <JsonField label="Expected value" help={'A number, true/false, or text. Use quotes to force text, e.g. "1".'} value={a.equals} onChange={(equals) => set({ equals })} />
-      <QueryTester seed={seed} query={a.query} />
+      <QueryTester seed={seed} environment={environment} query={a.query} />
     </div>
   );
 }
@@ -56,10 +56,10 @@ function ToolSelect({ label, value, tools, onChange }: { label: string; value: s
   return <Select label={label} value={value} options={tools} onChange={onChange} />;
 }
 
-function AssertionBody({ a, set, b, seed }: { a: Assertion; set: Patch<Assertion>; b: Builder; seed: Seed }) {
+function AssertionBody({ a, set, b, seed, environment }: { a: Assertion; set: Patch<Assertion>; b: Builder; seed: Seed; environment: string }) {
   switch (a.type) {
     case "sql":
-      return <SqlForm a={a} set={set} seed={seed} />;
+      return <SqlForm a={a} set={set} seed={seed} environment={environment} />;
     case "tool_order":
       return (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -97,7 +97,7 @@ function AssertionBody({ a, set, b, seed }: { a: Assertion; set: Patch<Assertion
         </div>
       );
     case "decision":
-      return <DecisionForm d={a} set={set as Patch<Decision>} seed={seed} suggestions={b.judge_models} />;
+      return <DecisionForm d={a} set={set as Patch<Decision>} seed={seed} environment={environment} suggestions={b.judge_models} />;
   }
 }
 
@@ -106,7 +106,7 @@ export interface KeyedAssertion {
   a: Assertion;
 }
 
-export function AssertionsSection({ items, onChange, builder, seed, nextUid }: { items: KeyedAssertion[]; onChange: (items: KeyedAssertion[]) => void; builder: Builder; seed: Seed; nextUid: () => number }) {
+export function AssertionsSection({ items, onChange, builder, seed, environment, nextUid }: { items: KeyedAssertion[]; onChange: (items: KeyedAssertion[]) => void; builder: Builder; seed: Seed; environment: string; nextUid: () => number }) {
   const add = (type: string) => onChange([...items, { uid: nextUid(), a: newAssertion(type, builder) }]);
   const patch = (uid: number, p: Partial<Assertion>) => onChange(items.map((it) => (it.uid === uid ? { uid, a: { ...it.a, ...p } as Assertion } : it)));
   return (
@@ -125,7 +125,7 @@ export function AssertionsSection({ items, onChange, builder, seed, nextUid }: {
                 Remove check {i + 1}
               </button>
             </div>
-            <AssertionBody a={a} set={(p) => patch(uid, p)} b={builder} seed={seed} />
+            <AssertionBody a={a} set={(p) => patch(uid, p)} b={builder} seed={seed} environment={environment} />
             <Labeled label="Description (optional)" help="Shown in results. Leave empty to use the default.">
               {(id, d) => <input id={id} aria-describedby={d} className={field} value={a.description} onChange={(e) => patch(uid, { description: e.target.value })} />}
             </Labeled>

@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 import { Shell } from "./components/Shell";
 import "./index.css";
+import { AuthorPage } from "./pages/Author";
+import { EnvironmentEditorPage } from "./pages/EnvironmentEditor";
+import { EnvironmentsPage } from "./pages/Environments";
 import { ExperimentDetailPage } from "./pages/ExperimentDetail";
 import { ExperimentsPage } from "./pages/Experiments";
 import { JudgesPage } from "./pages/Judges";
@@ -28,6 +31,11 @@ const router = createBrowserRouter([
       { path: "trials/:id", element: <TrialDetailPage /> },
       { path: "targets", element: <TargetsPage /> },
       { path: "judges", element: <JudgesPage /> },
+      { path: "author", element: <AuthorPage /> },
+      { path: "environments/new", element: <EnvironmentEditorPage /> },
+      { path: "environments/:key/edit", element: <EnvironmentEditorPage /> },
+      { path: "environments", element: <EnvironmentsPage /> },
+      { path: "environments/:key", element: <EnvironmentsPage /> },
       { path: "scenarios/new", element: <ScenarioEditorPage /> },
       { path: "scenarios/:key/edit", element: <ScenarioEditorPage /> },
       { path: "scenarios", element: <ScenariosPage /> },

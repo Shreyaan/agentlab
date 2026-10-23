@@ -21,23 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/builder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Builder */
-        get: operations["builder_v1_builder_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/judges": {
         parameters: {
             query?: never;
@@ -107,6 +90,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Environments */
+        get: operations["list_environments_v1_environments_get"];
+        put?: never;
+        /** Save Environment */
+        post: operations["save_environment_v1_environments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/environments/{key}/builder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Environment Builder Info */
+        get: operations["environment_builder_info_v1_environments__key__builder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/environments/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Environment */
+        post: operations["validate_environment_v1_environments_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/scenarios": {
         parameters: {
             query?: never;
@@ -134,10 +169,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Validate Scenario
-         * @description Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422.
-         */
+        /** Validate Scenario */
         post: operations["validate_scenario_v1_scenarios_validate_post"];
         delete?: never;
         options?: never;
@@ -282,6 +314,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/author": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Author */
+        post: operations["author_v1_author_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -312,6 +361,39 @@ export interface components {
              */
             detail: string;
             judge?: components["schemas"]["JudgeVerdict"] | null;
+        };
+        /**
+         * AuthorDraft
+         * @description A model-written draft, already validated against a real temporary environment. Never saved automatically.
+         */
+        AuthorDraft: {
+            environment: components["schemas"]["EnvironmentSpec"] | null;
+            scenario: components["schemas"]["Scenario-Output"] | null;
+            /** Valid */
+            valid: boolean;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /** Model */
+            model: string;
+            /** Attempts */
+            attempts: number;
+            /** Cost Usd */
+            cost_usd?: number | null;
+        };
+        /** AuthorRequest */
+        AuthorRequest: {
+            /** Description */
+            description: string;
+            /** Environment */
+            environment?: string | null;
         };
         /** Budget */
         Budget: {
@@ -445,6 +527,36 @@ export interface components {
             /** Choices */
             choices: string[];
         };
+        /** Column */
+        Column: {
+            /** Name */
+            name: string;
+            type: components["schemas"]["ColumnType"];
+            /**
+             * Primary Key
+             * @default false
+             */
+            primary_key: boolean;
+            /**
+             * Nullable
+             * @default true
+             */
+            nullable: boolean;
+            /**
+             * Unique
+             * @default false
+             */
+            unique: boolean;
+            /**
+             * Serial
+             * @default false
+             */
+            serial: boolean;
+            /** References */
+            references?: string | null;
+        };
+        /** @enum {string} */
+        ColumnType: "text" | "integer" | "bigint" | "numeric" | "boolean" | "timestamptz" | "jsonb";
         /** ConsoleInfo */
         ConsoleInfo: {
             /** Version */
@@ -517,6 +629,29 @@ export interface components {
             scenario: components["schemas"]["Scenario-Input"];
             /** Target */
             target: string;
+        };
+        /** EnvironmentDraft */
+        EnvironmentDraft: {
+            environment: components["schemas"]["EnvironmentSpec"];
+        };
+        /** EnvironmentInfo */
+        EnvironmentInfo: {
+            /** Key */
+            key: string;
+            environment: components["schemas"]["EnvironmentSpec"];
+        };
+        /** EnvironmentSpec */
+        EnvironmentSpec: {
+            /** Id */
+            id: string;
+            /** Version */
+            version: number;
+            /** Description */
+            description: string;
+            /** Tables */
+            tables: components["schemas"]["Table"][];
+            /** Tools */
+            tools: components["schemas"]["ToolSpec"][];
         };
         /**
          * ErrorCode
@@ -601,6 +736,13 @@ export interface components {
             /** Scenarios */
             scenarios: {
                 [key: string]: components["schemas"]["Scenario-Output"];
+            };
+            /**
+             * Environments
+             * @default {}
+             */
+            environments: {
+                [key: string]: components["schemas"]["EnvironmentSpec"];
             };
             /** Repeats */
             repeats: number;
@@ -870,6 +1012,8 @@ export interface components {
             /** Fixes */
             fixes: number;
         };
+        /** @enum {string} */
+        ParamType: "string" | "integer" | "number" | "boolean";
         PassRule: components["schemas"]["NoulRule"] | components["schemas"]["ChoiceRule"] | components["schemas"]["ScoreRule"];
         /** QueryResult */
         QueryResult: {
@@ -886,7 +1030,18 @@ export interface components {
         };
         /** QueryTest */
         QueryTest: {
-            seed: components["schemas"]["Seed"];
+            /**
+             * Environment
+             * @default refund@1
+             */
+            environment: string;
+            /**
+             * Seed
+             * @default {}
+             */
+            seed: {
+                [key: string]: components["schemas"]["Row"][];
+            };
             /** Query */
             query: string;
         };
@@ -932,6 +1087,20 @@ export interface components {
         };
         Row: {
             [key: string]: components["schemas"]["JsonValue"];
+        };
+        /**
+         * Rule
+         * @description A precondition evaluated before the effect. `sql` is one SELECT returning a single boolean cell, with the
+         *     tool's parameters bound as %(name)s. When it returns true the call fails with `status` and `error` and has no
+         *     side effect (e.g. "insufficient seats" -> 409).
+         */
+        Rule: {
+            /** Sql */
+            sql: string;
+            /** Status */
+            status: number;
+            /** Error */
+            error: string;
         };
         /** RunRequest */
         RunRequest: {
@@ -993,7 +1162,18 @@ export interface components {
              * @default []
              */
             slices: string[];
-            fixture: components["schemas"]["Seed"];
+            /**
+             * Environment
+             * @default refund@1
+             */
+            environment: string;
+            /**
+             * Seed
+             * @default {}
+             */
+            seed: {
+                [key: string]: components["schemas"]["Row"][];
+            };
             input: components["schemas"]["JsonObject"];
             /**
              * Faults
@@ -1027,7 +1207,18 @@ export interface components {
              * @default []
              */
             slices: string[];
-            fixture: components["schemas"]["Seed"];
+            /**
+             * Environment
+             * @default refund@1
+             */
+            environment: string;
+            /**
+             * Seed
+             * @default {}
+             */
+            seed: {
+                [key: string]: components["schemas"]["Row"][];
+            };
             input: components["schemas"]["JsonObject"];
             /**
              * Faults
@@ -1094,24 +1285,6 @@ export interface components {
             /** Score At Least */
             score_at_least: number;
         };
-        /** Seed */
-        Seed: {
-            /**
-             * Customers
-             * @default []
-             */
-            customers: components["schemas"]["Row"][];
-            /**
-             * Orders
-             * @default []
-             */
-            orders: components["schemas"]["Row"][];
-            /**
-             * Approval Limit Cents
-             * @default 50000
-             */
-            approval_limit_cents: number;
-        };
         /**
          * Sql
          * @description Read-only SQL over the environment's final state; a single-cell result is compared as a scalar.
@@ -1146,6 +1319,13 @@ export interface components {
         };
         /** @enum {string} */
         Strategy: "cascade" | "jury";
+        /** Table */
+        Table: {
+            /** Name */
+            name: string;
+            /** Columns */
+            columns: components["schemas"]["Column"][];
+        };
         /** TableDiff */
         TableDiff: {
             /**
@@ -1261,6 +1441,68 @@ export interface components {
             before: string;
             /** Requires */
             requires: string;
+        };
+        /** ToolParam */
+        ToolParam: {
+            /** Name */
+            name: string;
+            type: components["schemas"]["ParamType"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /** Enum */
+            enum?: string[] | null;
+        };
+        /**
+         * ToolSpec
+         * @description One tool: typed parameters, optional rules, then ONE SQL statement (parameters bound as %(name)s; use
+         *     RETURNING to send rows back). Runs as the trial's writer role: it can change this environment's tables only.
+         */
+        ToolSpec: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Params
+             * @default []
+             */
+            params: components["schemas"]["ToolParam"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["Rule"][];
+            /** Sql */
+            sql: string;
+            /**
+             * Returns
+             * @default row
+             * @enum {string}
+             */
+            returns: "row" | "rows" | "none";
+            /**
+             * Success Status
+             * @default 200
+             */
+            success_status: number;
+            /**
+             * Idempotent
+             * @default false
+             */
+            idempotent: boolean;
+            /**
+             * Mutates
+             * @default true
+             */
+            mutates: boolean;
         };
         /** Trial */
         Trial: {
@@ -1473,37 +1715,6 @@ export interface operations {
             };
         };
     };
-    builder_v1_builder_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BuilderInfo"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     judges_v1_judges_get: {
         parameters: {
             query?: never;
@@ -1660,6 +1871,142 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_environments_v1_environments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_environment_v1_environments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnvironmentDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedScenario"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    environment_builder_info_v1_environments__key__builder_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_environment_v1_environments_validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnvironmentDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioValidation"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -2071,6 +2418,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    author_v1_author_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+                "x-agentlab-request"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorDraft"];
                 };
             };
             /** @description Validation Error */

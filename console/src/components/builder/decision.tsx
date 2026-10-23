@@ -13,7 +13,7 @@ type QuestionType = Question["type"];
 type Calibration = NonNullable<Decision["calibration"]>;
 type Evidence = Decision["evidence"][number];
 type Judge = Schema["JudgeSpec"];
-type Seed = Schema["Seed"];
+type Seed = Schema["QueryTest"]["seed"];
 
 const EVIDENCE: Record<Evidence, string> = {
   input: "What the user asked.",
@@ -251,7 +251,7 @@ function JudgesEditor({ d, set, suggestions }: { d: Decision; set: (p: Partial<D
   );
 }
 
-function CalibrationEditor({ d, set, seed }: { d: Decision; set: (p: Partial<Decision>) => void; seed: Seed }) {
+function CalibrationEditor({ d, set, seed, environment }: { d: Decision; set: (p: Partial<Decision>) => void; seed: Seed; environment: string }) {
   const cal = d.calibration;
   const put = (p: Partial<Calibration>) => cal && set({ calibration: { ...cal, ...p } });
   return (
@@ -269,7 +269,7 @@ function CalibrationEditor({ d, set, seed }: { d: Decision; set: (p: Partial<Dec
           <Labeled label="Truth SQL" help={cal.question.type === "noul" ? "One cell: true or false." : "One cell: the name of the correct choice."}>
             {(id, h) => <textarea id={id} aria-describedby={h} rows={2} spellCheck={false} className={`${field} font-mono text-[12px]`} value={cal.truth_sql} onChange={(e) => put({ truth_sql: e.target.value })} />}
           </Labeled>
-          <QueryTester seed={seed} query={cal.truth_sql} />
+          <QueryTester seed={seed} environment={environment} query={cal.truth_sql} />
           <p className="text-[12px] text-ink2">Testing runs against your seed data, so it shows the value before the agent acts.</p>
         </>
       )}
@@ -277,7 +277,7 @@ function CalibrationEditor({ d, set, seed }: { d: Decision; set: (p: Partial<Dec
   );
 }
 
-export function DecisionForm({ d, set, seed, suggestions }: { d: Decision; set: (p: Partial<Decision>) => void; seed: Seed; suggestions: string[] }) {
+export function DecisionForm({ d, set, seed, environment, suggestions }: { d: Decision; set: (p: Partial<Decision>) => void; seed: Seed; environment: string; suggestions: string[] }) {
   const evidenceKinds = Object.keys(EVIDENCE) as Evidence[];
   const changeQuestion = (question: Question) => set({ question, pass_rule: question.type === d.question.type ? remapChoices(d.pass_rule, d.question, question) : blankRule(question) });
   const strategyName = useId();
@@ -312,7 +312,7 @@ export function DecisionForm({ d, set, seed, suggestions }: { d: Decision; set: 
           </label>
         ))}
       </fieldset>
-      <CalibrationEditor d={d} set={set} seed={seed} />
+      <CalibrationEditor d={d} set={set} seed={seed} environment={environment} />
       <CanariesEditor canaries={d.canaries} onChange={(canaries) => set({ canaries })} />
     </div>
   );

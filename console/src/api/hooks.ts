@@ -64,8 +64,37 @@ export type Paired = NonNullable<Decision["paired"]>;
 
 // --- Builders ---
 
-export const useBuilder = () =>
-  useQuery({ queryKey: ["builder"], queryFn: async () => unwrap(await api.GET("/v1/builder")), staleTime: Infinity });
+export const useEnvironments = () =>
+  useQuery({ queryKey: ["environments"], queryFn: async () => unwrap(await api.GET("/v1/environments")) });
+
+/** Vocabulary (tools, seed columns, assertion types, judges) for one environment key; disabled until a key is chosen. */
+export const useBuilder = (environment: string) =>
+  useQuery({
+    queryKey: ["builder", environment],
+    queryFn: async () => unwrap(await api.GET("/v1/environments/{key}/builder", { params: { path: { key: environment } } })),
+    enabled: environment !== "",
+    staleTime: Infinity,
+  });
+
+export const useValidateEnvironment = (environment: Schema["EnvironmentDraft"]["environment"]) =>
+  useQuery({
+    queryKey: ["validate-environment", environment],
+    queryFn: async () => unwrap(await api.POST("/v1/environments/validate", { body: { environment } })),
+    placeholderData: (prev) => prev,
+    retry: false,
+  });
+
+export const useSaveEnvironment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (environment: Schema["EnvironmentDraft"]["environment"]) => unwrap(await api.POST("/v1/environments", { body: { environment } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["environments"] }),
+  });
+};
+
+/** Long-running (30-90 s) and billed: always an explicit user action, never retried automatically. */
+export const useAuthor = () =>
+  useMutation({ mutationFn: async (body: Schema["AuthorRequest"]) => unwrap(await api.POST("/v1/author", { body })), retry: false });
 
 export const useJudges = () =>
   useQuery({ queryKey: ["judges"], queryFn: async () => unwrap(await api.GET("/v1/judges")) });

@@ -3,12 +3,12 @@ import { useTestQuery } from "../../api/hooks";
 import { Notice, btn } from "../ui";
 
 /** Runs a read-only SQL query against the draft's seed data and shows the scalar value, the rows, or the error. */
-export function QueryTester({ seed, query }: { seed: Schema["Seed"]; query: string }) {
+export function QueryTester({ seed, environment, query }: { seed: Schema["QueryTest"]["seed"]; environment: string; query: string }) {
   const test = useTestQuery();
   const r = test.data;
   return (
     <div className="space-y-2">
-      <button type="button" className={btn} disabled={test.isPending || !query.trim()} onClick={() => test.mutate({ seed, query })}>
+      <button type="button" className={btn} disabled={test.isPending || !query.trim()} onClick={() => test.mutate({ seed, environment, query })}>
         {test.isPending ? "Running..." : "Test query"}
       </button>
       {test.isError && <Notice tone="block">{test.error.message}</Notice>}

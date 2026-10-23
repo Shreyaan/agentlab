@@ -45,46 +45,6 @@
         }
       }
     },
-    "/v1/builder": {
-      "get": {
-        "summary": "Builder",
-        "operationId": "builder_v1_builder_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BuilderInfo"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/judges": {
       "get": {
         "summary": "Judges",
@@ -352,6 +312,217 @@
         }
       }
     },
+    "/v1/environments": {
+      "get": {
+        "summary": "List Environments",
+        "operationId": "list_environments_v1_environments_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentInfo"
+                  },
+                  "title": "Response List Environments V1 Environments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save Environment",
+        "operationId": "save_environment_v1_environments_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedScenario"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/{key}/builder": {
+      "get": {
+        "summary": "Environment Builder Info",
+        "operationId": "environment_builder_info_v1_environments__key__builder_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/validate": {
+      "post": {
+        "summary": "Validate Environment",
+        "operationId": "validate_environment_v1_environments_validate_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioValidation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentDraft"
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/scenarios": {
       "get": {
         "summary": "Scenarios",
@@ -457,7 +628,6 @@
     "/v1/scenarios/validate": {
       "post": {
         "summary": "Validate Scenario",
-        "description": "Takes the raw body so validation problems come back as `errors`, not as FastAPI's input-echoing 422.",
         "operationId": "validate_scenario_v1_scenarios_validate_post",
         "parameters": [
           {
@@ -1008,6 +1178,66 @@
           }
         }
       }
+    },
+    "/v1/author": {
+      "post": {
+        "summary": "Author",
+        "operationId": "author_v1_author_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-agentlab-request",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Agentlab-Request"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1139,6 +1369,105 @@
           "status"
         ],
         "title": "AssertionResult"
+      },
+      "AuthorDraft": {
+        "properties": {
+          "environment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Scenario-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment",
+          "scenario",
+          "valid",
+          "model",
+          "attempts"
+        ],
+        "title": "AuthorDraft",
+        "description": "A model-written draft, already validated against a real temporary environment. Never saved automatically."
+      },
+      "AuthorRequest": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 10,
+            "title": "Description"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "title": "AuthorRequest"
       },
       "Budget": {
         "properties": {
@@ -1446,6 +1775,66 @@
         ],
         "title": "ChoiceRule"
       },
+      "Column": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ColumnType"
+          },
+          "primary_key": {
+            "type": "boolean",
+            "title": "Primary Key",
+            "default": false
+          },
+          "nullable": {
+            "type": "boolean",
+            "title": "Nullable",
+            "default": true
+          },
+          "unique": {
+            "type": "boolean",
+            "title": "Unique",
+            "default": false
+          },
+          "serial": {
+            "type": "boolean",
+            "title": "Serial",
+            "default": false
+          },
+          "references": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "References"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "Column"
+      },
+      "ColumnType": {
+        "type": "string",
+        "enum": [
+          "text",
+          "integer",
+          "bigint",
+          "numeric",
+          "boolean",
+          "timestamptz",
+          "jsonb"
+        ]
+      },
       "ConsoleInfo": {
         "properties": {
           "version": {
@@ -1583,6 +1972,77 @@
           "target"
         ],
         "title": "DryRunRequest"
+      },
+      "EnvironmentDraft": {
+        "properties": {
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSpec"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment"
+        ],
+        "title": "EnvironmentDraft"
+      },
+      "EnvironmentInfo": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSpec"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "environment"
+        ],
+        "title": "EnvironmentInfo"
+      },
+      "EnvironmentSpec": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/Table"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Tables"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ToolSpec"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Tools"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "description",
+          "tables",
+          "tools"
+        ],
+        "title": "EnvironmentSpec"
       },
       "ErrorCode": {
         "type": "string",
@@ -1807,6 +2267,14 @@
             },
             "type": "object",
             "title": "Scenarios"
+          },
+          "environments": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EnvironmentSpec"
+            },
+            "type": "object",
+            "title": "Environments",
+            "default": {}
           },
           "repeats": {
             "type": "integer",
@@ -2456,6 +2924,15 @@
         ],
         "title": "Paired"
       },
+      "ParamType": {
+        "type": "string",
+        "enum": [
+          "string",
+          "integer",
+          "number",
+          "boolean"
+        ]
+      },
       "PassRule": {
         "anyOf": [
           {
@@ -2509,8 +2986,21 @@
       },
       "QueryTest": {
         "properties": {
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "default": "refund@1"
+          },
           "seed": {
-            "$ref": "#/components/schemas/Seed"
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/Row"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Seed",
+            "default": {}
           },
           "query": {
             "type": "string",
@@ -2519,7 +3009,6 @@
         },
         "type": "object",
         "required": [
-          "seed",
           "query"
         ],
         "title": "QueryTest"
@@ -2598,6 +3087,32 @@
           "$ref": "#/components/schemas/JsonValue"
         },
         "type": "object"
+      },
+      "Rule": {
+        "properties": {
+          "sql": {
+            "type": "string",
+            "title": "Sql"
+          },
+          "status": {
+            "type": "integer",
+            "maximum": 499.0,
+            "minimum": 400.0,
+            "title": "Status"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sql",
+          "status",
+          "error"
+        ],
+        "title": "Rule",
+        "description": "A precondition evaluated before the effect. `sql` is one SELECT returning a single boolean cell, with the\ntool's parameters bound as %(name)s. When it returns true the call fails with `status` and `error` and has no\nside effect (e.g. \"insufficient seats\" -> 409)."
       },
       "RunRequest": {
         "properties": {
@@ -2720,8 +3235,21 @@
             "title": "Slices",
             "default": []
           },
-          "fixture": {
-            "$ref": "#/components/schemas/Seed"
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "default": "refund@1"
+          },
+          "seed": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/Row"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Seed",
+            "default": {}
           },
           "input": {
             "$ref": "#/components/schemas/JsonObject"
@@ -2750,7 +3278,6 @@
         "required": [
           "id",
           "version",
-          "fixture",
           "input",
           "assertions"
         ],
@@ -2790,8 +3317,21 @@
             "title": "Slices",
             "default": []
           },
-          "fixture": {
-            "$ref": "#/components/schemas/Seed"
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "default": "refund@1"
+          },
+          "seed": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/Row"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Seed",
+            "default": {}
           },
           "input": {
             "$ref": "#/components/schemas/JsonObject"
@@ -2820,7 +3360,6 @@
         "required": [
           "id",
           "version",
-          "fixture",
           "input",
           "assertions"
         ],
@@ -2970,33 +3509,6 @@
         ],
         "title": "ScoreRule"
       },
-      "Seed": {
-        "properties": {
-          "customers": {
-            "items": {
-              "$ref": "#/components/schemas/Row"
-            },
-            "type": "array",
-            "title": "Customers",
-            "default": []
-          },
-          "orders": {
-            "items": {
-              "$ref": "#/components/schemas/Row"
-            },
-            "type": "array",
-            "title": "Orders",
-            "default": []
-          },
-          "approval_limit_cents": {
-            "type": "integer",
-            "title": "Approval Limit Cents",
-            "default": 50000
-          }
-        },
-        "type": "object",
-        "title": "Seed"
-      },
       "Sql": {
         "properties": {
           "critical": {
@@ -3051,6 +3563,28 @@
           "cascade",
           "jury"
         ]
+      },
+      "Table": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/Column"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "columns"
+        ],
+        "title": "Table"
       },
       "TableDiff": {
         "properties": {
@@ -3380,6 +3914,114 @@
         ],
         "title": "ToolOrder",
         "description": "`requires` must succeed (2xx) in the side-effect ledger before the first `before` call."
+      },
+      "ToolParam": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ParamType"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "enum": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ToolParam"
+      },
+      "ToolSpec": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/ToolParam"
+            },
+            "type": "array",
+            "title": "Params",
+            "default": []
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "type": "array",
+            "title": "Rules",
+            "default": []
+          },
+          "sql": {
+            "type": "string",
+            "title": "Sql"
+          },
+          "returns": {
+            "type": "string",
+            "enum": [
+              "row",
+              "rows",
+              "none"
+            ],
+            "title": "Returns",
+            "default": "row"
+          },
+          "success_status": {
+            "type": "integer",
+            "maximum": 299.0,
+            "minimum": 200.0,
+            "title": "Success Status",
+            "default": 200
+          },
+          "idempotent": {
+            "type": "boolean",
+            "title": "Idempotent",
+            "default": false
+          },
+          "mutates": {
+            "type": "boolean",
+            "title": "Mutates",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "sql"
+        ],
+        "title": "ToolSpec",
+        "description": "One tool: typed parameters, optional rules, then ONE SQL statement (parameters bound as %(name)s; use\nRETURNING to send rows back). Runs as the trial's writer role: it can change this environment's tables only."
       },
       "Trial": {
         "properties": {

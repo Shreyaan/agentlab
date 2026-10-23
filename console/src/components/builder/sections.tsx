@@ -1,6 +1,6 @@
 import type { Schema } from "../../api/client";
 import type { ScenarioDraft } from "../scenario";
-import { Card, Labeled, SectionTitle, btn, field } from "../ui";
+import { Card, Labeled, Notice, SectionTitle, btn, field } from "../ui";
 import { JsonField, NumberField, Select, TagInput } from "./fields";
 
 export type Scenario = ScenarioDraft;
@@ -29,13 +29,30 @@ export function IdentitySection({ s, set, versionNote }: { s: Scenario; set: Pat
   );
 }
 
-type SeedTable = { [K in keyof Scenario["fixture"]]: Scenario["fixture"][K] extends Row[] ? K : never }[keyof Scenario["fixture"]];
+type ColumnInfo = Record<string, { type: string; nullable: boolean }>;
+type Seed = Record<string, Row[]>;
 
-const cellValue = (column: string, text: string): string | number => (column.endsWith("_cents") && text.trim() !== "" && !Number.isNaN(Number(text)) ? Number(text) : text);
+/** Turns typed text into the cell's JSON value using the environment's column type; empty means NULL where allowed. */
+export function cellValue(text: string, column: { type: string; nullable: boolean } | undefined): unknown {
+  const type = column?.type ?? "text";
+  if (text.trim() === "") return column?.nullable === false || type === "text" ? "" : null;
+  if (["integer", "bigint", "numeric"].includes(type)) return Number.isNaN(Number(text)) ? text : Number(text);
+  if (type === "boolean") return text.trim().toLowerCase() === "true" ? true : text.trim().toLowerCase() === "false" ? false : text;
+  if (type === "jsonb") {
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
 
-function SeedTableEditor({ table, columns, rows, onChange }: { table: string; columns: string[]; rows: Row[]; onChange: (rows: Row[]) => void }) {
-  const setCell = (i: number, col: string, text: string) => onChange(rows.map((r, j) => (j === i ? { ...r, [col]: cellValue(col, text) } : r)));
-  const blank = (): Row => Object.fromEntries(columns.map((c) => [c, ""]));
+const cellText = (v: unknown): string => (v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
+
+function SeedTableEditor({ table, columns, info, rows, onChange }: { table: string; columns: string[]; info: ColumnInfo; rows: Row[]; onChange: (rows: Row[]) => void }) {
+  const setCell = (i: number, col: string, text: string) => onChange(rows.map((r, j) => (j === i ? { ...r, [col]: cellValue(text, info[col]) } : r)));
+  const blank = (): Row => Object.fromEntries(columns.map((c) => [c, cellValue("", info[c])])) as Row;
   return (
     <div className="space-y-1.5">
       <h3 className="font-medium">{table}</h3>
@@ -48,7 +65,7 @@ function SeedTableEditor({ table, columns, rows, onChange }: { table: string; co
               <tr>
                 {columns.map((c) => (
                   <th key={c} className="px-1 pb-1 text-left text-[12px] font-medium text-ink2">
-                    {c}
+                    {c} <span className="font-normal text-ink3">{info[c]?.type}</span>
                   </th>
                 ))}
                 <th className="w-8" />
@@ -59,7 +76,7 @@ function SeedTableEditor({ table, columns, rows, onChange }: { table: string; co
                 <tr key={i}>
                   {columns.map((c) => (
                     <td key={c} className="p-0.5">
-                      <input aria-label={`${table} row ${i + 1} ${c}`} className={field} value={String(r[c] ?? "")} onChange={(e) => setCell(i, c, e.target.value)} />
+                      <input aria-label={`${table} row ${i + 1} ${c}`} className={field} value={cellText(r[c])} onChange={(e) => setCell(i, c, e.target.value)} />
                     </td>
                   ))}
                   <td className="p-0.5">
@@ -80,19 +97,35 @@ function SeedTableEditor({ table, columns, rows, onChange }: { table: string; co
   );
 }
 
-export function SeedSection({ s, set, builder }: { s: Scenario; set: Patch; builder: Builder }) {
-  const fixture = s.fixture;
-  const tables = Object.entries(builder.seed_columns).filter((e): e is [SeedTable & string, string[]] => Array.isArray(fixture[e[0] as SeedTable]));
+/** One editable table per environment table (columns from its builder info); leftover tables are flagged for removal. */
+export function SeedSection({ s, set, builder, columnInfo }: { s: Scenario; set: Patch; builder: Builder; columnInfo: Record<string, ColumnInfo> }) {
+  const seed = s.seed as Seed;
+  const known = Object.entries(builder.seed_columns);
+  const unknown = Object.keys(seed).filter((t) => !(t in builder.seed_columns));
   return (
     <Card className="space-y-4 p-4">
       <SectionTitle>Seed data</SectionTitle>
-      <p className="text-ink2">The starting state of the environment database for every run of this scenario. Amount columns ending in _cents are numbers.</p>
-      {tables.map(([table, columns]) => (
-        <SeedTableEditor key={table} table={table} columns={columns} rows={fixture[table]} onChange={(rows) => set({ fixture: { ...fixture, [table]: rows } })} />
+      <p className="text-ink2">The starting rows of each environment table for every run of this scenario. Leave a table empty to start it with no rows. Empty cells become NULL (or an empty string for text).</p>
+      {unknown.length > 0 && (
+        <Notice tone="warn">
+          Seed has tables this environment does not define: {unknown.join(", ")}.{" "}
+          <button type="button" className="cursor-pointer underline" onClick={() => set({ seed: Object.fromEntries(Object.entries(seed).filter(([t]) => t in builder.seed_columns)) as Scenario["seed"] })}>
+            Remove them
+          </button>
+        </Notice>
+      )}
+      {known.map(([table, columns]) => (
+        <SeedTableEditor key={table} table={table} columns={columns} info={columnInfo[table] ?? {}} rows={seed[table] ?? []} onChange={(rows) => set({ seed: { ...seed, [table]: rows } as Scenario["seed"] })} />
       ))}
-      <div className="max-w-xs">
-        <NumberField label="Approval limit (cents)" help="Refunds above this amount are denied by the approval service." min={0} value={fixture.approval_limit_cents ?? null} onChange={(v) => set({ fixture: { ...fixture, approval_limit_cents: v ?? 0 } })} />
-      </div>
+    </Card>
+  );
+}
+
+export function EnvironmentSection({ value, environments, onChange }: { value: string; environments: string[]; onChange: (key: string) => void }) {
+  return (
+    <Card className="space-y-2 p-4">
+      <SectionTitle>Environment</SectionTitle>
+      <Select label="Environment" help="The simulated world and tools this scenario runs in. Seed data, faults and checks are written against it." value={value} options={environments} onChange={onChange} />
     </Card>
   );
 }

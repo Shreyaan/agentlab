@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import type { Schema } from "../api/client";
 import { useScenarios } from "../api/hooks";
-import { TIER_TONE, faultLabel, faultSummary, type Assertion } from "../components/scenario";
-import { Badge, Card, EmptyState, JsonBlock, Mono, PageHeader, QueryState, SectionTitle, Table, Td, Th, btn, btnPrimary, type Tone } from "../components/ui";
+import { TIER_TONE, faultLabel, faultSummary, type Assertion, type Scenario } from "../components/scenario";
+import { Badge, Card, EmptyState, Labeled, JsonBlock, Mono, PageHeader, QueryState, SectionTitle, Table, Td, Th, btn, btnPrimary, field, type Tone } from "../components/ui";
 import { percent } from "../lib/format";
 
 const STATUS_NOTE = "critical first";
@@ -124,7 +125,8 @@ function CanaryList({ canaries }: { canaries: Decision["canaries"] }) {
 
 const assertionText = (a: Assertion): string => a.description || describeAssertion(a);
 
-function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
+/** Read-only scenario renderer; `actions` adds Edit/Duplicate for saved scenarios (the author review reuses it without). */
+export function ScenarioDetail({ info, actions = true }: { info: { key: string; scenario: Scenario }; actions?: boolean }) {
   const s = info.scenario;
   const assertions = [...s.assertions].sort((a, b) => Number(b.critical) - Number(a.critical));
   const budget = Object.entries(s.budget).filter(([, v]) => v != null);
@@ -142,14 +144,21 @@ function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
               {sl}
             </Badge>
           ))}
-          <div className="ml-auto flex gap-2">
-            <Link className={btn} to={`/scenarios/${info.key}/edit`}>
-              Edit
-            </Link>
-            <Link className={btn} to={`/scenarios/new?from=${info.key}`}>
-              Duplicate
-            </Link>
-          </div>
+          <Link to={`/environments/${s.environment}`}>
+            <Badge tone="accent" title="Environment">
+              {s.environment}
+            </Badge>
+          </Link>
+          {actions && (
+            <div className="ml-auto flex gap-2">
+              <Link className={btn} to={`/scenarios/${info.key}/edit`}>
+                Edit
+              </Link>
+              <Link className={btn} to={`/scenarios/new?from=${info.key}`}>
+                Duplicate
+              </Link>
+            </div>
+          )}
         </div>
       </Card>
       <Card className="p-4">
@@ -157,8 +166,16 @@ function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
         <JsonBlock label="Agent input" value={s.input} open />
       </Card>
       <Card className="p-4">
-        <SectionTitle>Fixture seed</SectionTitle>
-        <JsonBlock label="Initial environment state" value={s.fixture} />
+        <SectionTitle>Seed data</SectionTitle>
+        {Object.keys(s.seed).length === 0 ? (
+          <p className="text-ink2">No seed rows: every table starts empty.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {Object.entries(s.seed).map(([table, rows]) => (
+              <JsonBlock key={table} label={`${table} (${rows.length} row${rows.length === 1 ? "" : "s"})`} value={rows} />
+            ))}
+          </div>
+        )}
       </Card>
       <Card className="p-4">
         <SectionTitle>Faults</SectionTitle>
@@ -199,19 +216,40 @@ function ScenarioDetail({ info }: { info: Schema["ScenarioInfo"] }) {
 export function ScenariosPage() {
   const query = useScenarios();
   const { key } = useParams();
+  const [environment, setEnvironment] = useState("");
   return (
     <>
       <PageHeader title="Scenarios" sub="Versioned test cases the gate runs.">
-        <Link className={btnPrimary} to="/scenarios/new">
+        <Link className={btnPrimary} to="/author">
+          Describe a scenario
+        </Link>
+        <Link className={btn} to="/scenarios/new">
           New scenario
         </Link>
       </PageHeader>
       <QueryState query={query} isEmpty={(d) => d.length === 0} empty={<EmptyState title="No scenarios in the suite" />}>
-        {(list) => {
-          const active = list.find((s) => s.key === key);
+        {(all) => {
+          const environments = [...new Set(all.map((s) => s.scenario.environment))].sort();
+          const list = environment ? all.filter((s) => s.scenario.environment === environment) : all;
+          const active = all.find((s) => s.key === key);
           return (
             <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
               <Card className="h-fit">
+                {environments.length > 1 && (
+                  <div className="border-b border-line p-3">
+                    <Labeled label="Environment">
+                      {(id) => (
+                        <select id={id} className={field} value={environment} onChange={(e) => setEnvironment(e.target.value)}>
+                          <option value="">All environments</option>
+                          {environments.map((e) => (
+                            <option key={e}>{e}</option>
+                          ))}
+                        </select>
+                      )}
+                    </Labeled>
+                  </div>
+                )}
+                {list.length === 0 && <EmptyState title={`No scenarios in ${environment}`} />}
                 <ul className="divide-y divide-line">
                   {list.map((s) => (
                     <li key={s.key}>
@@ -220,9 +258,10 @@ export function ScenariosPage() {
                         aria-current={s.key === key ? "page" : undefined}
                         className={`block px-3 py-2.5 hover:bg-sunken ${s.key === key ? "bg-sunken" : ""}`}
                       >
-                        <span className="flex items-center gap-2">
+                        <span className="flex flex-wrap items-center gap-2">
                           <Mono className="font-medium">{s.key}</Mono>
                           <Badge tone={TIER_TONE[s.scenario.risk_tier]}>{s.scenario.risk_tier}</Badge>
+                          <Badge tone="accent">{s.scenario.environment}</Badge>
                         </span>
                         <span className="block text-[12px] text-ink2">{faultSummary(s.scenario)}</span>
                       </Link>
