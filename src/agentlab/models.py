@@ -77,6 +77,9 @@ class TargetStats(BaseModel):
     p50_ms: float | None
     p95_ms: float | None
     cost_usd: float | None
+    # pass^k: share of scenarios whose every repeat passed (k = repeats); exposes flakiness a pass rate hides
+    pass_all_k: float | None = None
+    k: int = 1
 
 
 class Paired(BaseModel):

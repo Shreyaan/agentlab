@@ -47,15 +47,41 @@ class JudgeVerdict(BaseModel):
     calibration_correct: dict[str, bool] = {}  # model -> did its calibration answer match the truth
 
 
+class Canary(BaseModel):
+    """A labelled example for a decision check: evidence exactly as a judge would see it, and the right verdict.
+    Canaries measure verdict accuracy, which calibration questions (evidence reading) cannot."""
+
+    label: str
+    evidence: JsonObject  # e.g. {"output": "...", "final_state": {"refunds": [...]}}
+    expected: Literal["pass", "fail"]
+
+
+class CanaryResult(BaseModel):
+    experiment_id: str
+    scenario: str  # id@version
+    check: str  # the decision check's description
+    label: str
+    model: str
+    expected: Literal["pass", "fail"]
+    verdict: Literal["pass", "fail", "abstain"]
+    correct: bool  # verdict == expected; an abstain is not correct
+    answer: JsonObject
+    cost_usd: float | None = None
+
+
 class JudgeStats(BaseModel):
-    """Per-model track record. Calibration is evidence-reading accuracy: necessary, not verdict accuracy."""
+    """Per-model track record on two bars: evidence reading (calibration questions answered alongside real
+    verdicts) and verdict accuracy (labelled canaries). Both must pass before a critical check may block."""
 
     model: str
     samples: int  # calibration answers seen
     correct: int
     accuracy: float | None
+    canary_samples: int = 0
+    canary_correct: int = 0
+    canary_accuracy: float | None = None
     cost_usd: float | None
-    calibrated: bool  # meets the bar to make critical decision checks block releases
+    calibrated: bool  # meets both bars, so critical decision checks may block releases
 
 
 class AssertionResult(BaseModel):

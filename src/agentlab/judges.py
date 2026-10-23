@@ -36,6 +36,8 @@ class JudgeError(Exception):
 class JudgeSpec(BaseModel):
     model: str
     api: Literal["decisions", "chat"] = "decisions"
+    # Probabilities are not comparable across models: a judge may carry its own threshold (overrides the check's).
+    min_confidence: float | None = Field(default=None, ge=0.5, le=1.0)
 
 
 class NoulQuestion(BaseModel):
