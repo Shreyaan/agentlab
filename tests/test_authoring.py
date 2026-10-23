@@ -223,7 +223,10 @@ def test_real_validators_accept_a_shipped_scenario_and_reject_a_broken_one(envs:
     validate_environment, validate_scenario = real_validators(envs)
     broken = shipped | {"faults": [{"tool": "no_such_tool", "action": "timeout_after_commit"}]}
     result = Author(model="m", max_attempts=2, complete=Script(reply(broken), reply(shipped))).draft(
-        REQUEST, {"refund@1": REFUND}, validate_environment, validate_scenario
+        REQUEST.model_copy(update={"environment": shipped["environment"]}),
+        load_environments(authoring.ROOT / "environments"),
+        validate_environment,
+        validate_scenario,
     )
     assert result.valid
     assert result.attempts == 2

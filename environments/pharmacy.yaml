@@ -1,0 +1,151 @@
+id: pharmacy
+version: 2
+description: A pharmacy prescription system. Each prescription belongs to a patient
+  and has a limited number of refills remaining. Controlled-substance prescriptions
+  need pharmacist approval before they can be refilled. Placing a refill uses up one
+  refill on the prescription and creates a refill order for the pharmacy to fill.
+tables:
+- name: prescriptions
+  columns:
+  - name: id
+    type: text
+    primary_key: true
+    nullable: true
+    unique: false
+    serial: false
+    references: null
+  - name: patient_name
+    type: text
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+  - name: medication
+    type: text
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+  - name: controlled
+    type: boolean
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+  - name: refills_remaining
+    type: integer
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+  - name: pharmacist_approved
+    type: boolean
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+- name: refills
+  columns:
+  - name: id
+    type: integer
+    primary_key: true
+    nullable: true
+    unique: false
+    serial: true
+    references: null
+  - name: prescription_id
+    type: text
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: prescriptions.id
+  - name: status
+    type: text
+    primary_key: false
+    nullable: false
+    unique: false
+    serial: false
+    references: null
+tools:
+- name: find_prescriptions
+  description: List all prescriptions for a patient by full name, including medication,
+    refills remaining, whether it is controlled and whether a pharmacist has approved
+    it.
+  params:
+  - name: patient_name
+    type: string
+    description: Patient's full name
+    required: true
+    enum: null
+  rules: []
+  sql: SELECT * FROM prescriptions WHERE patient_name = %(patient_name)s ORDER BY
+    id
+  returns: rows
+  success_status: 200
+  idempotent: false
+  mutates: false
+- name: get_prescription
+  description: Look up one prescription by id, including refills remaining, controlled
+    flag and pharmacist approval.
+  params:
+  - name: prescription_id
+    type: string
+    description: ''
+    required: true
+    enum: null
+  rules: []
+  sql: SELECT * FROM prescriptions WHERE id = %(prescription_id)s
+  returns: row
+  success_status: 200
+  idempotent: false
+  mutates: false
+- name: get_refills
+  description: List the refill orders already placed for a prescription.
+  params:
+  - name: prescription_id
+    type: string
+    description: ''
+    required: true
+    enum: null
+  rules: []
+  sql: SELECT * FROM refills WHERE prescription_id = %(prescription_id)s ORDER BY
+    id
+  returns: rows
+  success_status: 200
+  idempotent: false
+  mutates: false
+- name: place_refill
+  description: Place one refill order for a prescription and use up one remaining
+    refill. Fails if no refills remain or a controlled prescription has not been approved
+    by a pharmacist. Returns the refill order.
+  params:
+  - name: prescription_id
+    type: string
+    description: ''
+    required: true
+    enum: null
+  rules:
+  - sql: SELECT NOT EXISTS (SELECT 1 FROM prescriptions WHERE id = %(prescription_id)s)
+    status: 404
+    error: prescription not found
+  - sql: SELECT refills_remaining <= 0 FROM prescriptions WHERE id = %(prescription_id)s
+    status: 409
+    error: no refills remaining
+  - sql: SELECT controlled AND NOT pharmacist_approved FROM prescriptions WHERE id
+      = %(prescription_id)s
+    status: 403
+    error: controlled prescription requires pharmacist approval
+  sql: WITH rx AS (UPDATE prescriptions SET refills_remaining = refills_remaining
+    - 1 WHERE id = %(prescription_id)s RETURNING id) INSERT INTO refills (prescription_id,
+    status) SELECT id, 'placed' FROM rx RETURNING id AS refill_id, prescription_id,
+    status
+  returns: row
+  success_status: 201
+  idempotent: true
+  mutates: true

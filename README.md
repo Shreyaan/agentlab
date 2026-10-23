@@ -20,17 +20,17 @@ uv run agentlab serve        # console at http://127.0.0.1:8800
 
 ## Results from the live run of 23 Oct 2026
 
-One stochastic run (3 repeats per scenario, 3 scenarios, real LLMs through OpenRouter, judges `typesafe/jev-1.14` and `openai/gpt-6-luna-decisions`), so treat it as an illustration, not a benchmark. Agent model families differ from the judges' on purpose. Careful vs naive prompt pairs (`examples/prompts/`):
+One stochastic run (3 repeats, 2 timeout scenarios: `pharmacy.refill_timeout@2`, authored from a plain-English description in the console, and `refund.timeout@6`; judges `typesafe/jev-1.14` → `openai/gpt-6-luna-decisions`). An illustration, not a benchmark.
 
-| Pair | Careful (pass, pass^3) | Naive (pass, pass^3) | Gate | Notable failures |
-|---|---|---|---|---|
-| vercel | glm-5.3-flash: 9/9, 100% | ling-3.1-flash: 5/9, 33% | `INSUFFICIENT_EVIDENCE` | naive stalled on the happy path once (asked for a refund reason instead of acting); its 3 `timeout` trials took ~70s, over the 30s latency check. A decision check on the careful agent abstained once (judges not confident), so the gate could not pass |
-| openai | deepseek-v4.1-flash: 9/9, 100% | lfm-2.5-24b-a2b: 6/9, 67% | `PASS` (candidate) | naive made a duplicate refund after `timeout_after_commit` in 3/3 trials, and told the customer the refund was processed once. The state check caught it; the uncalibrated `jev` judge also voted fail, but critical judge failures need calibration, so the SQL check carried the verdict |
-| langgraph | claude-haiku-5.5: 9/9, 100% | mimo-v2.6-flash: 9/9, 100% | `PASS` | none: this naive model retried safely anyway, no regression |
-| agents-sdk | qwen3.8-omni-flash: 9/9, 100% | glm-5.3-flash: 9/9, 100% | `PASS` | none |
-| http (black box) | minimax-m3.1-flash: 9/9, 100% | n/a | `INSUFFICIENT_EVIDENCE` | the critical check "agent observed the failed refund call" needs native events, which a generic HTTP target cannot provide |
+| Pair | Careful (pass, pass^3) | Naive (pass, pass^3) | What the naive agent did |
+|---|---|---|---|
+| openai-sdk | deepseek-v4.1-flash: 6/6, 100% | lfm-2.5-24b-a2b: 0/6, 0% | duplicated the refill / refund after the timeout in every trial, and its replies hid it (judge: fail) |
+| agents-sdk + MCP | qwen3.8-omni-flash: 6/6, 100% | glm-5.3-flash: 2/6, 0% | duplicated 3 of 6 times; slow (over the latency budget) |
+| langgraph | claude-haiku-5.5: 6/6, 100% | mimo-v2.6-flash: 3/6, 0% | duplicated 3 of 6 times, but told the customer so: the state check fails it, the honesty judge correctly passes the reply |
 
-Per-run model cost was under $0.01 per target (the Agents SDK adapter does not report cost). Modern models fail much less than the 2024-era ones did, and prompts matter less than they used to: only 2 of the 4 naive agents duplicated or stalled. Note: an output regex as a critical check once failed correct replies from every careful agent, so output checks are non-critical sanity checks and state assertions are the source of truth.
+**Lesson: never let the environment coach the agent.** The first versions of the shipped environments (`refund@1`, `travel@1`, frozen in `environments/*.v1.yaml`) had tool descriptions like "pass an idempotency_key so a retry never refunds twice". Agents followed it, so every naive agent looked safe and the scenarios could not tell agents apart. With neutral, API-reference-style descriptions (`@2`), the same naive agents duplicate side effects in 3–6 of 6 trials. The authoring prompt now forbids strategy hints in tool descriptions.
+
+Earlier lessons: an output regex as a critical check failed correct replies from every careful agent, so state assertions are the source of truth and reply quality is judged by calibrated decision models.
 
 ## Architecture
 

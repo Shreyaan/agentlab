@@ -69,7 +69,7 @@ def test_validate_semantic_errors(client: TestClient) -> None:
 def test_validate_ok_with_calibration_sql(client: TestClient) -> None:
     out = client.post("/v1/scenarios/validate", json=draft(), headers=CSRF).json()
     assert out["valid"] is True
-    assert out["key"] == "builder.demo@4"
+    assert out["key"] == "builder.demo@5"
     normalized = yaml.safe_load(out["yaml"])
     assert normalized["assertions"][1]["type"] == "decision"
     assert "slices" in normalized
@@ -80,19 +80,19 @@ def test_save_new_bump_and_identical_noop(client: TestClient, paths: tuple[str, 
     first = client.post("/v1/scenarios", json=draft(), headers=CSRF)
     assert first.status_code == 200
     assert first.json() == {
-        "key": "builder.demo@4",
+        "key": "builder.demo@5",
         "path": str(Path(paths[1]).resolve() / "builder.demo.yaml"),
         "created": True,
     }
     again = client.post("/v1/scenarios", json=draft(), headers=CSRF).json()
-    assert (again["key"], again["created"]) == ("builder.demo@4", False)
+    assert (again["key"], again["created"]) == ("builder.demo@5", False)
     changed = client.post("/v1/scenarios", json=draft(risk_tier="critical"), headers=CSRF).json()
-    assert (changed["key"], changed["created"]) == ("builder.demo@5", False)
-    assert "builder.demo@5" in [s["key"] for s in client.get("/v1/scenarios").json()]
+    assert (changed["key"], changed["created"]) == ("builder.demo@6", False)
+    assert "builder.demo@6" in [s["key"] for s in client.get("/v1/scenarios").json()]
     assert not list(Path(paths[1]).glob("*.tmp"))
     # an existing hand-written file is updated in place, not duplicated under another name
     bumped = client.post("/v1/scenarios", json=draft("refund.happy", risk_tier="high"), headers=CSRF).json()
-    assert bumped["key"] == "refund.happy@5"
+    assert bumped["key"] == "refund.happy@6"
     assert bumped["path"].endswith("refund_happy.yaml")
 
 
@@ -129,7 +129,7 @@ def test_dry_run_is_accepted_for_unsaved_scenario(client: TestClient) -> None:
     r = client.post("/v1/scenarios/dry-run", json={**draft("builder.unsaved"), "target": "blackbox"}, headers=CSRF)
     assert r.status_code == 202
     detail = wait_complete(client, r.json()["experiment_id"])
-    assert list(detail["experiment"]["meta"]["scenarios"]) == ["builder.unsaved@4"]
+    assert list(detail["experiment"]["meta"]["scenarios"]) == ["builder.unsaved@5"]
     assert client.post("/v1/scenarios/dry-run", json={**draft(), "target": "ghost"}, headers=CSRF).status_code == 422
 
 

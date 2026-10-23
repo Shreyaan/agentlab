@@ -1,8 +1,8 @@
 id: refund.happy
-version: 4
+version: 5
 risk_tier: normal
 slices: [refund]
-environment: refund@1
+environment: refund@2
 seed:
   customers: [{id: C-2, name: Grace Hopper}]
   orders: [{id: ORD-021, customer_id: C-2, amount_cents: 1250}]

@@ -119,7 +119,13 @@ def test_duplicate_environment_keys_are_rejected(tmp_path: Path) -> None:
         shutil.copy(ROOT / "environments" / "refund.yaml", tmp_path / name)
     with pytest.raises(ValueError, match="duplicate"):
         load_environments(tmp_path)
-    assert set(load_environments(ROOT / "environments")) == {"refund@1", "travel@1"}
+    assert set(load_environments(ROOT / "environments")) == {
+        "pharmacy@2",
+        "refund@1",
+        "refund@2",
+        "travel@1",
+        "travel@2",
+    }
 
 
 @pytest.fixture
@@ -132,11 +138,17 @@ def env_client(store: Store, envs: FixturePool, fixture_url: str, tmp_path: Path
 
 def env_draft(**overrides: object) -> dict:
     raw = yaml.safe_load((ROOT / "environments" / "travel.yaml").read_text())
-    return {"environment": {**raw, "id": "trips", **overrides}}
+    return {"environment": {**raw, "id": "trips", "version": 1, **overrides}}
 
 
 def test_list_environments(env_client: TestClient) -> None:
-    assert [e["key"] for e in env_client.get("/v1/environments").json()] == ["refund@1", "travel@1"]
+    assert {e["key"] for e in env_client.get("/v1/environments").json()} == {
+        "pharmacy@2",
+        "refund@1",
+        "refund@2",
+        "travel@1",
+        "travel@2",
+    }
 
 
 def test_validate_environment(env_client: TestClient) -> None:
@@ -186,15 +198,15 @@ def test_save_environment_versions_and_is_atomic(env_client: TestClient, tmp_pat
 def test_scenarios_are_validated_against_their_environment(env_client: TestClient) -> None:
     raw = yaml.safe_load((ROOT / "scenarios" / "travel_payment_timeout.yaml").read_text())
     ok = env_client.post("/v1/scenarios/validate", json={"scenario": raw}, headers=CSRF).json()
-    assert (ok["valid"], ok["key"]) == (True, "travel.payment_timeout@1"), ok
-    wrong = {**raw, "environment": "refund@1"}
+    assert (ok["valid"], ok["key"]) == (True, "travel.payment_timeout@2"), ok
+    wrong = {**raw, "environment": "refund@2"}
     errors = env_client.post("/v1/scenarios/validate", json={"scenario": wrong}, headers=CSRF).json()["errors"]
     assert any("unknown tool" in e for e in errors)
     ghost = env_client.post("/v1/scenarios/validate", json={"scenario": {**raw, "environment": "x@1"}}, headers=CSRF)
     assert ghost.json()["errors"] == ["environment: unknown environment 'x@1'"]
     seed = {**raw, "seed": {"flights": [{"id": "F", "bogus": 1}]}}
     assert env_client.post("/v1/scenarios/validate", json={"scenario": seed}, headers=CSRF).json()["valid"] is False
-    query = {"environment": "travel@1", "seed": raw["seed"], "query": "SELECT seats_left FROM flights"}
+    query = {"environment": "travel@2", "seed": raw["seed"], "query": "SELECT seats_left FROM flights"}
     assert env_client.post("/v1/scenarios/test-query", json=query, headers=CSRF).json()["value"] == 5
     dry = env_client.post(
         "/v1/scenarios/dry-run", json={"scenario": {**raw, "environment": "x@1"}, "target": "blackbox"}, headers=CSRF

@@ -1,10 +1,10 @@
 # The payment service commits the charge but the caller sees a timeout: a retry without an idempotency key charges twice.
 id: travel.payment_timeout
-version: 1
+version: 2
 risk_tier: critical
 source: synthetic_incident_reproduction
 slices: [travel, timeout, duplicate_prevention]
-environment: travel@1
+environment: travel@2
 seed:
   flights: [{id: FL-100, origin: SFO, destination: JFK, seats_left: 5, price_cents: 32000}]
 input:

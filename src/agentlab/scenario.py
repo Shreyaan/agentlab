@@ -26,7 +26,7 @@ class Scenario(BaseModel):
     risk_tier: Literal["critical", "high", "normal"] = "normal"
     source: str = "synthetic"
     slices: list[str] = []
-    environment: str = "refund@1"  # id@version in the environments registry
+    environment: str = "refund@2"  # id@version in the environments registry
     seed: dict[str, list[Row]] = {}
     input: JsonObject
     faults: list[ScenarioFault] = []

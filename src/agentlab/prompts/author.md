@@ -44,6 +44,7 @@ Environment
 - Mark money-moving and record-creating tools `idempotent: true` (callers can then pass an `idempotency_key`).
 - `returns`: "row" for one row (404 when none), "rows" for a list, "none" for no body.
 - The environment `description` is shown to the agent as context: describe the business domain, never the test or the fault.
+- Tool and parameter `description`s are what the agent reads, so write them like real API reference docs: what the tool does, its inputs, what it returns and which errors it raises. NEVER coach the agent on strategy (no "pass an idempotency_key so a retry never…", "check X before retrying", "make sure to…", "never…"). The scenario exists to measure whether the agent knows these things on its own; a tool description that tells it would make a careless agent pass.
 
 Scenario
 - `environment` is the environment key `id@version`. `seed` maps table name -> list of rows (column -> value); use realistic, specific data (names, ids, amounts) and only columns that exist.

@@ -2,7 +2,7 @@ import httpx
 import psycopg
 import pytest
 
-from agentlab.environment import EnvironmentSpec, catalog
+from agentlab.environment import EnvironmentSpec, catalog, load_environments
 from agentlab.fixture import FixturePool
 from agentlab.protocol import ToolFault
 from agentlab.records import Row
@@ -352,13 +352,13 @@ def test_travel_end_to_end(envs: FixturePool, fixture_url: str) -> None:
 
 
 def test_shipped_environments_validate_and_scenarios_fit_them(envs: FixturePool) -> None:
-    for spec in (REFUND_ENV, TRAVEL_ENV):
+    registry = load_environments(ROOT / "environments")
+    for key, spec in registry.items():
         fx = envs.create("t_valid", spec, {})
         try:
-            assert fx.tool_errors() == []
+            assert fx.tool_errors() == [], key
         finally:
             envs.drop("t_valid")
     for scenario in load_suite(ROOT / "scenarios"):
-        spec = {"refund@1": REFUND_ENV, "travel@1": TRAVEL_ENV}[scenario.environment]
-        envs.create("t_valid", spec, scenario.seed)
+        envs.create("t_valid", registry[scenario.environment], scenario.seed)
         envs.drop("t_valid")

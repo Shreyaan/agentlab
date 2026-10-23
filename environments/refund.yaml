@@ -1,5 +1,5 @@
 id: refund
-version: 1
+version: 2
 description: >-
   A customer-support backend for an online store: customers, orders, refund approvals and refunds.
   Approvals are decided against the store's approval limit; refunds are money movements.
@@ -51,7 +51,7 @@ tools:
       FROM orders o WHERE o.id = %(order_id)s
       RETURNING id AS approval_id, status
   - name: issue_refund
-    description: Issue a refund for an order. Pass an idempotency_key so a retry never refunds twice.
+    description: Issue a refund for an order. Returns the refund record.
     idempotent: true
     success_status: 201
     params:

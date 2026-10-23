@@ -108,7 +108,7 @@ class SavedScenario(BaseModel):
 
 
 class QueryTest(BaseModel):
-    environment: str = "refund@1"
+    environment: str = "refund@2"
     seed: dict[str, list[Row]] = {}
     query: str
 

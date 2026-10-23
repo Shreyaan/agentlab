@@ -1,5 +1,5 @@
 id: travel
-version: 1
+version: 2
 description: >-
   A flight booking backend: flights with limited seats, bookings and card payments.
   Booking takes a seat; cancelling gives it back; a payment is a money movement.
@@ -55,7 +55,7 @@ tools:
       SELECT id, %(passenger)s, 'confirmed' FROM seat
       RETURNING id AS booking_id, flight_id, passenger, status
   - name: charge_payment
-    description: Charge the passenger's card for a booking. Pass an idempotency_key so a retry never charges twice.
+    description: Charge the passenger's card for a booking. Returns the payment record.
     idempotent: true
     success_status: 201
     params:

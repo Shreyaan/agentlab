@@ -278,7 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(fn=cmd_conformance)
 
     fx = sub.add_parser("fixture", help="serve one environment standalone")
-    fx.add_argument("--environment", default="refund@1", help="environment key (id@version)")
+    fx.add_argument("--environment", default="refund@2", help="environment key (id@version)")
     fx.add_argument("--environments", default="environments", help="directory of environment specs")
     fx.add_argument("--port", type=int, default=8900)
     fx.add_argument("--bind", default="127.0.0.1")
