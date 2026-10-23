@@ -55,7 +55,9 @@ WITH verdicts AS (
     FROM verdicts, jsonb_each(j->'calibration_correct') c GROUP BY c.key
 ), canaries AS (
     SELECT model, count(*) AS canary_samples, count(*) FILTER (WHERE correct) AS canary_correct
-    FROM agentlab.canary_results GROUP BY model
+    FROM agentlab.canary_results
+    WHERE coalesce(answer->>'type', '') <> 'error'  -- an outage (no key, timeout, 5xx) says nothing about accuracy
+    GROUP BY model
 ), cost AS (
     SELECT model, sum(cost_usd) AS cost_usd FROM (
         SELECT x->>'model' AS model, (x->>'cost_usd')::float8 AS cost_usd

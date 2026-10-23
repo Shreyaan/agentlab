@@ -2,15 +2,17 @@
 # Only hosts listed here may receive mutating scenarios.
 allowed_hosts: [127.0.0.1, localhost, host.docker.internal]
 targets:
-  vercel-careful:     {mode: native, url: "http://127.0.0.1:7301", version: "vercel-ai-sdk/careful/gpt-4.1-mini"}
-  vercel-naive-nano:  {mode: native, url: "http://127.0.0.1:7302", version: "vercel-ai-sdk/naive/gpt-4.1-nano"}
-  openai-careful:     {mode: native, url: "http://127.0.0.1:7401", version: "openai-sdk/careful/gpt-4.1-mini"}
-  openai-naive-llama: {mode: native, url: "http://127.0.0.1:7402", version: "openai-sdk/naive/llama-3.1-8b"}
-  langgraph-careful:  {mode: native, url: "http://127.0.0.1:7501", version: "langgraph/careful/claude-haiku-4.5"}
-  langgraph-naive:    {mode: native, url: "http://127.0.0.1:7502", version: "langgraph/naive/gpt-4.1-nano"}
+  vercel-careful:     {mode: native, url: "http://127.0.0.1:7301", version: "vercel-ai-sdk/careful/glm-5.3-flash"}
+  vercel-naive:       {mode: native, url: "http://127.0.0.1:7302", version: "vercel-ai-sdk/naive/ling-3.1-flash"}
+  openai-careful:     {mode: native, url: "http://127.0.0.1:7401", version: "openai-sdk/careful/deepseek-v4.1-flash"}
+  openai-naive-slm:   {mode: native, url: "http://127.0.0.1:7402", version: "openai-sdk/naive/lfm-2.5-24b-a2b"}
+  langgraph-careful:  {mode: native, url: "http://127.0.0.1:7501", version: "langgraph/careful/claude-haiku-5.5"}
+  langgraph-naive:    {mode: native, url: "http://127.0.0.1:7502", version: "langgraph/naive/mimo-v2.6-flash"}
+  agentssdk-careful:  {mode: native, url: "http://127.0.0.1:7701", version: "openai-agents-sdk/careful/qwen3.8-omni-flash"}
+  agentssdk-naive:    {mode: native, url: "http://127.0.0.1:7702", version: "openai-agents-sdk/naive/glm-5.3-flash"}
   http-careful:
     mode: http
     url: "http://127.0.0.1:7601/chat"
-    version: "raw-fetch/careful/gpt-4.1-mini"
+    version: "raw-fetch/careful/minimax-m3.1-flash"
     manifest: {adapter_id: http-blackbox, language: typescript, framework: raw-fetch}
   otel-only: {mode: otel}

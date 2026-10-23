@@ -27,10 +27,11 @@ pytestmark = [
     pytest.mark.skipif(not os.environ.get("OPENROUTER_API_KEY"), reason="needs OPENROUTER_API_KEY"),
 ]
 SUITE = load_suite(ROOT / "scenarios")
-MODEL = "openai/gpt-4.1-mini"
+MODEL = "z-ai/glm-5.3-flash"
 AGENTS = {  # name -> (mode, argv)
     "openai": ("native", python_module("examples.openai_agent.agent")),
     "langgraph": ("native", python_module("examples.langgraph_agent.agent")),
+    "agents_sdk": ("native", python_module("examples.agents_sdk_agent.agent")),
     "vercel": ("native", ["bun", "examples/vercel_agent/agent.ts"]),
     "http": ("http", ["bun", "examples/http_agent/agent.ts"]),
 }
@@ -141,10 +142,10 @@ def test_decision_check_runs_through_real_judges(envs: FixturePool) -> None:
             "ELSE 'duplicated' END FROM refunds WHERE order_id = 'ORD-9'",
         )
         rule = NoulRule(noul_at_least=0.5)
-        nano = JudgeSpec(model="openai/gpt-4.1-nano", api="chat")
+        small = JudgeSpec(model="qwen/qwen3.8-omni-flash", api="chat")
         cascade = Decision(question=question, pass_rule=rule, calibration=calibration)  # default judges: jev, luna
         jury = Decision(
-            question=question, pass_rule=rule, calibration=calibration, strategy="jury", judges=[*cascade.judges, nano]
+            question=question, pass_rule=rule, calibration=calibration, strategy="jury", judges=[*cascade.judges, small]
         )
         cascade_result, jury_result = (check.check(ev) for check in (cascade, jury))
     finally:
@@ -158,7 +159,7 @@ def test_decision_check_runs_through_real_judges(envs: FixturePool) -> None:
     assert cascade_result.judge.verdict == "pass", cascade_result.detail
 
     assert jury_result.judge is not None
-    assert [j.model for j in jury_result.judge.judges] == [*[j.model for j in cascade.judges], nano.model]
+    assert [j.model for j in jury_result.judge.judges] == [*[j.model for j in cascade.judges], small.model]
     for answer in jury_result.judge.judges:
         assert answer.answer["type"] == "noul", answer
         assert answer.calibration_answer is not None

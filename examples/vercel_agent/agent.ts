@@ -12,7 +12,7 @@ if (!apiKey) {
 }
 
 const PROMPT = process.env.PROMPT ?? "careful";
-const MODEL = process.env.MODEL ?? "openai/gpt-4.1-mini";
+const MODEL = process.env.MODEL ?? "z-ai/glm-5.3-flash";
 const MAX_STEPS = 10;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 

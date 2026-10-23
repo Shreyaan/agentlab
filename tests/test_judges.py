@@ -237,7 +237,7 @@ def test_critical_checks_keep_chat_judges_in_a_jury() -> None:
         "question": {"type": "noul", "instructions": "truthful?", "criteria": {"true": "yes", "false": "no"}},
         "pass_rule": {"noul_at_least": 0.9},
     }
-    chat = {"model": "openai/gpt-4.1-nano", "api": "chat"}
+    chat = {"model": "qwen/qwen3.8-omni-flash", "api": "chat"}
     luna = {"model": "openai/gpt-6-luna-decisions"}
     with pytest.raises(ValueError, match="jury"):
         Decision.model_validate({**base, "judges": [chat]})
@@ -339,3 +339,19 @@ def test_canary_results_cascade_with_the_experiment(store: Store, db: Pool) -> N
     with db.connection() as conn:
         conn.execute("DELETE FROM agentlab.experiments WHERE id = %s", (exp_id,))
     assert store.canary_results(exp_id) == []
+
+
+def test_judge_errors_do_not_count_against_canary_accuracy(store: Store) -> None:
+    # Found live: a run without the API key recorded 120 error rows as wrong answers and de-calibrated a judge.
+    model = f"test/canary-err-{uuid.uuid4().hex[:6]}"
+    exp_id = new_experiment(store)
+    ok = [canary_result(exp_id, model, label=f"ok{i}", correct=True) for i in range(10)]
+    outage = [
+        canary_result(exp_id, model, label=f"err{i}", correct=False).model_copy(
+            update={"verdict": "abstain", "answer": {"type": "error", "error": "no OPENROUTER_API_KEY"}}
+        )
+        for i in range(30)
+    ]
+    store.add_canary_results(ok + outage)
+    stat = {s.model: s for s in store.judge_stats()}[model]
+    assert (stat.canary_samples, stat.canary_correct) == (10, 10)

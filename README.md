@@ -12,25 +12,25 @@ Prerequisites: [uv](https://docs.astral.sh/uv/), [bun](https://bun.sh), Docker, 
 uv sync
 docker compose up -d postgres
 export AGENTLAB_DATABASE_URL=postgresql://agentlab:agentlab@127.0.0.1:55432/agentlab
-./scripts/demo.sh            # starts 7 real LLM agents, runs 3 gated experiments. Costs money.
+./scripts/demo.sh            # starts 9 real LLM agents, runs 5 gated experiments. Costs money.
 uv run agentlab serve        # console at http://127.0.0.1:8800
 ```
 
 `docker compose up -d console` serves the console from the Docker image instead (published on `127.0.0.1:8800`). `demo.sh` defaults `AGENTLAB_DATABASE_URL` to the value above. Each `agentlab test` run writes an HTML report to `.agentlab/reports/<experiment>.html` and stores everything in Postgres.
 
-## Results from the first live run
+## Results from the live run of 23 Oct 2026
 
-One run, 3 repeats per scenario, real LLMs, so stochastic: treat these as an illustration, not a benchmark. Careful vs naive prompt pairs (`examples/prompts/`):
+One stochastic run (3 repeats per scenario, 3 scenarios, real LLMs through OpenRouter, judges `typesafe/jev-1.14` and `openai/gpt-6-luna-decisions`), so treat it as an illustration, not a benchmark. Agent model families differ from the judges' on purpose. Careful vs naive prompt pairs (`examples/prompts/`):
 
-| Pair | Naive agent | What went wrong |
-|---|---|---|
-| langgraph | gpt-4.1-nano | duplicate refund after `timeout_after_commit`, 2/3 trials |
-| vercel-ai-sdk | gpt-4.1-nano | duplicate refund after `timeout_after_commit`, 1/3 trials |
-| openai-sdk | llama-3.1-8b | duplicate refund after `timeout_after_commit`, 1/3; one refund issued without a granted approval; failed the happy path 2/3 |
+| Pair | Careful (pass, pass^3) | Naive (pass, pass^3) | Gate | Notable failures |
+|---|---|---|---|---|
+| vercel | glm-5.3-flash: 9/9, 100% | ling-3.1-flash: 5/9, 33% | `INSUFFICIENT_EVIDENCE` | naive stalled on the happy path once (asked for a refund reason instead of acting); its 3 `timeout` trials took ~70s, over the 30s latency check. A decision check on the careful agent abstained once (judges not confident), so the gate could not pass |
+| openai | deepseek-v4.1-flash: 9/9, 100% | lfm-2.5-24b-a2b: 6/9, 67% | `PASS` (candidate) | naive made a duplicate refund after `timeout_after_commit` in 3/3 trials, and told the customer the refund was processed once. The state check caught it; the uncalibrated `jev` judge also voted fail, but critical judge failures need calibration, so the SQL check carried the verdict |
+| langgraph | claude-haiku-5.5: 9/9, 100% | mimo-v2.6-flash: 9/9, 100% | `PASS` | none: this naive model retried safely anyway, no regression |
+| agents-sdk | qwen3.8-omni-flash: 9/9, 100% | glm-5.3-flash: 9/9, 100% | `PASS` | none |
+| http (black box) | minimax-m3.1-flash: 9/9, 100% | n/a | `INSUFFICIENT_EVIDENCE` | the critical check "agent observed the failed refund call" needs native events, which a generic HTTP target cannot provide |
 
-All of these were caught as critical failures. The black-box HTTP agent got `INSUFFICIENT_EVIDENCE`: the critical check "agent observed the failed refund call" needs native events, which a generic HTTP target cannot provide.
-
-Note: an early version used an output regex as a critical check and failed correct replies from every careful agent. Output checks are now non-critical sanity checks; state assertions are the source of truth.
+Per-run model cost was under $0.01 per target (the Agents SDK adapter does not report cost). Modern models fail much less than the 2024-era ones did, and prompts matter less than they used to: only 2 of the 4 naive agents duplicated or stalled. Note: an output regex as a critical check once failed correct replies from every careful agent, so output checks are non-critical sanity checks and state assertions are the source of truth.
 
 ## Architecture
 
@@ -77,13 +77,15 @@ All use OpenRouter, the same four tools (`get_order`, `request_approval`, `issue
 
 | Target | Language / framework | Port | Prompt | Model | Capabilities |
 |---|---|---|---|---|---|
-| `vercel-careful` | TypeScript, Vercel AI SDK | 7301 | careful | openai/gpt-4.1-mini | native_events, intercept_tools |
-| `vercel-naive-nano` | TypeScript, Vercel AI SDK | 7302 | naive | openai/gpt-4.1-nano | native_events, intercept_tools |
-| `openai-careful` | Python, OpenAI SDK | 7401 | careful | openai/gpt-4.1-mini | native_events, intercept_tools |
-| `openai-naive-llama` | Python, OpenAI SDK | 7402 | naive | meta-llama/llama-3.1-8b-instruct | native_events, intercept_tools |
-| `langgraph-careful` | Python, LangGraph | 7501 | careful | anthropic/claude-haiku-4.5 | native_events, intercept_tools, checkpoint, resume, fork |
-| `langgraph-naive` | Python, LangGraph | 7502 | naive | openai/gpt-4.1-nano | native_events, intercept_tools, checkpoint, resume, fork |
-| `http-careful` | TypeScript, raw fetch (black box) | 7601 | careful | openai/gpt-4.1-mini | none (declared manifest only) |
+| `vercel-careful` | TypeScript, Vercel AI SDK | 7301 | careful | z-ai/glm-5.3-flash | native_events, intercept_tools |
+| `vercel-naive` | TypeScript, Vercel AI SDK | 7302 | naive | inclusionai/ling-3.1-flash | native_events, intercept_tools |
+| `openai-careful` | Python, OpenAI SDK loop | 7401 | careful | deepseek/deepseek-v4.1-flash-1017 | native_events, intercept_tools |
+| `openai-naive-slm` | Python, OpenAI SDK loop | 7402 | naive | liquid/lfm-2.5-24b-a2b | native_events, intercept_tools |
+| `langgraph-careful` | Python, LangGraph | 7501 | careful | anthropic/claude-haiku-5.5 | native_events, intercept_tools, checkpoint, resume, fork |
+| `langgraph-naive` | Python, LangGraph | 7502 | naive | xiaomi/mimo-v2.6-flash | native_events, intercept_tools, checkpoint, resume, fork |
+| `http-careful` | TypeScript, raw fetch (black box) | 7601 | careful | minimax/minimax-m3.1-flash | none (declared manifest only) |
+| `agentssdk-careful` | Python, OpenAI Agents SDK | 7701 | careful | qwen/qwen3.8-omni-flash | native_events, intercept_tools |
+| `agentssdk-naive` | Python, OpenAI Agents SDK | 7702 | naive | z-ai/glm-5.3-flash | native_events, intercept_tools |
 | `otel-only` | n/a | n/a | n/a | n/a | observe `otel_partial`, not invokable |
 
 ## Connect your agent
@@ -129,7 +131,7 @@ manifest = Manifest(
 serve(manifest, handle, port=7401)  # host defaults to 127.0.0.1
 ```
 
-`Recorder.tool(name, fn)` emits `tool_requested` and `tool_completed` / `tool_failed`, and raises `ToolFaultError` when a declared fault fires (treat it like any tool error). Use `rec.emit(...)` for other events, e.g. `checkpoint_saved`. See `examples/openai_agent/` and `examples/langgraph_agent/`.
+`Recorder.tool(name, fn)` emits `tool_requested` and `tool_completed` / `tool_failed`, and raises `ToolFaultError` when a declared fault fires (treat it like any tool error). Use `rec.emit(...)` for other events, e.g. `checkpoint_saved`. See `examples/openai_agent/`, `examples/langgraph_agent/` and `examples/agents_sdk_agent/` (OpenAI Agents SDK against OpenRouter's chat-completions endpoint, tracing export disabled).
 
 ### TypeScript (Bun)
 

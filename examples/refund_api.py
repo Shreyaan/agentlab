@@ -1,4 +1,4 @@
-"""Tool layer and LLM settings shared by the real-LLM example agents (OpenAI SDK and LangGraph)."""
+"""Tool layer and LLM settings shared by the real-LLM example agents (OpenAI SDK, LangGraph and Agents SDK)."""
 
 import json
 import os
@@ -14,7 +14,7 @@ from agentlab.adapter import Recorder
 from agentlab.protocol import JsonObject
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "openai/gpt-4.1-mini"
+DEFAULT_MODEL = "z-ai/glm-5.3-flash"
 MAX_STEPS = 10
 _PROMPTS = Path(__file__).parent / "prompts"
 

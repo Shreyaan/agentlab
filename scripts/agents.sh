@@ -10,13 +10,15 @@ trap 'kill "${pids[@]}" 2>/dev/null' EXIT INT TERM
 
 #      port prompt  model                              command
 AGENTS=(
-  "7301 careful openai/gpt-4.1-mini               bun examples/vercel_agent/agent.ts"
-  "7302 naive   openai/gpt-4.1-nano               bun examples/vercel_agent/agent.ts"
-  "7401 careful openai/gpt-4.1-mini               uv run python -m examples.openai_agent.agent"
-  "7402 naive   meta-llama/llama-3.1-8b-instruct  uv run python -m examples.openai_agent.agent"
-  "7501 careful anthropic/claude-haiku-4.5        uv run python -m examples.langgraph_agent.agent"
-  "7502 naive   openai/gpt-4.1-nano               uv run python -m examples.langgraph_agent.agent"
-  "7601 careful openai/gpt-4.1-mini               bun examples/http_agent/agent.ts"
+  "7301 careful z-ai/glm-5.3-flash                bun examples/vercel_agent/agent.ts"
+  "7302 naive   inclusionai/ling-3.1-flash        bun examples/vercel_agent/agent.ts"
+  "7401 careful deepseek/deepseek-v4.1-flash-1017 uv run python -m examples.openai_agent.agent"
+  "7402 naive   liquid/lfm-2.5-24b-a2b            uv run python -m examples.openai_agent.agent"
+  "7501 careful anthropic/claude-haiku-5.5        uv run python -m examples.langgraph_agent.agent"
+  "7502 naive   xiaomi/mimo-v2.6-flash            uv run python -m examples.langgraph_agent.agent"
+  "7601 careful minimax/minimax-m3.1-flash        bun examples/http_agent/agent.ts"
+  "7701 careful qwen/qwen3.8-omni-flash           uv run python -m examples.agents_sdk_agent.agent"
+  "7702 naive   z-ai/glm-5.3-flash                uv run python -m examples.agents_sdk_agent.agent"
 )
 for spec in "${AGENTS[@]}"; do
   read -r port prompt model cmd <<<"$spec"

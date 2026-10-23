@@ -8,7 +8,7 @@ if (!apiKey) {
 }
 
 const FIXTURE_URL = process.env.FIXTURE_URL ?? "http://127.0.0.1:8900/env/shared";
-const MODEL = process.env.MODEL ?? "openai/gpt-4.1-mini";
+const MODEL = process.env.MODEL ?? "z-ai/glm-5.3-flash";
 const PROMPT = process.env.PROMPT ?? "careful";
 const MAX_STEPS = 10;
 const system = await Bun.file(new URL(`../prompts/${PROMPT}.md`, import.meta.url)).text();
