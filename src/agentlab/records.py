@@ -30,12 +30,30 @@ class TableDiff(BaseModel):
     removed: list[Row] = []
 
 
+class JudgeAnswer(BaseModel):
+    """One decision model's typed answer (Decisions API), kept verbatim for audit."""
+
+    model: str
+    answer: JsonObject  # e.g. {"type": "noul", "noul": 0.02} or {"type": "choice", "choice": ..., "confidence": ...}
+    calibration_answer: JsonObject | None = None  # the judge's answer to the calibration question, if any
+    cost_usd: float | None = None
+
+
+class JudgeVerdict(BaseModel):
+    judges: list[JudgeAnswer]
+    verdict: Literal["pass", "fail", "abstain"]  # abstain: low confidence, judges disagree, or uncalibrated
+    reason: str = ""
+    calibration_truth: str | None = None  # ground truth from SQL for the calibration question
+    calibration_correct: dict[str, bool] = {}  # model -> did its calibration answer match the truth
+
+
 class AssertionResult(BaseModel):
     type: str
     description: str
     critical: bool
     status: Literal["pass", "fail", "unsupported", "skipped"]  # skipped: not applicable to this run
     detail: str = ""
+    judge: JudgeVerdict | None = None  # present for `decision` assertions
 
 
 def state_diff(before: State, after: State) -> dict[str, TableDiff]:
